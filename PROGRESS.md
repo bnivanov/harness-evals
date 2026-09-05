@@ -46,6 +46,11 @@
      - Formally documented decision to use HarnessRouter (UHP) as the programmatic, headless benchmarking engine (model-fixed proxy routing, ground-truth token accounting, normalized SSE events) while keeping Herdr for interactive human-in-the-loop terminal supervision.
    - Documented in `llm-harness-eval/LEARNINGS.md` and `llm-harness-eval/DECISIONS.md`.
 
+8. **Unified Monorepo Cutover**:
+   - De-submoduled `llm-harness-eval` and `harnessrouter`, removing `.gitmodules` and nested `.git` references.
+   - Backed up original submodule `.git` environments to `~/.git-backups/` for external branch sync.
+   - Absorbed all 304 project files directly into the root `harness-evals` tree for single-tree version control and frictionless development.
+
 ### Next Steps
 - Monitor upstream PR #68 for review feedback.
 - Finalize Track A evaluation protocol in `llm-harness-eval` (Grok Build vs Pi vs OMP on identical benchmarks).

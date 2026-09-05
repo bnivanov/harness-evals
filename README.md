@@ -12,11 +12,10 @@ This repository unifies:
 
 ```
 harness-evals/
-├── .gitmodules
 ├── README.md
 ├── PROGRESS.md
-├── harnessrouter/       # Submodule (fork: bnivanov/harnessrouter @ feat/omp-backend)
-└── llm-harness-eval/    # Submodule (bnivanov/llm-harness-eval @ main)
+├── harnessrouter/       # Unified Harness Protocol (UHP) router & execution engine (OMP backend)
+└── llm-harness-eval/    # LLM coding harness evaluation protocol, benchmarks, and research
 ```
 
 ---

@@ -1,8 +1,0 @@
-[submodule "harnessrouter"]
-	path = harnessrouter
-	url = https://github.com/bnivanov/harnessrouter.git
-	branch = feat/omp-backend
-[submodule "llm-harness-eval"]
-	path = llm-harness-eval
-	url = https://github.com/bnivanov/llm-harness-eval.git
-	branch = main
