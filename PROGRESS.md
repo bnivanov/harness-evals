@@ -40,6 +40,12 @@
    - Linked `llm-harness-eval` milestone in `llm-harness-eval/STATUS.md` (commit `1d3f87a`).
    - Initialized git repository for the top-level `harness-evals` workspace.
 
+7. **Tooling & Orchestration Evaluation**:
+   - Evaluated Herdr vs HarnessRouter for harness evaluation and agent management:
+     - Confirmed Herdr manages POSIX PTY terminal panes and CLI agents (`--kind codex`, `claude`, `pi`, `omp`, etc.) with lifecycle detection (`idle`, `working`, `blocked`, `done`), but cannot host or inspect desktop GUI apps (e.g. ChatGPT desktop app, Codex/Cursor IDE GUI).
+     - Formally documented decision to use HarnessRouter (UHP) as the programmatic, headless benchmarking engine (model-fixed proxy routing, ground-truth token accounting, normalized SSE events) while keeping Herdr for interactive human-in-the-loop terminal supervision.
+   - Documented in `llm-harness-eval/LEARNINGS.md` and `llm-harness-eval/DECISIONS.md`.
+
 ### Next Steps
 - Monitor upstream PR #68 for review feedback.
 - Finalize Track A evaluation protocol in `llm-harness-eval` (Grok Build vs Pi vs OMP on identical benchmarks).
