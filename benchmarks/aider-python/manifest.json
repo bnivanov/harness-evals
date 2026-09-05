@@ -1,0 +1,152 @@
+[
+  {
+    "task_id": "grade-school",
+    "impl_file": "grade_school.py",
+    "test_file": "grade_school_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "book-store",
+    "impl_file": "book_store.py",
+    "test_file": "book_store_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "bowling",
+    "impl_file": "bowling.py",
+    "test_file": "bowling_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "wordy",
+    "impl_file": "wordy.py",
+    "test_file": "wordy_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "two-bucket",
+    "impl_file": "two_bucket.py",
+    "test_file": "two_bucket_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "variable-length-quantity",
+    "impl_file": "variable_length_quantity.py",
+    "test_file": "variable_length_quantity_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "tree-building",
+    "impl_file": "tree_building.py",
+    "test_file": "tree_building_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "simple-linked-list",
+    "impl_file": "simple_linked_list.py",
+    "test_file": "simple_linked_list_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "transpose",
+    "impl_file": "transpose.py",
+    "test_file": "transpose_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "scale-generator",
+    "impl_file": "scale_generator.py",
+    "test_file": "scale_generator_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "sgf-parsing",
+    "impl_file": "sgf_parsing.py",
+    "test_file": "sgf_parsing_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "robot-name",
+    "impl_file": "robot_name.py",
+    "test_file": "robot_name_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "react",
+    "impl_file": "react.py",
+    "test_file": "react_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "rest-api",
+    "impl_file": "rest_api.py",
+    "test_file": "rest_api_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "proverb",
+    "impl_file": "proverb.py",
+    "test_file": "proverb_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "poker",
+    "impl_file": "poker.py",
+    "test_file": "poker_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "pov",
+    "impl_file": "pov.py",
+    "test_file": "pov_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "pig-latin",
+    "impl_file": "pig_latin.py",
+    "test_file": "pig_latin_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "phone-number",
+    "impl_file": "phone_number.py",
+    "test_file": "phone_number_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "list-ops",
+    "impl_file": "list_ops.py",
+    "test_file": "list_ops_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "hangman",
+    "impl_file": "hangman.py",
+    "test_file": "hangman_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "grep",
+    "impl_file": "grep.py",
+    "test_file": "grep_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "go-counting",
+    "impl_file": "go_counting.py",
+    "test_file": "go_counting_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "connect",
+    "impl_file": "connect.py",
+    "test_file": "connect_test.py",
+    "public_test_file": "public_test.py"
+  },
+  {
+    "task_id": "affine-cipher",
+    "impl_file": "affine_cipher.py",
+    "test_file": "affine_cipher_test.py",
+    "public_test_file": "public_test.py"
+  }
+]
