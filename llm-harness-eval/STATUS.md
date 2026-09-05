@@ -4,7 +4,7 @@
 
 ## Phase
 
-`0 — Project bootstrap` → protocol design, with Wave 1 SUT set under adversarial review
+`1 — Protocol frozen` → Wave 1 Track A protocol pre-registered; pilot execution ready
 
 ## Now
 
@@ -17,16 +17,16 @@
 - [x] Adversarial review of Wave 1 SUT selection — [`waves/wave-1-adversarial-review.md`](waves/wave-1-adversarial-review.md) (attacks PR #1 / `waves/wave-1-grok-native.md`; no scores)
 - [x] Canonical landscape: subscription vs BYOK × surface — [`landscape/agentic-tools-subscription-vs-byok.md`](landscape/agentic-tools-subscription-vs-byok.md)
 - [x] Infrastructure milestone: integrated Oh My Pi (`omp`) backend into HarnessRouter ([PR #68](https://github.com/HarnessRouter/harnessrouter/pull/68)) to support headless UHP evaluation across Pi and OMP
-- [ ] Agree evaluation protocol (tasks + metrics) — review says **do not score Wave 1 until Track A is frozen** (Grok Build × Pi × OMP, pinned slug/auth, 3 tasks)
+- [x] Agree evaluation protocol (tasks + metrics) — Wave 1 Track A frozen in [`waves/wave-1-track-a-protocol.md`](waves/wave-1-track-a-protocol.md) (Grok Build × Pi × OMP, pinned `grok-4.6`/`grok-build-0.1`, 3 tasks from Aider Python benchmark)
 - [ ] First pilot eval entry in `evaluation-log.md`
 
 ## Blockers
 
 - Several image logos still unresolved (hexagon cluster, white K, etc.)
-- Wave 1 membership vs thesis: nine-SUT “Grok-native + matrix” set is not a hold-Grok-fixed design (see adversarial review)
+- Wave 1 membership vs thesis: resolved via Track A/B/C split in DECISIONS and `wave-1-track-a-protocol.md`
 
 ## Next up
 
-1. Decide keep/cut/split from [`waves/wave-1-adversarial-review.md`](waves/wave-1-adversarial-review.md) before more installs become “the eval”
-2. Draft v0 evaluation protocol for **Track A only** (pinned Grok slug + auth, 3 pre-declared tasks, headless)
-3. Spelling/verification pass on unverified names (Soulforge, Aizen, …)
+1. Execute Wave 1 Track A pilot runs (3 tasks × 3 SUTs) and record metrics in `evaluation-log.md`
+2. Spelling/verification pass on unverified names in `possible-harnesses.md` (Soulforge, Aizen, …)
+3. Monitor upstream HarnessRouter PR #68

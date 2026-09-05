@@ -20,3 +20,6 @@ node_modules/
 .env
 .env.local
 .env.*.local
+
+# Benchmark / Experiment archives
+experiments/omp-vs-multicli/results/archive*/

@@ -1,48 +1,69 @@
-# Experiment Protocol: Unified OMP vs. Disaggregated Multi-CLI Swarm
+# Experiment Protocol: Unified OMP Agent Orchestration vs. Disaggregated Vendor CLI Pipeline
 
 **Status:** Pre-registered Protocol  
 **Date:** 2026-09-05  
-**Subject:** Comparative Efficiency of Multi-Model Coordination in Oh My Pi (`omp`) vs. Cross-CLI Chaining (`claude`, `codex`, `grok`, `gemini`)  
+**Subject:** Comparative Efficiency of Internal Harness Multi-Agent Orchestration (Oh My Pi `omp`) vs. External Standalone Vendor CLI Pipeline Chaining (`grok`, `codex`, `agy`)  
 **Target Benchmark:** 25 Curated Algorithmic Tasks (Aider Python / Exercism Suite)  
 **Primary Statistical Gate:** Paired Wilcoxon Signed-Rank Test on Partial/Total Pass Rates & Token Efficiency ($N=25, \alpha=0.05, 1-\beta \ge 0.80$)
 
 ---
 
-## 1. Research Question & Decision Context
+## 1. Research Question & Core Study Focus
 
-**Question:** When completing an end-to-end software engineering task requiring reconnaissance, architectural planning, code implementation, and verification:
-> *Is it more efficient to orchestrate multiple frontier models (Grok, Claude, Codex, Gemini) within a single unified coding harness (OMP) sharing memory, tools, and workspace, or to disaggregate the task across the respective vendor CLI binaries (`grok`, `claude`, `codex`, `gemini`) in a serialized pipeline?*
+**Question:** When completing an end-to-end software engineering task through the full SWE lifecycle:
+
+$$\mathbf{Planner} \;\longrightarrow\; \mathbf{Worker} \;\longrightarrow\; \mathbf{Reviewer} \;\longrightarrow\; \mathbf{Worker}$$
+
+> *Does an integrated coding harness (OMP) orchestrating specialized frontier models via internal session state, shared memory, and hashline editing outperform an external script orchestrating the official standalone vendor CLIs (`grok`, `codex`, `agy`) chaining markdown artifacts over disk?*
+
+### Core Principles & Hard Constraints
+
+1. **Default Pinned Versions, No Plugins, No Amends**:
+   * Both arms execute the official, latest pinned first-party binaries out-of-the-box.
+   * Zero community overlays, zero third-party plugins, zero custom prompt injections or wrappers.
+   * Pinned executables:
+     * `omp` (v18.1.10)
+     * `grok` (xAI Grok Build CLI)
+     * `codex` (OpenAI Codex CLI)
+     * `agy` (Google Antigravity CLI)
+
+2. **Highest Possible Reasoning Effort**:
+   * All models across all stages in both arms run with the **maximum available reasoning/thinking effort**:
+     * `omp`: `--thinking=max`
+     * `codex`: `-c model_reasoning_effort="high"`
+     * `agy`: `--effort high`
+     * `grok`: Native full reasoning depth enabled
+
+3. **Model & Stage Parity (Held Strictly Constant)**:
+   * Model capability is NOT the independent variable. Both arms execute the identical frontier model for each lifecycle step.
 
 ### The Efficiency Function
 
 $$\text{Efficiency} = \frac{\text{Verification Pass Ratio } R \in [0.0, 1.0]}{\text{Total Cost (USD)} \times \text{Duration (seconds)}}$$
 
 Where:
-* $R = \frac{\text{Passed Test Assertions}}{\text{Total Oracle Test Assertions}}$
+* $R = \frac{\text{Passed Test Assertions}}{\text{Total Oracle Test Assertions}}$ (measured by quarantined oracle verifier).
 * **Cost** = Standardized rate-card token cost across all stages.
-* **Duration** = Wall-clock runtime including agent reasoning, CLI startup, and handoff overhead.
+* **Duration** = Total wall-clock runtime including reasoning time, tool execution, and handoff overhead.
 
 ---
 
-## 2. Experimental Conditions
+## 2. Experimental Lifecycle & Model Assignment
 
-To prevent the confounding errors observed in `omp-model-bench` (where model capabilities were conflated with harness loops), **the assigned model per stage is held constant across both arms**:
+| Stage | Role | Function | Assigned Model | Arm A: Unified OMP | Arm B: Standalone Multi-CLI |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **1. Planner** | System Architecture | Inspects problem, designs data structures & algorithm | **xAI Grok 4.6** | `omp -p --model=xai-oauth/grok-4.6 --thinking=max` | `grok -p` $\to$ `01_PLAN.md` |
+| **2. Worker** | Implementation | Implements full code from plan & README | **OpenAI Codex GPT-5.6 Luna** | `omp -p --model=openai-codex/gpt-5.6-luna --thinking=max --continue` | `codex exec -c model_reasoning_effort="high"` |
+| **3. Reviewer**| Audit & Verification | Runs tests, hunts bugs & edge cases, audits code | **Google Gemini 3.8 Flash** | `omp -p --model=google-antigravity/gemini-3.8-flash --thinking=max --continue` | `agy -p --effort high` $\to$ `02_REVIEW.md` |
+| **4. Worker** | Refinement & Fixes | Addresses reviewer findings, fixes bugs & verifies | **OpenAI Codex GPT-5.6 Luna** | `omp -p --model=openai-codex/gpt-5.6-luna --thinking=max --continue` | `codex exec -c model_reasoning_effort="high"` |
 
-| Stage | Responsibility | Model Family | Arm A: Unified OMP | Arm B: Multi-CLI Swarm |
-| :--- | :--- | :--- | :--- | :--- |
-| **Stage 1: Recon** | Problem inspection & triage | xAI Grok (`grok-4.6`) | `omp --model xai-oauth/grok-4.6` | `grok` CLI binary |
-| **Stage 2: Plan** | Architecture & patch design | Anthropic Claude (`claude-3-7-sonnet`) | `omp --model anthropic/claude-3-7-sonnet` | `claude` Code binary |
-| **Stage 3: Implement** | Code editing & unit tests | OpenAI Codex (`gpt-5.6-luna` / Codex) | `omp --model openai-codex/gpt-5.6-luna` | `codex` CLI binary |
-| **Stage 4: Verify** | Independent red-team review | Google Gemini (`gemini-3.8-flash`) | `omp --model google/gemini-3.8-flash` | `gemini` CLI binary |
+### Independent Variable (Harness Orchestration vs. CLI Chaining)
 
-### Independent Variable (What Changes)
-1. **Tooling & Edit Reliability**:
-   * **Arm A**: OMP's uniform toolset (`hashline` hash-anchored edits, LSP, AST grep, persistent kernel).
-   * **Arm B**: Heterogeneous vendor tools (`apply_patch` in Codex, Bash/Glob in Claude Code, Grok tool crate, Antigravity tools).
-2. **Context & State Handoff**:
-   * **Arm A**: In-memory / filesystem object passing (`local://recon.md`, `local://plan.md`), shared working tree, single session context.
-   * **Arm B**: Cross-process serial handoff via Git commits and serialized markdown files (`01_RECON.md`, `02_PLAN.md`, `git diff`).
-
+1. **Handoff Substrate**:
+   * **Arm A (OMP)**: Internal multi-agent session state, in-memory tool coordination, continuous context, and hash-anchored (`hashline`) surgical edits.
+   * **Arm B (Multi-CLI)**: Disaggregated process boundaries, serialized disk handoffs (`01_PLAN.md`, `02_REVIEW.md`), and raw vendor tool loops (`apply_patch` in Codex, Antigravity bash tools).
+2. **Review-and-Refine Loop Dynamics**:
+   * How effectively does the Worker absorb the Reviewer's critique when mediated by a unified harness vs. serialized disk files?
 ---
 
 ## 3. Statistical Methodology (Pre-Registered)

@@ -13,15 +13,20 @@ import json
 
 OMP_BIN = "/Users/agentlab/AgentWork/bin/omp"
 
-def run_omp_stage(stage_name: str, model: str, prompt: str, cwd: str, timeout_sec: int = 180) -> dict:
+def run_omp_stage(stage_name: str, model: str, prompt: str, cwd: str, timeout_sec: int = 180, continue_session: bool = False) -> dict:
     start_time = time.time()
     cmd = [
         OMP_BIN,
         "-p", prompt,
         f"--model={model}",
+        "--thinking=max",
+        "--auto-approve",
+        "--no-extensions",
         "--tools=read,edit,write,bash,grep,glob",  # disable web_search
         "--cwd", cwd
     ]
+    if continue_session:
+        cmd.append("--continue")
     
     print(f"[Arm A - OMP] Starting {stage_name} with {model}...")
     try:
@@ -56,43 +61,45 @@ def run_arm_a(task_meta: dict, workspace_dir: str) -> dict:
     total_start = time.time()
     stages = []
     
-    # Stage 1: Recon with Grok
-    recon_prompt = (
-        f"You are the Reconnaissance agent. Inspect README.md and public_test.py. "
-        f"Identify all functions and classes that must be implemented in {impl_file}. "
-        f"Write your analysis and requirements to local://recon.md. DO NOT edit {impl_file}."
+    # Stage 1: Planner with Grok 4.6 (Max reasoning)
+    plan_prompt = (
+        f"You are the Planner agent. Inspect README.md and public_test.py. "
+        f"Design the complete architecture, data structures, and edge-case handling for {impl_file}. "
+        f"Write your step-by-step implementation guide and specifications to 01_PLAN.md and local://plan.md. "
+        f"DO NOT edit {impl_file} or any code files."
     )
-    s1 = run_omp_stage("1_RECON", "xai-oauth/grok-4.6", recon_prompt, workspace_dir, timeout_sec=150)
+    s1 = run_omp_stage("1_PLANNER", "xai-oauth/grok-4.6", plan_prompt, workspace_dir, timeout_sec=180, continue_session=False)
     stages.append(s1)
     
-    # Stage 2: Plan with Claude
-    plan_prompt = (
-        f"You are the Architectural Planning agent. Read local://recon.md and README.md. "
-        f"Design the algorithm, state representation, and edge-case handling for {impl_file}. "
-        f"Write a step-by-step implementation guide to local://plan.md. DO NOT edit code files."
-    )
-    s2 = run_omp_stage("2_PLAN", "anthropic/claude-3-7-sonnet", plan_prompt, workspace_dir, timeout_sec=150)
-    stages.append(s2)
-    
-    # Stage 3: Implement with Codex / GPT
-    impl_prompt = (
-        f"You are the Implementation agent. Read local://plan.md and README.md. "
+    # Stage 2: Worker (Initial Implementation) with Codex GPT-5.6 Luna (Max reasoning)
+    worker_initial_prompt = (
+        f"You are the Worker agent. Read 01_PLAN.md and README.md. "
         f"Implement the complete, working solution in {impl_file}. "
         f"Use bash to run 'python3 -m unittest public_test.py' to verify basic sanity. "
         f"DO NOT modify public_test.py or any test files."
     )
-    s3 = run_omp_stage("3_IMPLEMENT", "openai-codex/gpt-5.6-luna", impl_prompt, workspace_dir, timeout_sec=240)
+    s2 = run_omp_stage("2_WORKER_INITIAL", "openai-codex/gpt-5.6-luna", worker_initial_prompt, workspace_dir, timeout_sec=240, continue_session=True)
+    stages.append(s2)
+    
+    # Stage 3: Reviewer with Gemini 3.8 Flash (Max reasoning)
+    reviewer_prompt = (
+        f"You are the Reviewer & Quality Audit agent. Inspect {impl_file} against README.md and public_test.py. "
+        f"Run 'python3 -m unittest public_test.py' in bash. Audit the code for subtle edge cases, algorithmic flaws, "
+        f"off-by-one errors, or performance traps. Write your detailed code review findings, failing edge cases, "
+        f"and required fixes to 02_REVIEW.md and local://review.md. DO NOT edit code files."
+    )
+    s3 = run_omp_stage("3_REVIEWER", "google-antigravity/gemini-3.8-flash", reviewer_prompt, workspace_dir, timeout_sec=180, continue_session=True)
     stages.append(s3)
     
-    # Stage 4: Verify with Gemini
-    verify_prompt = (
-        f"You are the Verification & Quality agent. Review {impl_file} against README.md and public_test.py. "
-        f"Run 'python3 -m unittest public_test.py' in bash. Fix any bugs or syntax errors in {impl_file}. "
+    # Stage 4: Worker (Refinement & Fixes) with Codex GPT-5.6 Luna (Max reasoning)
+    worker_refine_prompt = (
+        f"You are the Worker agent in refinement phase. Read 02_REVIEW.md, 01_PLAN.md, and README.md. "
+        f"Address all review findings, bug reports, and edge-case issues in {impl_file}. "
+        f"Use bash to run 'python3 -m unittest public_test.py' to verify. "
         f"Ensure all requirements from README.md are satisfied. DO NOT edit test files."
     )
-    s4 = run_omp_stage("4_VERIFY", "google/gemini-3.8-flash", verify_prompt, workspace_dir, timeout_sec=180)
+    s4 = run_omp_stage("4_WORKER_REFINE", "openai-codex/gpt-5.6-luna", worker_refine_prompt, workspace_dir, timeout_sec=240, continue_session=True)
     stages.append(s4)
-    
     total_elapsed = time.time() - total_start
     
     return {

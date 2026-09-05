@@ -57,3 +57,15 @@ Format: date · decision · why · revisit when
 **Why:** Herdr operates strictly at the terminal (PTY) emulation layer—it cannot manage desktop GUI apps, relies on fragile screen buffer scraping/ANSI parsing, and lacks structured token/cost accounting and model-fixed proxy controls. HarnessRouter standardizes harnesses (Codex, Claude Code, Pi, OMP, OpenCode) behind a headless HTTP `/turn` API, provides normalized event streaming (`tool_call`, `tool_result`, `text_delta`), enables model-fixed routing, and enforces 64+ UHP conformance tests.
 
 **Revisit:** If a harness cannot be run in headless/containerized mode and strictly requires an interactive PTY that cannot be automated via UHP.
+
+## 2026-09-05 · Split Wave 1 into Track A (Grok-native), Track B (Lab baselines), and Track C (Experimental)
+
+**Decision:** Adopt adversarial review verdict from `waves/wave-1-adversarial-review.md`. Split Wave 1 into:
+- **Track A (Grok-native):** Grok Build, Pi, and OMP under pinned Grok slug (`grok-4.6` BYOK / `grok-build-0.1` lab system row) and `oauth-supergrok` auth.
+- **Track B (Cross-lab native baselines):** Codex CLI, Claude Code (deferred).
+- **Track C (Experimental / alternative loops):** Prime Agent, FX, Hermes, Cursor IDE.
+Freeze Track A protocol in `waves/wave-1-track-a-protocol.md` with 3 pre-declared tasks (`wordy`, `grade-school`, `list-ops`) and a zero-drop rule across 9 runs before publishing any table.
+
+**Why:** Publishing a 9-row table conflates model identities, auth economies, surfaces, and architectures under a false "Grok-native" claim. A controlled 3-SUT × 3-task evaluation isolates loop and tooling effects.
+
+**Revisit:** When expanding Track A to include OpenCode once initial 9 runs are complete.
