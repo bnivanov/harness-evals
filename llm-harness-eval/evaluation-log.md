@@ -16,6 +16,22 @@ Running log of **what we evaluate, when, and outcome**. Newest first.
 
 ## Entries
 
+### 2026-09-06 — Rescore & Correction: Workflow Bench Experiment 2 (supersedes the two entries below)
+- **Trigger:** Publication audit of `experiments/omp-vs-multicli/ARTICLE.md` against the frozen run artifacts.
+- **Root cause:** `confirmatory-003` was scored while `runner_common.TRACE_VIOLATION_PATTERNS["NETWORK_COMMAND"]` still carried a bare `\bnc\b` alternative. It matched the `(nr, nc)` neighbour tuple inside the `connect` implementation plan and invalidated that task in **both** arms. The pattern has since been tightened (`nc` now needs flags or a host/port argument) but the stored results were never rescored.
+- **Authoritative scorer:** `analysis/score_matrix.py` now recomputes every published number from the frozen artifacts, re-verifying each stored regex flag against the current patterns before letting it invalidate a run, and emits `analysis/scored_matrix.json`, which the publication figures read directly.
+- **Corrected Tier 1 (SLA + protocol scoring, N = 25 paired):**
+  - Resolution: Arm A **20/25 (80.0%)** vs Arm B **14/25 (56.0%)**; exact McNemar $b=6, c=0, p = 0.03125$.
+  - Mean oracle pass ratio: **92.5%** vs **64.6%**; pooled **419/439** vs **291/439**; Wilcoxon $n=7$ non-tied, $W^+ = 28.0$, exact $p = 0.015625$.
+  - Latency: 452.0s vs 609.7s, $W^+ = 5.0$, exact $p = 6.0 \times 10^{-7}$ (the earlier $p = 0.00008$ was not the exact-test value).
+  - Tokens: 1,082,556 vs 1,300,513, $W^+ = 46.0$, $p = 0.00103$. Fresh (uncached) input tokens: 5.19M vs 12.45M; cache-read share 80.2% vs 66.8%.
+  - Spend: Arm A **$16.92**, Arm B **$16.82** (previously mis-stated as $15.96), total **$33.74** across **59,576,734** tokens (previously $32.89 / 58,000,981); $p = 0.6338$.
+- **Shadow scoring (raw oracle, no SLA or protocol gate):** Arm A **21/25 (428/439)** vs Arm B **20/25 (413/439)**. Published alongside the SLA view from now on.
+- **Corrected Tier 2:** conditional subset is 17 tasks with **14/17 and 95.0% for both arms**, identical task by task. Stage 2 means were transposed in the article and in figure 04: OMP **99.7s**, Codex CLI **110.2s**.
+- **Corrected Tier 3:** the 8-task block's pre-ablation raw oracle score was **122/138 with 6/8 resolutions**, so the 0 → 137/138 jump is mostly the protocol gate opening. Genuine accuracy recoveries: `react` (2/14 → 14/14) and `pov` (11/15 → 14/15). Ablation planner mean is **318.3s** (`go-counting` planning was 435.8s, not ~420s). Synthetic 25-task Arm B resolves **21/25** and **428/439** unit tests in **14,325.8s** for **$20.46**.
+- **Other fixes:** `ORACLE_PATH` scanner regex was quadratic (~2.4 s/MB) and is now literal-anchored; `visuals/out/05-ablation-recovery-tax.png` (orphaned) deleted; figure text collisions and 18-character label truncation in figures 02/04/06/07 repaired.
+- **Result:** CORRECTED. Direction and significance of every headline claim survive; magnitudes and task attributions changed.
+
 ### 2026-09-06 — OMP vs. Multi-CLI Swarm Pilot (N = 3 Tasks, 6 Runs)
 - **Window:** Headless Automated SWE Lifecycle Benchmark (`Planner` -> `Worker` -> `Reviewer` -> `Worker`)
 - **SUTs Evaluated:**

@@ -179,6 +179,7 @@ def run_omp_stage(
         f"--thinking={EFFORT_PINS['omp']}",
         "--auto-approve",
         "--no-extensions",
+        "--no-skills",
         f"--hook={guard_path}",
         f"--config={config_path}",
         f"--session-dir={os.path.join(runtime_dir, 'sessions')}",

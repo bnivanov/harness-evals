@@ -5,19 +5,8 @@
     "arm": "arm_b_multicli",
     "duration": 568.2,
     "normalized_total_tokens": 1384058,
-    "protocol_valid": false,
-    "protocol_violations": [
-      {
-        "code": "NETWORK_COMMAND",
-        "evidence": " nc ",
-        "stage": "2_WORKER_INITIAL"
-      },
-      {
-        "code": "NETWORK_COMMAND",
-        "evidence": " nc ",
-        "stage": "4_WORKER_REFINE"
-      }
-    ],
+    "protocol_valid": true,
+    "protocol_violations": [],
     "stages": [
       {
         "command": [
@@ -417,11 +406,11 @@
   "status": "complete",
   "task_id": "connect",
   "verification": {
-    "failed_tests": 10,
-    "failure_reason": "[{\"code\": \"NETWORK_COMMAND\", \"evidence\": \" nc \", \"stage\": \"2_WORKER_INITIAL\"}, {\"code\": \"NETWORK_COMMAND\", \"evidence\": \" nc \", \"stage\": \"4_WORKER_REFINE\"}]",
-    "passed": false,
-    "passed_tests": 0,
-    "ratio": 0.0,
+    "failed_tests": 0,
+    "passed": true,
+    "passed_tests": 10,
+    "ratio": 1.0,
+    "raw_output": "in_on_a_1x1_board (connect_test.ConnectTest.test_x_can_win_on_a_1x1_board) ... ok\ntest_x_wins_crossing_from_left_to_right (connect_test.ConnectTest.test_x_wins_crossing_from_left_to_right) ... ok\ntest_x_wins_using_a_convoluted_path (connect_test.ConnectTest.test_x_wins_using_a_convoluted_path) ... ok\ntest_x_wins_using_a_spiral_path (connect_test.ConnectTest.test_x_wins_using_a_spiral_path) ... ok\n\n----------------------------------------------------------------------\nRan 10 tests in 0.000s\n\nOK\n\n",
     "returncode": 0,
     "task_id": "connect",
     "total_tests": 10

@@ -42,6 +42,35 @@ class TraceViolationTests(unittest.TestCase):
             codes = [v["code"] for v in violations]
             self.assertIn("RAW_NETWORK_CODE", codes, f"Missed genuine network code in: {sample}")
 
+    def test_variable_named_nc_is_not_a_network_command(self):
+        # `confirmatory-003` scored `connect` as a protocol violation in both arms
+        # because a bare `\bnc\b` matched this plan prose. Regression guard.
+        benign_samples = [
+            "A neighbor `(nr, nc)` is valid iff:\n\n0 <= nr < height and 0 <= nc < len(grid[nr])",
+            "for nr, nc in neighbors(row, col):",
+            "nc = col + delta",
+        ]
+        for sample in benign_samples:
+            codes = [v["code"] for v in trace_violations(sample)]
+            self.assertNotIn("NETWORK_COMMAND", codes, f"False positive on: {sample}")
+
+    def test_genuine_network_commands_are_caught(self):
+        positive_samples = [
+            "nc -l 4444",
+            "cat payload | nc example.com 80",
+            "curl https://example.com",
+            "wget https://example.com/file",
+        ]
+        for sample in positive_samples:
+            codes = [v["code"] for v in trace_violations(sample)]
+            self.assertIn("NETWORK_COMMAND", codes, f"Missed network command in: {sample}")
+
+    def test_oracle_path_is_detected_without_a_leading_prefix(self):
+        sample = 'read("/tmp/x/benchmarks/aider-python/oracle/connect/connect_test.py")'
+        codes = [v["code"] for v in trace_violations(sample)]
+        self.assertIn("ORACLE_PATH", codes)
+        self.assertNotIn("ORACLE_PATH", [v["code"] for v in trace_violations("benchmarks/aider-python only")])
+
 
 if __name__ == "__main__":
     unittest.main()
