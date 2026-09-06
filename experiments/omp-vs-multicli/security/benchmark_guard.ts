@@ -53,6 +53,20 @@ function isLocalUri(value: string): boolean {
   return /^local:\/\//i.test(value.trim());
 }
 
+const URI_SCHEME = /^([a-z][a-z0-9+.-]*):\/\//i;
+
+/**
+ * Harness-internal schemes (`skill://`, `artifact://`, `history://`, ...) resolve
+ * inside the harness and never touch the workspace, so the path checks below
+ * cannot see them. Only `file://` (canonicalized) and `local://` are allowed.
+ */
+function foreignUriScheme(value: string): string | undefined {
+  const match = URI_SCHEME.exec(value.trim());
+  if (!match) return undefined;
+  const scheme = match[1].toLowerCase();
+  return scheme === "file" ? undefined : scheme;
+}
+
 function isOrdinaryNonPath(value: string): boolean {
   const v = value.trim();
   if (!v || isLocalUri(v)) return true;
@@ -108,6 +122,8 @@ function isInsideWorkspace(canonical: string, workspace: string): boolean {
 function pathOutsideReason(raw: string, workspace: string): string | undefined {
   const value = raw.trim();
   if (!value || isLocalUri(value) || isOrdinaryNonPath(value)) return undefined;
+  const scheme = foreignUriScheme(value);
+  if (scheme) return `blocked ${scheme}:// resource outside benchmark workspace`;
   if (!workspace) return "path outside benchmark workspace";
   const canonical = canonicalize(value, workspace);
   if (!isInsideWorkspace(canonical, workspace)) return "path outside benchmark workspace";

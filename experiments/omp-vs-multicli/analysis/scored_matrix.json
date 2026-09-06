@@ -1,0 +1,835 @@
+{
+  "conditional": {
+    "arm_a": {
+      "mean_cost": 0.6177711764705882,
+      "mean_duration": 402.1729411764706,
+      "mean_ratio": 0.9504470588235294,
+      "mean_tokens": 882355.3529411765,
+      "n": 17,
+      "passed": 291,
+      "resolved": 14,
+      "total_cost": 10.50211,
+      "total_duration": 6836.9400000000005,
+      "total_tests": 301
+    },
+    "arm_b": {
+      "mean_cost": 0.7396595294117647,
+      "mean_duration": 504.39235294117645,
+      "mean_ratio": 0.9504470588235294,
+      "mean_tokens": 1208909.6470588236,
+      "n": 17,
+      "passed": 291,
+      "resolved": 14,
+      "total_cost": 12.574212000000001,
+      "total_duration": 8574.67,
+      "total_tests": 301
+    },
+    "tasks": [
+      "affine-cipher",
+      "book-store",
+      "bowling",
+      "connect",
+      "grade-school",
+      "hangman",
+      "phone-number",
+      "pig-latin",
+      "poker",
+      "proverb",
+      "robot-name",
+      "simple-linked-list",
+      "transpose",
+      "tree-building",
+      "two-bucket",
+      "variable-length-quantity",
+      "wordy"
+    ]
+  },
+  "context": {
+    "arm_a": {
+      "cache_read_tokens": 21036802,
+      "cache_share": 0.8020365828505068,
+      "fresh_input_tokens": 5192428
+    },
+    "arm_b": {
+      "cache_read_tokens": 25070697,
+      "cache_share": 0.6682103130690175,
+      "fresh_input_tokens": 12448474
+    }
+  },
+  "ledger": [
+    {
+      "arm_a": {
+        "duration": 319.75,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 508.88,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "affine-cipher"
+    },
+    {
+      "arm_a": {
+        "duration": 385.38,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 605.38,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "book-store"
+    },
+    {
+      "arm_a": {
+        "duration": 571.88,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 709.6,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "bowling"
+    },
+    {
+      "arm_a": {
+        "duration": 305.19,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 568.2,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "connect"
+    },
+    {
+      "arm_a": {
+        "duration": 416.22,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 731.87,
+        "invalidated_by": [
+          "MISSING_HANDOFF",
+          "MODEL_MISMATCH",
+          "NO_REASONING_TOKENS",
+          "STAGE_FAILED",
+          "STAGE_TIMEOUT",
+          "TELEMETRY_PARSE_ERROR"
+        ],
+        "ratio": 0.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "go-counting"
+    },
+    {
+      "arm_a": {
+        "duration": 235.62,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 351.92,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "grade-school"
+    },
+    {
+      "arm_a": {
+        "duration": 520.69,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 809.43,
+        "invalidated_by": [
+          "MISSING_HANDOFF",
+          "MODEL_MISMATCH",
+          "NO_REASONING_TOKENS",
+          "STAGE_FAILED",
+          "STAGE_TIMEOUT",
+          "TELEMETRY_PARSE_ERROR"
+        ],
+        "ratio": 0.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "grep"
+    },
+    {
+      "arm_a": {
+        "duration": 440.02,
+        "invalidated_by": [],
+        "ratio": 0.7143,
+        "shadow_ratio": 0.7143
+      },
+      "arm_b": {
+        "duration": 556.96,
+        "invalidated_by": [],
+        "ratio": 0.7143,
+        "shadow_ratio": 0.7143
+      },
+      "task": "hangman"
+    },
+    {
+      "arm_a": {
+        "duration": 471.95,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 798.97,
+        "invalidated_by": [
+          "MISSING_HANDOFF",
+          "MODEL_MISMATCH",
+          "NO_REASONING_TOKENS",
+          "STAGE_FAILED",
+          "STAGE_TIMEOUT",
+          "TELEMETRY_PARSE_ERROR"
+        ],
+        "ratio": 0.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "list-ops"
+    },
+    {
+      "arm_a": {
+        "duration": 411.3,
+        "invalidated_by": [],
+        "ratio": 0.9048,
+        "shadow_ratio": 0.9048
+      },
+      "arm_b": {
+        "duration": 431.44,
+        "invalidated_by": [],
+        "ratio": 0.9048,
+        "shadow_ratio": 0.9048
+      },
+      "task": "phone-number"
+    },
+    {
+      "arm_a": {
+        "duration": 323.02,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 503.13,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "pig-latin"
+    },
+    {
+      "arm_a": {
+        "duration": 474.99,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 597.21,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "poker"
+    },
+    {
+      "arm_a": {
+        "duration": 606.39,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 900.17,
+        "invalidated_by": [
+          "MISSING_HANDOFF",
+          "MODEL_MISMATCH",
+          "NO_REASONING_TOKENS",
+          "STAGE_FAILED",
+          "STAGE_TIMEOUT",
+          "TELEMETRY_PARSE_ERROR"
+        ],
+        "ratio": 0.0,
+        "shadow_ratio": 0.7333
+      },
+      "task": "pov"
+    },
+    {
+      "arm_a": {
+        "duration": 161.36,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 260.37,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "proverb"
+    },
+    {
+      "arm_a": {
+        "duration": 625.34,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 900.04,
+        "invalidated_by": [
+          "MISSING_HANDOFF",
+          "MODEL_MISMATCH",
+          "NO_REASONING_TOKENS",
+          "STAGE_FAILED",
+          "STAGE_TIMEOUT",
+          "TELEMETRY_PARSE_ERROR"
+        ],
+        "ratio": 0.0,
+        "shadow_ratio": 0.1429
+      },
+      "task": "react"
+    },
+    {
+      "arm_a": {
+        "duration": 569.5,
+        "invalidated_by": [
+          "MISSING_HANDOFF"
+        ],
+        "ratio": 0.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 900.15,
+        "invalidated_by": [
+          "MISSING_HANDOFF",
+          "MODEL_MISMATCH",
+          "NO_REASONING_TOKENS",
+          "STAGE_FAILED",
+          "STAGE_TIMEOUT",
+          "TELEMETRY_PARSE_ERROR"
+        ],
+        "ratio": 0.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "rest-api"
+    },
+    {
+      "arm_a": {
+        "duration": 599.94,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 657.13,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "robot-name"
+    },
+    {
+      "arm_a": {
+        "duration": 563.19,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 726.85,
+        "invalidated_by": [
+          "MISSING_HANDOFF",
+          "MODEL_MISMATCH",
+          "NO_REASONING_TOKENS",
+          "STAGE_FAILED",
+          "STAGE_TIMEOUT",
+          "TELEMETRY_PARSE_ERROR"
+        ],
+        "ratio": 0.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "scale-generator"
+    },
+    {
+      "arm_a": {
+        "duration": 689.43,
+        "invalidated_by": [],
+        "ratio": 0.9565,
+        "shadow_ratio": 0.9565
+      },
+      "arm_b": {
+        "duration": 900.08,
+        "invalidated_by": [
+          "MISSING_HANDOFF",
+          "MODEL_MISMATCH",
+          "NO_REASONING_TOKENS",
+          "STAGE_FAILED",
+          "STAGE_TIMEOUT",
+          "TELEMETRY_PARSE_ERROR"
+        ],
+        "ratio": 0.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "sgf-parsing"
+    },
+    {
+      "arm_a": {
+        "duration": 421.12,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 456.57,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "simple-linked-list"
+    },
+    {
+      "arm_a": {
+        "duration": 467.4,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 442.73,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "transpose"
+    },
+    {
+      "arm_a": {
+        "duration": 419.2,
+        "invalidated_by": [],
+        "ratio": 0.5385,
+        "shadow_ratio": 0.5385
+      },
+      "arm_b": {
+        "duration": 436.59,
+        "invalidated_by": [],
+        "ratio": 0.5385,
+        "shadow_ratio": 0.5385
+      },
+      "task": "tree-building"
+    },
+    {
+      "arm_a": {
+        "duration": 489.17,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 489.04,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "two-bucket"
+    },
+    {
+      "arm_a": {
+        "duration": 243.91,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 389.09,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "variable-length-quantity"
+    },
+    {
+      "arm_a": {
+        "duration": 567.69,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "arm_b": {
+        "duration": 610.43,
+        "invalidated_by": [],
+        "ratio": 1.0,
+        "shadow_ratio": 1.0
+      },
+      "task": "wordy"
+    }
+  ],
+  "planner_timeout_tasks": [
+    "go-counting",
+    "grep",
+    "list-ops",
+    "pov",
+    "react",
+    "rest-api",
+    "scale-generator",
+    "sgf-parsing"
+  ],
+  "scored": {
+    "arm_a": {
+      "mean_cost": 0.67685008,
+      "mean_duration": 451.986,
+      "mean_ratio": 0.924564,
+      "mean_tokens": 1082556.28,
+      "n": 25,
+      "passed": 419,
+      "resolved": 20,
+      "total_cost": 16.921252,
+      "total_duration": 11299.65,
+      "total_tests": 439
+    },
+    "arm_b": {
+      "mean_cost": 0.67266024,
+      "mean_duration": 609.6892,
+      "mean_ratio": 0.646304,
+      "mean_tokens": 1300513.08,
+      "n": 25,
+      "passed": 291,
+      "resolved": 14,
+      "total_cost": 16.816506,
+      "total_duration": 15242.23,
+      "total_tests": 439
+    }
+  },
+  "shadow": {
+    "arm_a": {
+      "mean_cost": 0.67685008,
+      "mean_duration": 451.986,
+      "mean_ratio": 0.964564,
+      "mean_tokens": 1082556.28,
+      "n": 25,
+      "passed": 428,
+      "resolved": 21,
+      "total_cost": 16.921252,
+      "total_duration": 11299.65,
+      "total_tests": 439
+    },
+    "arm_b": {
+      "mean_cost": 0.67266024,
+      "mean_duration": 609.6892,
+      "mean_ratio": 0.921352,
+      "mean_tokens": 1300513.08,
+      "n": 25,
+      "passed": 413,
+      "resolved": 20,
+      "total_cost": 16.816506,
+      "total_duration": 15242.23,
+      "total_tests": 439
+    }
+  },
+  "stages": [
+    {
+      "arm_a": {
+        "mean_duration": 147.4796,
+        "n": 25,
+        "ok": 25
+      },
+      "arm_b": {
+        "mean_duration": 239.848,
+        "n": 25,
+        "ok": 17
+      },
+      "label": "Planner",
+      "stage": "1_PLANNER"
+    },
+    {
+      "arm_a": {
+        "mean_duration": 99.6544,
+        "n": 25,
+        "ok": 25
+      },
+      "arm_b": {
+        "mean_duration": 110.1632,
+        "n": 25,
+        "ok": 25
+      },
+      "label": "Worker Initial",
+      "stage": "2_WORKER_INITIAL"
+    },
+    {
+      "arm_a": {
+        "mean_duration": 100.1432,
+        "n": 25,
+        "ok": 25
+      },
+      "arm_b": {
+        "mean_duration": 151.5744,
+        "n": 25,
+        "ok": 25
+      },
+      "label": "Reviewer",
+      "stage": "3_REVIEWER"
+    },
+    {
+      "arm_a": {
+        "mean_duration": 66.5536,
+        "n": 25,
+        "ok": 25
+      },
+      "arm_b": {
+        "mean_duration": 108.0624,
+        "n": 25,
+        "ok": 21
+      },
+      "label": "Worker Refine",
+      "stage": "4_WORKER_REFINE"
+    }
+  ],
+  "stale_flags": {},
+  "synthetic_arm_b": {
+    "passed": 428,
+    "resolved": 21,
+    "total_cost": 20.456794,
+    "total_duration": 14325.8,
+    "total_tests": 439
+  },
+  "tasks": [
+    "affine-cipher",
+    "book-store",
+    "bowling",
+    "connect",
+    "go-counting",
+    "grade-school",
+    "grep",
+    "hangman",
+    "list-ops",
+    "phone-number",
+    "pig-latin",
+    "poker",
+    "pov",
+    "proverb",
+    "react",
+    "rest-api",
+    "robot-name",
+    "scale-generator",
+    "sgf-parsing",
+    "simple-linked-list",
+    "transpose",
+    "tree-building",
+    "two-bucket",
+    "variable-length-quantity",
+    "wordy"
+  ],
+  "tests": {
+    "cost": {
+      "n": 25,
+      "p": 0.6338268518447876,
+      "w_plus": 144.0
+    },
+    "duration": {
+      "n": 25,
+      "p": 5.960464477539062e-07,
+      "w_plus": 5.0
+    },
+    "mcnemar": {
+      "b": 6,
+      "c": 0,
+      "p": 0.03125
+    },
+    "ratio": {
+      "n": 7,
+      "p": 0.015625,
+      "w_plus": 28.0
+    },
+    "tokens": {
+      "n": 25,
+      "p": 0.0010271072387695312,
+      "w_plus": 46.0
+    }
+  },
+  "tier3": {
+    "arm_a_primary": {
+      "mean_cost": 0.80239275,
+      "mean_duration": 557.83875,
+      "mean_ratio": 0.8695625,
+      "mean_tokens": 1507983.25,
+      "n": 8,
+      "passed": 128,
+      "resolved": 6,
+      "total_cost": 6.419142,
+      "total_duration": 4462.71,
+      "total_tests": 138
+    },
+    "arm_b_ablation": {
+      "mean_cost": 0.98532275,
+      "mean_duration": 718.89125,
+      "mean_ratio": 0.9916625,
+      "mean_tokens": 1657581.125,
+      "n": 8,
+      "passed": 137,
+      "resolved": 7,
+      "total_cost": 7.882582,
+      "total_duration": 5751.13,
+      "total_tests": 138
+    },
+    "arm_b_primary_scored": {
+      "mean_cost": 0.53028675,
+      "mean_duration": 833.4449999999999,
+      "mean_ratio": 0.0,
+      "mean_tokens": 1495170.375,
+      "n": 8,
+      "passed": 0,
+      "resolved": 0,
+      "total_cost": 4.242294,
+      "total_duration": 6667.5599999999995,
+      "total_tests": 138
+    },
+    "arm_b_primary_shadow": {
+      "mean_cost": 0.53028675,
+      "mean_duration": 833.4449999999999,
+      "mean_ratio": 0.859525,
+      "mean_tokens": 1495170.375,
+      "n": 8,
+      "passed": 122,
+      "resolved": 6,
+      "total_cost": 4.242294,
+      "total_duration": 6667.5599999999995,
+      "total_tests": 138
+    },
+    "per_task": [
+      {
+        "ablation_cost": 1.101562,
+        "ablation_duration": 769.82,
+        "ablation_passed": 11,
+        "ablation_planner": 435.8,
+        "arm_a_duration": 416.22,
+        "arm_a_passed": 11,
+        "primary_scored_passed": 0,
+        "primary_shadow_passed": 11,
+        "task": "go-counting",
+        "total_tests": 11
+      },
+      {
+        "ablation_cost": 0.703356,
+        "ablation_duration": 484.31,
+        "ablation_passed": 25,
+        "ablation_planner": 155.86,
+        "arm_a_duration": 520.69,
+        "arm_a_passed": 25,
+        "primary_scored_passed": 0,
+        "primary_shadow_passed": 25,
+        "task": "grep",
+        "total_tests": 25
+      },
+      {
+        "ablation_cost": 0.733647,
+        "ablation_duration": 531.7,
+        "ablation_passed": 24,
+        "ablation_planner": 205.71,
+        "arm_a_duration": 471.95,
+        "arm_a_passed": 24,
+        "primary_scored_passed": 0,
+        "primary_shadow_passed": 24,
+        "task": "list-ops",
+        "total_tests": 24
+      },
+      {
+        "ablation_cost": 1.092944,
+        "ablation_duration": 796.2,
+        "ablation_passed": 14,
+        "ablation_planner": 408.44,
+        "arm_a_duration": 606.39,
+        "arm_a_passed": 15,
+        "primary_scored_passed": 0,
+        "primary_shadow_passed": 11,
+        "task": "pov",
+        "total_tests": 15
+      },
+      {
+        "ablation_cost": 1.221003,
+        "ablation_duration": 1014.98,
+        "ablation_passed": 14,
+        "ablation_planner": 342.18,
+        "arm_a_duration": 625.34,
+        "arm_a_passed": 14,
+        "primary_scored_passed": 0,
+        "primary_shadow_passed": 2,
+        "task": "react",
+        "total_tests": 14
+      },
+      {
+        "ablation_cost": 1.011207,
+        "ablation_duration": 795.79,
+        "ablation_passed": 9,
+        "ablation_planner": 215.31,
+        "arm_a_duration": 569.5,
+        "arm_a_passed": 0,
+        "primary_scored_passed": 0,
+        "primary_shadow_passed": 9,
+        "task": "rest-api",
+        "total_tests": 9
+      },
+      {
+        "ablation_cost": 1.025134,
+        "ablation_duration": 679.78,
+        "ablation_passed": 17,
+        "ablation_planner": 454.04,
+        "arm_a_duration": 563.19,
+        "arm_a_passed": 17,
+        "primary_scored_passed": 0,
+        "primary_shadow_passed": 17,
+        "task": "scale-generator",
+        "total_tests": 17
+      },
+      {
+        "ablation_cost": 0.993729,
+        "ablation_duration": 678.55,
+        "ablation_passed": 23,
+        "ablation_planner": 328.94,
+        "arm_a_duration": 689.43,
+        "arm_a_passed": 22,
+        "primary_scored_passed": 0,
+        "primary_shadow_passed": 23,
+        "task": "sgf-parsing",
+        "total_tests": 23
+      }
+    ],
+    "planner_mean": 318.285,
+    "tasks": [
+      "go-counting",
+      "grep",
+      "list-ops",
+      "pov",
+      "react",
+      "rest-api",
+      "scale-generator",
+      "sgf-parsing"
+    ]
+  }
+}

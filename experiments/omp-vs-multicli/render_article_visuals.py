@@ -15,6 +15,34 @@ from PIL import Image, ImageDraw, ImageFont
 BASE_DIR = Path(__file__).resolve().parent
 OUT_DIR = BASE_DIR / "visuals" / "out"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
+SCORED_PATH = BASE_DIR / "analysis" / "scored_matrix.json"
+
+if not SCORED_PATH.is_file():
+    raise SystemExit(
+        f"Missing {SCORED_PATH.relative_to(BASE_DIR)}. "
+        "Run: python3 analysis/score_matrix.py --json analysis/scored_matrix.json"
+    )
+
+with SCORED_PATH.open(encoding="utf-8") as handle:
+    DATA = json.load(handle)
+
+SCORED_A = DATA["scored"]["arm_a"]
+SCORED_B = DATA["scored"]["arm_b"]
+SHADOW_A = DATA["shadow"]["arm_a"]
+SHADOW_B = DATA["shadow"]["arm_b"]
+TESTS = DATA["tests"]
+TIER3 = DATA["tier3"]
+SYNTH_B = DATA["synthetic_arm_b"]
+
+
+def pct(value: float, digits: int = 1) -> str:
+    return f"{value * 100:.{digits}f}%"
+
+
+def signif(p: float) -> str:
+    if p < 1e-4:
+        return "p < 0.0001*"
+    return f"p = {p:.5f}*"
 
 # Color Palette
 BG = "#FAFAF8"
@@ -49,7 +77,7 @@ def render_cover():
     draw = ImageDraw.Draw(img)
 
     draw.text((80, 50), "WORKFLOW BENCH · EXPERIMENT 2", font=mono(18, True), fill=ARM_A_COLOR)
-    draw.text((1520, 50), "N=25 PAIRED TASKS · 58 RUNS", font=mono(16, True), fill=FAINT, anchor="ra")
+    draw.text((1520, 50), "N=25 PAIRED TASKS · 50 RUNS + 8-TASK ABLATION", font=mono(16, True), fill=FAINT, anchor="ra")
     draw.line((80, 80, 1520, 80), fill=HAIR, width=2)
 
     draw.text((80, 110), "Why One Harness, Many Models", font=sans(56, "bold"), fill=INK)
@@ -61,15 +89,17 @@ def render_cover():
     # Stat Card 1
     draw.rounded_rectangle((80, 360, 510, 540), radius=12, fill=CARD, outline=HAIR, width=2)
     draw.text((110, 385), "PRIMARY MATRIX RESOLUTION", font=mono(14, True), fill=FAINT)
-    draw.text((110, 415), "76% vs 52%", font=sans(42, "bold"), fill=ARM_A_COLOR)
-    draw.text((110, 480), "OMP wins +24.0% resolution (p = 0.031*)", font=sans(16, "medium"), fill=MUTED)
+    res_a = SCORED_A["resolved"] / SCORED_A["n"]
+    res_b = SCORED_B["resolved"] / SCORED_B["n"]
+    draw.text((110, 415), f"{pct(res_a, 0)} vs {pct(res_b, 0)}", font=sans(42, "bold"), fill=ARM_A_COLOR)
+    draw.text((110, 480), f"OMP wins +{(res_a - res_b) * 100:.1f} pts ({signif(TESTS['mcnemar']['p'])})", font=sans(16, "medium"), fill=MUTED)
     draw.text((110, 505), "Exact McNemar test under strict 300s SLA", font=sans(14), fill=FAINT)
 
     # Stat Card 2
     draw.rounded_rectangle((540, 360, 970, 540), radius=12, fill=CARD, outline=HAIR, width=2)
     draw.text((570, 385), "MEAN WALL-CLOCK LATENCY", font=mono(14, True), fill=FAINT)
-    draw.text((570, 415), "452s vs 610s", font=sans(42, "bold"), fill=ACCENT_BLUE)
-    draw.text((570, 480), "OMP is 157.7s faster per task (p < 0.0001*)", font=sans(16, "medium"), fill=MUTED)
+    draw.text((570, 415), f"{SCORED_A['mean_duration']:.0f}s vs {SCORED_B['mean_duration']:.0f}s", font=sans(42, "bold"), fill=ACCENT_BLUE)
+    draw.text((570, 480), f"OMP is {SCORED_B['mean_duration'] - SCORED_A['mean_duration']:.1f}s faster per task ({signif(TESTS['duration']['p'])})", font=sans(16, "medium"), fill=MUTED)
     draw.text((570, 505), "Paired Wilcoxon signed-rank significance", font=sans(14), fill=FAINT)
 
     # Stat Card 3
@@ -109,7 +139,7 @@ def render_architecture():
     draw.text((110, 325), "One process wraps all four frontier model stages seamlessly:", font=sans(16), fill=MUTED)
 
     stages_a = [
-        ("Stage 1: Planner", "xai-oauth/grok-4.6 @ max", "Direct AST inspection & internal thinking"),
+        ("Stage 1: Planner", "xai-oauth/grok-4.6 @ max", "Structural grep/glob inspection; in-process thinking"),
         ("Stage 2: Worker Initial", "openai-codex/gpt-5.6-luna @ max", "Hashline edits; inherited project memory"),
         ("Stage 3: Reviewer", "google-antigravity/gemini-3.8-flash @ max", "In-memory test audit & fix identification"),
         ("Stage 4: Worker Refine", "openai-codex/gpt-5.6-luna @ max", "Targeted delta patch without context re-read")
@@ -118,12 +148,13 @@ def render_architecture():
         y = 370 + i * 85
         draw.rounded_rectangle((110, y, 740, y + 70), radius=8, fill="#F0FDF4", outline="#BBF7D0", width=1)
         draw.text((130, y + 12), st, font=sans(17, "bold"), fill=ARM_A_COLOR)
-        draw.text((330, y + 12), mod, font=mono(13), fill=MUTED)
+        draw.text((730, y + 14), mod, font=mono(13), fill=MUTED, anchor="ra")
         draw.text((130, y + 40), desc, font=sans(14), fill=INK)
 
     draw.line((110, 725, 740, 725), fill=HAIR, width=1)
     draw.text((110, 740), "• In-Process Tooling: Native hashline edit & grep tools (no subshell drag)", font=sans(14), fill=MUTED)
-    draw.text((110, 765), "• Persistent Context: KV cache hits across turns (70%+ cache read ratio)", font=sans(14), fill=MUTED)
+    ctx_a = DATA["context"]["arm_a"]
+    draw.text((110, 765), f"• Persistent Context: {pct(ctx_a['cache_share'])} of input tokens served from cache", font=sans(14), fill=MUTED)
 
     # Right Column: Arm B
     draw.rounded_rectangle((830, 210, 1520, 810), radius=14, fill=CARD, outline=ARM_B_COLOR, width=3)
@@ -143,12 +174,14 @@ def render_architecture():
         y = 370 + i * 85
         draw.rounded_rectangle((860, y, 1490, y + 70), radius=8, fill="#FEF2F2", outline="#FECACA", width=1)
         draw.text((880, y + 12), st, font=sans(17, "bold"), fill=ARM_B_COLOR)
-        draw.text((1080, y + 12), mod, font=mono(13), fill=MUTED)
+        draw.text((1480, y + 14), mod, font=mono(13), fill=MUTED, anchor="ra")
         draw.text((880, y + 40), desc, font=sans(14), fill=INK)
 
     draw.line((860, 725, 1490, 725), fill=HAIR, width=1)
     draw.text((860, 740), "• Process Boundary Hops: 4 independent binary boots, node/pty startup tax", font=sans(14), fill=MUTED)
-    draw.text((860, 765), "• Context Re-Inflation: Each stage reads full context cold from filesystem", font=sans(14), fill=MUTED)
+    ctx_b = DATA["context"]["arm_b"]
+    fresh_ratio = ctx_b["fresh_input_tokens"] / ctx_a["fresh_input_tokens"]
+    draw.text((860, 765), f"• Context Re-Inflation: {ctx_b['fresh_input_tokens'] / 1e6:.2f}M fresh input tokens ({fresh_ratio:.1f}x Arm A)", font=sans(14), fill=MUTED)
 
     draw.line((80, 840, 1520, 840), fill=HAIR, width=1)
     draw.text((80, 865), "Workflow Bench · Experiment 2", font=mono(14), fill=FAINT)
@@ -171,11 +204,41 @@ def render_primary_results():
     draw.text((80, 140), "300s Stage SLA Ceiling, Zero-Drop Pre-Registered Protocol, 50 Total Runs", font=sans(20), fill=MUTED)
     draw.line((80, 180, 1520, 180), fill=HAIR, width=2)
 
+    res_a = SCORED_A["resolved"] / SCORED_A["n"]
+    res_b = SCORED_B["resolved"] / SCORED_B["n"]
     metrics = [
-        ("Binary Resolution (R=1.0)", "76.0%", "52.0%", "Exact McNemar: p = 0.03125*", "Arm A resolves 19/25 tasks vs 13/25 in Arm B (+24.0% advantage)"),
-        ("Oracle Pass Ratio (R)", "88.5%", "60.6%", "Paired Wilcoxon: p = 0.01560*", "Arm A passes 389/439 unit tests vs 266/439 in Arm B (+27.9% delta)"),
-        ("Mean Wall-Clock Latency", "452.0s", "609.7s", "Paired Wilcoxon: p = 0.00008*", "Arm A is 157.7s faster per task (saves 1.1 hours across 25 tasks)"),
-        ("Mean Token Consumption", "1.08M", "1.30M", "Paired Wilcoxon: p = 0.00100*", "Arm A saves 217,957 tokens per task due to session prompt caching")
+        (
+            "Binary Resolution (R=1.0)",
+            pct(res_a),
+            pct(res_b),
+            f"Exact McNemar: p = {TESTS['mcnemar']['p']:.5f}*",
+            f"Arm A resolves {SCORED_A['resolved']}/{SCORED_A['n']} tasks vs {SCORED_B['resolved']}/{SCORED_B['n']}"
+            f" in Arm B (+{(res_a - res_b) * 100:.1f} pts)",
+        ),
+        (
+            "Oracle Pass Ratio (R)",
+            pct(SCORED_A["mean_ratio"]),
+            pct(SCORED_B["mean_ratio"]),
+            f"Paired Wilcoxon: p = {TESTS['ratio']['p']:.6f}*",
+            f"Arm A passes {SCORED_A['passed']}/{SCORED_A['total_tests']} unit tests vs"
+            f" {SCORED_B['passed']}/{SCORED_B['total_tests']} ({TESTS['ratio']['n']} non-tied pairs)",
+        ),
+        (
+            "Mean Wall-Clock Latency",
+            f"{SCORED_A['mean_duration']:.1f}s",
+            f"{SCORED_B['mean_duration']:.1f}s",
+            f"Paired Wilcoxon: {signif(TESTS['duration']['p'])}",
+            f"Arm A is {SCORED_B['mean_duration'] - SCORED_A['mean_duration']:.1f}s faster per task"
+            f" (saves {(SCORED_B['total_duration'] - SCORED_A['total_duration']) / 3600:.1f} hours across 25 tasks)",
+        ),
+        (
+            "Mean Token Consumption",
+            f"{SCORED_A['mean_tokens'] / 1e6:.2f}M",
+            f"{SCORED_B['mean_tokens'] / 1e6:.2f}M",
+            f"Paired Wilcoxon: p = {TESTS['tokens']['p']:.5f}*",
+            f"Arm B feeds {DATA['context']['arm_b']['fresh_input_tokens'] / 1e6:.2f}M fresh input tokens"
+            f" vs Arm A's {DATA['context']['arm_a']['fresh_input_tokens'] / 1e6:.2f}M",
+        ),
     ]
 
     for i, (title, val_a, val_b, stat, desc) in enumerate(metrics):
@@ -198,7 +261,7 @@ def render_primary_results():
         draw.text((x + 30, y + 215), desc, font=sans(14), fill=MUTED)
 
     draw.line((80, 840, 1520, 840), fill=HAIR, width=1)
-    draw.text((80, 865), "Statistical Battery: McNemar exact test + Paired Wilcoxon signed-rank test (alpha = 0.05)", font=mono(14), fill=FAINT)
+    draw.text((80, 865), f"Raw-oracle shadow view (no SLA / protocol gate): Arm A {SHADOW_A['resolved']}/{SHADOW_A['n']} tasks, {SHADOW_A['passed']}/{SHADOW_A['total_tests']} tests  ·  Arm B {SHADOW_B['resolved']}/{SHADOW_B['n']}, {SHADOW_B['passed']}/{SHADOW_B['total_tests']}", font=mono(14), fill=FAINT)
     draw.text((1520, 865), "github.com/bnivanov/harness-evals", font=mono(14), fill=FAINT, anchor="ra")
 
     out_file = OUT_DIR / "03-primary-benchmark-results.png"
@@ -215,12 +278,14 @@ def render_stage_parity():
 
     draw.text((80, 50), "TIER 2 ANALYSIS · MODEL BEHAVIOR & STAGE ISOLATION", font=mono(16, True), fill=FAINT)
     draw.text((80, 85), "Is Standalone CLI Inferior, or Did Grok Just Timeout?", font=sans(40, "bold"), fill=INK)
-    draw.text((80, 140), "Auditing stage-by-stage model resolution and proving exact 89.2% downstream parity", font=sans(20), fill=MUTED)
+    cond = DATA["conditional"]
+    cond_a = cond["arm_a"]
+    draw.text((80, 140), f"Auditing stage-by-stage model resolution and the exact {pct(cond_a['mean_ratio'])} downstream parity it exposes", font=sans(20), fill=MUTED)
     draw.line((80, 180, 1520, 180), fill=HAIR, width=2)
 
     draw.rounded_rectangle((80, 210, 1520, 310), radius=10, fill="#F0FDF4", outline="#86EFAC", width=2)
-    draw.text((110, 230), "THE CONDITIONAL PARITY THEOREM (17 MATCHED TASKS)", font=mono(16, True), fill=SUCCESS_GREEN)
-    draw.text((110, 260), "When Grok Stage 1 delivered a plan, Arm A and Arm B scored EXACT 89.2% PARITY (13/17 full resolutions each).", font=sans(20, "bold"), fill=INK)
+    draw.text((110, 230), f"THE CONDITIONAL PARITY FINDING ({cond_a['n']} MATCHED TASKS)", font=mono(16, True), fill=SUCCESS_GREEN)
+    draw.text((110, 260), f"When Grok Stage 1 delivered a plan, both arms scored {pct(cond_a['mean_ratio'])} - identically, task by task ({cond_a['resolved']}/{cond_a['n']} resolutions each).", font=sans(20, "bold"), fill=INK)
     draw.text((110, 285), "Codex Luna (Worker) and Gemini Flash (Reviewer) performed identically across both harness substrates.", font=sans(16), fill=MUTED)
 
     y_table = 340
@@ -229,11 +294,27 @@ def render_stage_parity():
         draw.text((x, y_table), h, font=mono(15, True), fill=FAINT)
     draw.line((80, y_table + 25, 1520, y_table + 25), fill=HAIR, width=2)
 
+    stage_verdicts = {
+        "1_PLANNER": "Grok CLI: 8 timeouts",
+        "2_WORKER_INITIAL": "Full code parity",
+        "3_REVIEWER": "Full audit parity",
+        "4_WORKER_REFINE": "Parity when planned",
+    }
+    stage_models = {
+        "1_PLANNER": "Grok 4.6",
+        "2_WORKER_INITIAL": "GPT-5.6 Luna @ max",
+        "3_REVIEWER": "Gemini 3.8 Flash",
+        "4_WORKER_REFINE": "GPT-5.6 Luna @ max",
+    }
     rows = [
-        ("Stage 1: Planner", "Grok 4.6 @ xhigh", "25/25 (100%) · 147.5s", "17/25 (68%) · 239.8s", "Grok CLI 8 timeouts"),
-        ("Stage 2: Worker Initial", "GPT-5.6 Luna @ max", "25/25 (100%) · 110.2s", "25/25 (100%) · 99.7s", "100% Code Parity"),
-        ("Stage 3: Reviewer", "Gemini 3.8 Flash @ high", "25/25 (100%) · 100.1s", "25/25 (100%) · 151.6s", "100% Audit Parity (OMP +51s fast)"),
-        ("Stage 4: Worker Refine", "GPT-5.6 Luna @ max", "25/25 (100%) · 66.6s", "21/25 (84%) · 108.1s", "Parity on planned tasks")
+        (
+            f"Stage {idx + 1}: {row['label']}",
+            stage_models[row["stage"]],
+            f"{row['arm_a']['ok']}/{row['arm_a']['n']} ({pct(row['arm_a']['ok'] / row['arm_a']['n'], 0)}) · {row['arm_a']['mean_duration']:.1f}s",
+            f"{row['arm_b']['ok']}/{row['arm_b']['n']} ({pct(row['arm_b']['ok'] / row['arm_b']['n'], 0)}) · {row['arm_b']['mean_duration']:.1f}s",
+            stage_verdicts[row["stage"]],
+        )
+        for idx, row in enumerate(DATA["stages"])
     ]
 
     for idx, (st, mod, res_a, res_b, verd) in enumerate(rows):
@@ -246,8 +327,9 @@ def render_stage_parity():
         draw.text((1300, y + 12), verd, font=mono(14, True), fill=ARM_B_COLOR if "timeouts" in verd else SUCCESS_GREEN)
 
     draw.text((80, 720), "Why did Grok CLI timeout in Standalone mode?", font=sans(22, "bold"), fill=INK)
-    draw.text((80, 755), "In OMP, Grok operated with direct in-process tool bindings, completing plans in 147.5s on average.", font=sans(16), fill=MUTED)
+    draw.text((80, 755), f"In OMP, Grok operated with direct in-process tool bindings, completing plans in {DATA['stages'][0]['arm_a']['mean_duration']:.1f}s on average.", font=sans(16), fill=MUTED)
     draw.text((80, 780), "In standalone CLI mode, Grok spawned subshells per tool turn, accumulating latency until it breached the 300s ceiling on 8 tasks.", font=sans(16), fill=MUTED)
+    draw.text((80, 805), f"Plan-less downstream stages were resilient: they still passed {TIER3['arm_b_primary_shadow']['passed']}/{TIER3['arm_b_primary_shadow']['total_tests']} oracle tests on those 8 tasks, but every run scored 0 under the SLA.", font=sans(16), fill=MUTED)
 
     draw.line((80, 840, 1520, 840), fill=HAIR, width=1)
     draw.text((80, 865), "Stage telemetry verified via native turn.completed and usage payloads", font=mono(14), fill=FAINT)
@@ -266,46 +348,64 @@ def render_ablation_tasks():
     draw = ImageDraw.Draw(img)
 
     draw.text((80, 50), "TIER 3 ABLATION · 8 TIMED-OUT TASKS EVALUATED WITH 600s CEILING", font=mono(16, True), fill=FAINT)
-    draw.text((80, 85), "Recovery of the 8 Timed-Out Tasks Under Extended Runway", font=sans(40, "bold"), fill=INK)
-    draw.text((80, 140), "Proving that granting Grok CLI sufficient planning time restores downstream accuracy to 99.3%", font=sans(20), fill=MUTED)
+    draw.text((80, 85), "What the Extended Runway Actually Recovered", font=sans(40, "bold"), fill=INK)
+    draw.text((80, 140), "SLA-scored zeros next to the raw oracle score each run had already earned before it missed the deadline", font=sans(20), fill=MUTED)
     draw.line((80, 180, 1520, 180), fill=HAIR, width=2)
 
     y_table = 210
-    headers = [("TASK ID", 100), ("300s SLA (PRIMARY)", 380), ("600s CEILING (ABLATION)", 680), ("GROK PLAN DUR", 1020), ("TOTAL DUR", 1220), ("TOTAL COST", 1380)]
+    headers = [
+        ("TASK ID", 100),
+        ("SLA SCORED", 300),
+        ("RAW ORACLE", 430),
+        ("600s ABLATION", 580),
+        ("PLAN DUR", 800),
+        ("TOTAL DUR", 950),
+        ("COST", 1100),
+        ("WHAT CHANGED", 1250),
+    ]
     for h, x in headers:
-        draw.text((x, y_table), h, font=mono(14, True), fill=FAINT)
+        draw.text((x, y_table), h, font=mono(13, True), fill=FAINT)
     draw.line((80, y_table + 25, 1520, y_table + 25), fill=HAIR, width=2)
 
-    ablation_rows = [
-        ("scale-generator", "0 / 17 (0.0%)", "17 / 17 (100.0%) PERFECT", "454.0s", "679.8s", "$1.0251"),
-        ("sgf-parsing", "0 / 23 (0.0%)", "23 / 23 (100.0%) PERFECT", "328.9s", "678.5s", "$0.9937"),
-        ("react", "0 / 14 (0.0%)", "14 / 14 (100.0%) PERFECT", "342.2s", "1015.0s", "$1.2210"),
-        ("rest-api", "0 / 9 (0.0%)", "9 / 9 (100.0%) PERFECT", "215.3s", "795.8s", "$1.0112"),
-        ("pov", "0 / 15 (0.0%)", "14 / 15 (93.3%)", "408.4s", "796.2s", "$1.0929"),
-        ("list-ops", "0 / 24 (0.0%)", "24 / 24 (100.0%) PERFECT", "205.7s", "531.7s", "$0.7336"),
-        ("grep", "0 / 25 (0.0%)", "25 / 25 (100.0%) PERFECT", "155.9s", "484.3s", "$0.7034"),
-        ("go-counting", "0 / 11 (0.0%)", "11 / 11 (100.0%) PERFECT", "420.0s", "769.8s", "$1.1016")
-    ]
-
-    for idx, (tid, pri, abl, gd, td, tc) in enumerate(ablation_rows):
+    for idx, row in enumerate(TIER3["per_task"]):
         y = y_table + 45 + idx * 58
+        total = row["total_tests"]
+        gained = row["ablation_passed"] - row["primary_shadow_passed"]
+        verdict = "Accuracy gain" if gained > 0 else "SLA gate only"
         draw.rounded_rectangle((80, y - 8, 1520, y + 42), radius=6, fill=CARD, outline=HAIR, width=1)
-        draw.text((100, y + 8), tid, font=mono(15, True), fill=INK)
-        draw.text((380, y + 8), pri, font=sans(16, "bold"), fill=ARM_B_COLOR)
-        draw.text((680, y + 8), abl, font=sans(16, "bold"), fill=SUCCESS_GREEN)
-        draw.text((1020, y + 8), gd, font=mono(15), fill=MUTED)
-        draw.text((1220, y + 8), td, font=mono(15), fill=MUTED)
-        draw.text((1380, y + 8), tc, font=mono(15), fill=MUTED)
+        draw.text((100, y + 8), row["task"], font=mono(15, True), fill=INK)
+        draw.text((300, y + 8), f"0 / {total}", font=sans(16, "bold"), fill=ARM_B_COLOR)
+        draw.text((430, y + 8), f"{row['primary_shadow_passed']} / {total}", font=sans(16), fill=FAINT)
+        draw.text(
+            (580, y + 8),
+            f"{row['ablation_passed']} / {total} ({row['ablation_passed'] / total * 100:.1f}%)",
+            font=sans(16, "bold"),
+            fill=SUCCESS_GREEN,
+        )
+        draw.text((800, y + 8), f"{row['ablation_planner']:.1f}s", font=mono(15), fill=MUTED)
+        draw.text((950, y + 8), f"{row['ablation_duration']:.1f}s", font=mono(15), fill=MUTED)
+        draw.text((1100, y + 8), f"${row['ablation_cost']:.4f}", font=mono(15), fill=MUTED)
+        draw.text((1250, y + 8), verdict, font=sans(15, "bold"), fill=SUCCESS_GREEN if gained > 0 else FAINT)
 
     # Summary bar at bottom
+    scored_b = TIER3["arm_b_primary_scored"]
+    shadow_b = TIER3["arm_b_primary_shadow"]
+    abl_b = TIER3["arm_b_ablation"]
     y_sum = y_table + 45 + 8 * 58 + 15
     draw.rounded_rectangle((80, y_sum, 1520, y_sum + 70), radius=10, fill="#F0FDF4", outline="#86EFAC", width=2)
-    draw.text((100, y_sum + 22), "TOTALS / PASS RATIO:", font=mono(16, True), fill=INK)
-    draw.text((380, y_sum + 20), "0 / 138 (0.0%)", font=sans(20, "bold"), fill=ARM_B_COLOR)
-    draw.text((680, y_sum + 18), "137 / 138 (99.3%)", font=sans(22, "bold"), fill=SUCCESS_GREEN)
-    draw.text((1020, y_sum + 22), "Mean: 316.3s", font=mono(15), fill=MUTED)
-    draw.text((1220, y_sum + 22), "Total: 5751.1s", font=mono(15), fill=MUTED)
-    draw.text((1380, y_sum + 22), "Total: $7.8826", font=mono(15), fill=MUTED)
+    draw.text((100, y_sum + 25), "TOTALS", font=mono(16, True), fill=INK)
+    draw.text((300, y_sum + 22), f"0 / {scored_b['total_tests']}", font=sans(19, "bold"), fill=ARM_B_COLOR)
+    draw.text((430, y_sum + 22), f"{shadow_b['passed']} / {shadow_b['total_tests']}", font=sans(19), fill=FAINT)
+    draw.text(
+        (580, y_sum + 20),
+        f"{abl_b['passed']} / {abl_b['total_tests']} ({abl_b['passed'] / abl_b['total_tests'] * 100:.1f}%)",
+        font=sans(21, "bold"),
+        fill=SUCCESS_GREEN,
+    )
+    draw.text((800, y_sum + 25), f"mean {TIER3['planner_mean']:.1f}s", font=mono(14), fill=MUTED)
+    draw.text((950, y_sum + 25), f"{abl_b['total_duration']:.1f}s", font=mono(14), fill=MUTED)
+    draw.text((1100, y_sum + 25), f"${abl_b['total_cost']:.2f}", font=mono(14), fill=MUTED)
+    draw.text((1250, y_sum + 25), f"{abl_b['resolved']} / 8 resolved", font=sans(15, "bold"), fill=SUCCESS_GREEN)
 
     draw.line((80, 840, 1520, 840), fill=HAIR, width=1)
     draw.text((80, 865), "Ablation run recorded under runs/ablation-extended-grok/", font=mono(14), fill=FAINT)
@@ -329,26 +429,50 @@ def render_ablation_tax():
     draw.line((80, 180, 1520, 180), fill=HAIR, width=2)
 
     # Card 1: 8-Task Direct Comparison
-    draw.rounded_rectangle((80, 210, 770, 480), radius=12, fill=CARD, outline=HAIR, width=2)
+    draw.rounded_rectangle((80, 210, 770, 505), radius=12, fill=CARD, outline=HAIR, width=2)
     draw.text((110, 235), "1. 8-TASK HEAD-TO-HEAD (ABLATION SUBSET)", font=mono(15, True), fill=ARM_A_COLOR)
 
+    a8 = TIER3["arm_a_primary"]
+    b8 = TIER3["arm_b_ablation"]
+    lat_delta = b8["total_duration"] - a8["total_duration"]
+    cost_delta = b8["total_cost"] - a8["total_cost"]
     h2h = [
-        ("Oracle Test Pass Ratio", "128 / 138 (92.8%)", "137 / 138 (99.3%)", "Multi-CLI +6.5%"),
-        ("Binary Task Resolution", "6 / 8 (75.0%)", "7 / 8 (87.5%)", "Multi-CLI +1 task"),
-        ("Cumulative Wall Latency", "4,462.7s (~74.4m)", "5,751.1s (~95.9m)", "Multi-CLI takes +21.5m (+28.9%)"),
-        ("Cumulative Dollar Spend", "$6.42", "$7.88", "Multi-CLI costs +$1.46 (+22.8%)")
+        (
+            "Oracle Test Pass Ratio",
+            f"{a8['passed']} / {a8['total_tests']} ({a8['passed'] / a8['total_tests'] * 100:.1f}%)",
+            f"{b8['passed']} / {b8['total_tests']} ({b8['passed'] / b8['total_tests'] * 100:.1f}%)",
+            f"Multi-CLI +{(b8['passed'] - a8['passed']) / a8['total_tests'] * 100:.1f} pts",
+        ),
+        (
+            "Binary Task Resolution",
+            f"{a8['resolved']} / 8 ({a8['resolved'] / 8 * 100:.1f}%)",
+            f"{b8['resolved']} / 8 ({b8['resolved'] / 8 * 100:.1f}%)",
+            f"Multi-CLI +{b8['resolved'] - a8['resolved']} task",
+        ),
+        (
+            "Cumulative Wall Latency",
+            f"{a8['total_duration']:,.1f}s ({a8['total_duration'] / 60:.1f}m)",
+            f"{b8['total_duration']:,.1f}s ({b8['total_duration'] / 60:.1f}m)",
+            f"Multi-CLI +{lat_delta / 60:.1f}m (+{lat_delta / a8['total_duration'] * 100:.1f}%)",
+        ),
+        (
+            "Cumulative Dollar Spend",
+            f"${a8['total_cost']:.2f}",
+            f"${b8['total_cost']:.2f}",
+            f"Multi-CLI +${cost_delta:.2f} (+{cost_delta / a8['total_cost'] * 100:.1f}%)",
+        ),
     ]
     for i, (m, a, b, pen) in enumerate(h2h):
-        y = 275 + i * 48
+        y = 275 + i * 56
         draw.text((110, y), m, font=sans(15, "bold"), fill=INK)
-        draw.text((360, y), a, font=mono(13), fill=ARM_A_COLOR)
-        draw.text((500, y), b, font=mono(13), fill=ARM_B_COLOR)
-        draw.text((640, y), pen, font=sans(12, "bold"), fill=ARM_B_COLOR if "+" in pen and "task" not in pen else MUTED)
+        draw.text((740, y + 2), pen, font=sans(12, "bold"), fill=MUTED, anchor="ra")
+        draw.text((110, y + 24), f"OMP {a}", font=mono(12), fill=ARM_A_COLOR)
+        draw.text((400, y + 24), f"Multi-CLI {b}", font=mono(12), fill=ARM_B_COLOR)
 
     # Card 2: Key Finding
-    draw.rounded_rectangle((830, 210, 1520, 480), radius=12, fill=CARD, outline=HAIR, width=2)
+    draw.rounded_rectangle((830, 210, 1520, 505), radius=12, fill=CARD, outline=HAIR, width=2)
     draw.text((860, 235), "2. THE ARCHITECTURAL TAX DEFINED", font=mono(15, True), fill=ARM_B_COLOR)
-    draw.text((860, 275), "Why does Multi-CLI pay 28.9% more latency and 22.8% more cost?", font=sans(16, "bold"), fill=INK)
+    draw.text((860, 275), f"Why does Multi-CLI pay {lat_delta / a8['total_duration'] * 100:.1f}% more latency and {cost_delta / a8['total_cost'] * 100:.1f}% more cost?", font=sans(16, "bold"), fill=INK)
     draw.text((860, 310), "• Subprocess Boot Overhead: 4 separate runtime initializations per task.", font=sans(14), fill=MUTED)
     draw.text((860, 340), "• Cold Context Reads: Intermediate markdown handoffs force cold token reads.", font=sans(14), fill=MUTED)
     draw.text((860, 370), "• Subshell Churn: Standalone CLI tool turns spawn nested child shells.", font=sans(14), fill=MUTED)
@@ -368,11 +492,34 @@ def render_ablation_tax():
         draw.text((x, 570), c, font=mono(14, True), fill=FAINT)
     draw.line((110, 595, 1490, 595), fill=HAIR, width=1)
 
+    syn_a_res = SCORED_A["resolved"]
+    syn_lat_delta = SYNTH_B["total_duration"] - SCORED_A["total_duration"]
+    syn_cost_delta = SYNTH_B["total_cost"] - SCORED_A["total_cost"]
     syn_rows = [
-        ("Binary Task Resolution (R=1.0)", "19 / 25 (76.0%)", "20 / 25 (80.0%)", "Parity (Delta = 1 task)"),
-        ("Oracle Test Pass Ratio", "409 / 439 (93.2%)", "418 / 439 (95.2%)", "Parity (Delta = 9 unit tests)"),
-        ("Total Benchmark Wall Latency", "11,299.7s (188.3 min)", "14,325.8s (238.8 min)", "OMP is 50.4 min FASTER (-21.1%)"),
-        ("Total Standardized Spend", "$16.92", "$20.46", "OMP is $3.54 CHEAPER (-17.3%)")
+        (
+            "Binary Task Resolution (R=1.0)",
+            f"{syn_a_res} / 25 ({syn_a_res / 25 * 100:.1f}%)",
+            f"{SYNTH_B['resolved']} / 25 ({SYNTH_B['resolved'] / 25 * 100:.1f}%)",
+            f"Parity (Delta = {SYNTH_B['resolved'] - syn_a_res} task)",
+        ),
+        (
+            "Oracle Test Pass Ratio",
+            f"{SCORED_A['passed']} / {SCORED_A['total_tests']} ({SCORED_A['passed'] / SCORED_A['total_tests'] * 100:.1f}%)",
+            f"{SYNTH_B['passed']} / {SYNTH_B['total_tests']} ({SYNTH_B['passed'] / SYNTH_B['total_tests'] * 100:.1f}%)",
+            f"Parity (Delta = {SYNTH_B['passed'] - SCORED_A['passed']} unit tests)",
+        ),
+        (
+            "Total Benchmark Wall Latency",
+            f"{SCORED_A['total_duration']:,.1f}s ({SCORED_A['total_duration'] / 60:.1f} min)",
+            f"{SYNTH_B['total_duration']:,.1f}s ({SYNTH_B['total_duration'] / 60:.1f} min)",
+            f"OMP is {syn_lat_delta / 60:.1f} min FASTER (-{syn_lat_delta / SYNTH_B['total_duration'] * 100:.1f}%)",
+        ),
+        (
+            "Total Standardized Spend",
+            f"${SCORED_A['total_cost']:.2f}",
+            f"${SYNTH_B['total_cost']:.2f}",
+            f"OMP is ${syn_cost_delta:.2f} CHEAPER (-{syn_cost_delta / SYNTH_B['total_cost'] * 100:.1f}%)",
+        ),
     ]
     for idx, (m, a, b, d) in enumerate(syn_rows):
         y = 615 + idx * 42
@@ -382,6 +529,7 @@ def render_ablation_tax():
         draw.text((1220, y), d, font=sans(15, "bold"), fill=ARM_A_COLOR if "OMP is" in d else MUTED)
 
     draw.line((80, 840, 1520, 840), fill=HAIR, width=1)
+    draw.text((80, 820), f"Baseline for the 8-task block under the 300s regime: Multi-CLI's raw oracle score was already {TIER3['arm_b_primary_shadow']['passed']}/{TIER3['arm_b_primary_shadow']['total_tests']} before the SLA zeroed it.", font=sans(13), fill=MUTED)
     draw.text((80, 865), "Workflow Bench · Experiment 2  ·  Ablation Study", font=mono(14), fill=FAINT)
     draw.text((1520, 865), "github.com/bnivanov/harness-evals", font=mono(14), fill=FAINT, anchor="ra")
 
@@ -400,72 +548,60 @@ def render_full_ledger():
     draw.text((80, 45), "PRIMARY BENCHMARK MATRIX · FULL 25-TASK PAIRED LEDGER", font=mono(15, True), fill=FAINT)
     draw.text((80, 75), "Per-Task Outcome Ledger Under 300s SLA", font=sans(36, "bold"), fill=INK)
     draw.line((80, 125, 1520, 125), fill=HAIR, width=2)
+    ledger = DATA["ledger"]
 
-    # 2-column layout for the 25 tasks
-    # Left column: tasks 1-13; Right column: tasks 14-25
-    tasks_left = [
-        ("affine-cipher", "100%", "319.8s", "100%", "508.9s", "Parity"),
-        ("book-store", "100%", "385.4s", "100%", "605.4s", "Parity"),
-        ("bowling", "100%", "571.9s", "100%", "709.6s", "Parity"),
-        ("connect", "0%", "305.2s", "0%", "568.2s", "Both failed"),
-        ("go-counting", "100%", "416.2s", "0%", "731.9s", "OMP win (Grok timeout)"),
-        ("grade-school", "100%", "235.6s", "100%", "351.9s", "Parity"),
-        ("grep", "100%", "520.7s", "0%", "828.9s", "OMP win (Grok timeout)"),
-        ("hangman", "71%", "440.0s", "71%", "557.0s", "Parity"),
-        ("list-ops", "100%", "471.9s", "0%", "799.0s", "OMP win (Grok timeout)"),
-        ("phone-number", "90%", "411.3s", "90%", "431.4s", "Parity"),
-        ("pig-latin", "100%", "323.0s", "100%", "503.1s", "Parity"),
-        ("poker", "100%", "475.0s", "100%", "597.2s", "Parity"),
-        ("pov", "100%", "606.4s", "0%", "900.2s", "OMP win (Grok timeout)")
-    ]
+    def cells(entry: dict) -> tuple[str, str, str]:
+        a, b = entry["arm_a"], entry["arm_b"]
+        label_a = f"{a['ratio'] * 100:.0f}% ({a['duration']:.1f}s)"
+        label_b = f"{b['ratio'] * 100:.0f}% ({b['duration']:.1f}s)"
+        if a["ratio"] == b["ratio"]:
+            outcome = "Both invalidated" if a["invalidated_by"] and b["invalidated_by"] else "Parity"
+        elif a["ratio"] > b["ratio"]:
+            outcome = "OMP win (CLI timeout)" if b["invalidated_by"] else "OMP win"
+        else:
+            outcome = "Multi-CLI win"
+        return label_a, label_b, outcome
 
-    tasks_right = [
-        ("proverb", "100%", "161.4s", "100%", "260.4s", "Parity"),
-        ("react", "100%", "625.3s", "0%", "900.0s", "OMP win (Grok timeout)"),
-        ("rest-api", "0%", "569.5s", "0%", "900.1s", "Both failed"),
-        ("robot-name", "100%", "599.5s", "100%", "657.1s", "Parity"),
-        ("scale-generator", "100%", "563.2s", "0%", "726.9s", "OMP win (Grok timeout)"),
-        ("sgf-parsing", "96%", "689.4s", "0%", "900.1s", "OMP win (Grok timeout)"),
-        ("simple-linked-list", "100%", "421.1s", "100%", "456.6s", "Parity"),
-        ("transpose", "100%", "467.4s", "100%", "442.7s", "Parity"),
-        ("tree-building", "54%", "419.2s", "54%", "436.6s", "Parity"),
-        ("two-bucket", "100%", "489.2s", "100%", "489.0s", "Parity"),
-        ("variable-length-qty", "100%", "243.9s", "100%", "389.1s", "Parity"),
-        ("wordy", "100%", "567.7s", "100%", "610.4s", "Parity")
-    ]
+    split = 13
+    columns = ((80, 760, ledger[:split], 90), (800, 1520, ledger[split:], 810))
+    for left, right, group, x0 in columns:
+        draw.text((x0, 140), "TASK ID", font=mono(12, True), fill=FAINT)
+        draw.text((x0 + 190, 140), "ARM A (OMP)", font=mono(12, True), fill=ARM_A_COLOR)
+        draw.text((x0 + 360, 140), "ARM B (CLI)", font=mono(12, True), fill=ARM_B_COLOR)
+        draw.text((x0 + 520, 140), "OUTCOME", font=mono(12, True), fill=FAINT)
+        for i, entry in enumerate(group):
+            y = 175 + i * 47
+            label_a, label_b, outcome = cells(entry)
+            draw.rounded_rectangle((left, y - 6, right, y + 36), radius=5, fill=CARD, outline=HAIR, width=1)
+            draw.text((x0 + 10, y + 8), entry["task"], font=mono(12, True), fill=INK)
+            draw.text(
+                (x0 + 190, y + 8),
+                label_a,
+                font=sans(12, "bold"),
+                fill=ARM_A_COLOR if entry["arm_a"]["ratio"] == 1.0 else MUTED,
+            )
+            draw.text(
+                (x0 + 360, y + 8),
+                label_b,
+                font=sans(12, "bold"),
+                fill=ARM_B_COLOR if entry["arm_b"]["ratio"] == 1.0 else FAINT,
+            )
+            draw.text(
+                (x0 + 520, y + 8),
+                outcome,
+                font=sans(11, "bold"),
+                fill=ARM_A_COLOR if "OMP win" in outcome else MUTED,
+            )
 
-    # Header for left
-    draw.text((90, 140), "TASK ID", font=mono(12, True), fill=FAINT)
-    draw.text((250, 140), "ARM A (OMP)", font=mono(12, True), fill=ARM_A_COLOR)
-    draw.text((430, 140), "ARM B (CLI)", font=mono(12, True), fill=ARM_B_COLOR)
-    draw.text((610, 140), "OUTCOME", font=mono(12, True), fill=FAINT)
-
-    # Header for right
-    draw.text((810, 140), "TASK ID", font=mono(12, True), fill=FAINT)
-    draw.text((970, 140), "ARM A (OMP)", font=mono(12, True), fill=ARM_A_COLOR)
-    draw.text((1150, 140), "ARM B (CLI)", font=mono(12, True), fill=ARM_B_COLOR)
-    draw.text((1330, 140), "OUTCOME", font=mono(12, True), fill=FAINT)
-
-    draw.line((80, 160, 1520, 160), fill=HAIR, width=1)
-
-    for i, (tid, pa, da, pb, db, outc) in enumerate(tasks_left):
-        y = 175 + i * 47
-        draw.rounded_rectangle((80, y - 6, 760, y + 36), radius=5, fill=CARD, outline=HAIR, width=1)
-        draw.text((90, y + 8), tid[:18], font=mono(12, True), fill=INK)
-        draw.text((250, y + 8), f"{pa} ({da})", font=sans(12, "bold"), fill=ARM_A_COLOR if pa == "100%" else MUTED)
-        draw.text((430, y + 8), f"{pb} ({db})", font=sans(12, "bold"), fill=ARM_B_COLOR if pb == "100%" else FAINT)
-        draw.text((610, y + 8), outc[:18], font=sans(11, "bold"), fill=ARM_A_COLOR if "OMP win" in outc else MUTED)
-
-    for i, (tid, pa, da, pb, db, outc) in enumerate(tasks_right):
-        y = 175 + i * 47
-        draw.rounded_rectangle((800, y - 6, 1520, y + 36), radius=5, fill=CARD, outline=HAIR, width=1)
-        draw.text((810, y + 8), tid[:18], font=mono(12, True), fill=INK)
-        draw.text((970, y + 8), f"{pa} ({da})", font=sans(12, "bold"), fill=ARM_A_COLOR if pa == "100%" else MUTED)
-        draw.text((1150, y + 8), f"{pb} ({db})", font=sans(12, "bold"), fill=ARM_B_COLOR if pb == "100%" else FAINT)
-        draw.text((1330, y + 8), outc[:18], font=sans(11, "bold"), fill=ARM_A_COLOR if "OMP win" in outc else MUTED)
-
-    draw.line((80, 840, 1520, 840), fill=HAIR, width=1)
-    draw.text((80, 865), "Primary Confirmatory Matrix recorded under runs/confirmatory-003/", font=mono(14), fill=FAINT)
+    draw.line((80, 812, 1520, 812), fill=HAIR, width=1)
+    draw.text(
+        (80, 826),
+        "0% cells are Zero-Drop scores, not failed test runs: Multi-CLI zeros are 300s planner-SLA breaches"
+        " (raw oracle still passed 122/138 of those tests), and rest-api scored 0 in both arms on a missing 01_PLAN.md handoff.",
+        font=sans(13),
+        fill=MUTED,
+    )
+    draw.text((80, 865), "Primary Confirmatory Matrix recorded under runs/confirmatory-003/, rescored by analysis/score_matrix.py", font=mono(14), fill=FAINT)
     draw.text((1520, 865), "github.com/bnivanov/harness-evals", font=mono(14), fill=FAINT, anchor="ra")
 
     out_file = OUT_DIR / "07-full-25-task-ledger.png"

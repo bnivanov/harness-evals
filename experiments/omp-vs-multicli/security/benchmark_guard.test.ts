@@ -133,6 +133,25 @@ test("blocks symlink escape out of the workspace", async () => {
   expect(lines[0]?.tool).toBe("read");
 });
 
+test("blocks harness-internal URI schemes but allows file:// inside the workspace", async () => {
+  const cases = [
+    { path: "skill://writing", reason: "blocked skill:// resource outside benchmark workspace" },
+    { path: "artifact://3:raw", reason: "blocked artifact:// resource outside benchmark workspace" },
+    { path: "history://abc", reason: "blocked history:// resource outside benchmark workspace" },
+  ];
+  for (const c of cases) {
+    const result = await handler({ toolName: "read", input: { path: c.path } });
+    expect(result).toEqual({ block: true, reason: c.reason });
+  }
+  expect(
+    await handler({
+      toolName: "read",
+      input: { path: `file://${join(workspace, "public_test.py")}` },
+    }),
+  ).toBeUndefined();
+  expect(blockedLines(logPath).map((row) => row.reason)).toEqual(cases.map((c) => c.reason));
+});
+
 test("blocks curl, git clone, pip, and Python socket", async () => {
   const cases = [
     { command: "curl https://example.com", reason: "blocked network command" },

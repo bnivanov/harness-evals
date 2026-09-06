@@ -30,7 +30,9 @@ NETWORK_EXECUTABLES = (
 )
 
 TRACE_VIOLATION_PATTERNS = (
-    ("ORACLE_PATH", re.compile(r"(?:file://)?[^\s\"']*?/benchmarks/aider-python/(?:oracle|tasks)/", re.I)),
+    # Literal-anchored: a lazy `[^\s"']*?` prefix made this quadratic on
+    # multi-hundred-KB traces (~2.4 s/MB) without widening the match set.
+    ("ORACLE_PATH", re.compile(r"/benchmarks/aider-python/(?:oracle|tasks)/", re.I)),
     ("NETWORK_COMMAND", re.compile(r"(?:^|[;&|\s])(?:curl|wget|ssh|scp|rsync)\s|(?:^|[;&|\s])nc\s+-[a-zA-Z0-9]|(?:^|[;&|\s])nc\s+[0-9a-zA-Z.-]+\s+\d+", re.I)),
     ("GIT_NETWORK", re.compile(r"\bgit\s+(?:clone|fetch|pull|remote\s+add)\b", re.I)),
     ("PACKAGE_FETCH", re.compile(r"\b(?:pip(?:3)?\s+install|python3?\s+-m\s+pip\s+install|npm\s+install|gem\s+install)\b", re.I)),

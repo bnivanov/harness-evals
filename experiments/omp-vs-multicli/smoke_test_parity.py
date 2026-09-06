@@ -75,6 +75,7 @@ def omp_probe(role, workspace, artifact_dir, runtime_root):
         f"--thinking={EFFORT_PINS['omp']}",
         "--auto-approve",
         "--no-extensions",
+        "--no-skills",
         f"--hook={guard}",
         f"--config={config}",
         f"--session-dir={os.path.join(runtime, 'sessions')}",
