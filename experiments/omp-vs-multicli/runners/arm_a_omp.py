@@ -1,227 +1,312 @@
 #!/usr/bin/env python3
-"""
-Arm A Runner: Unified Multi-Model Coordination in Oh My Pi (OMP).
-Orchestrates Grok (Recon) -> Claude (Plan) -> Codex/GPT (Implement) -> Gemini (Verify)
-within a single OMP workspace using OMP tools and shared memory/state.
-"""
+"""Arm A: four-stage multi-model lifecycle in one isolated OMP session."""
 
+from __future__ import annotations
+
+import json
 import os
 import sys
+import tempfile
 import time
-import subprocess
-import json
 
-OMP_BIN = "/Users/agentlab/AgentWork/bin/omp"
-CONFIG_OVERLAY = os.path.abspath(os.path.join(os.path.dirname(__file__), "../config_overlay.yml"))
-# Pre-registered Reference Rate Card (PROTOCOL.md Section 5) in USD per 1M tokens
-RATE_CARD = {
-    "xai-oauth/grok-4.6": {"input": 3.00, "cache_read": 0.30, "output": 15.00, "reasoning": 15.00},
-    "openai-codex/gpt-5.6-luna": {"input": 2.50, "cache_read": 0.25, "output": 10.00, "reasoning": 10.00},
-    "google-antigravity/gemini-3.8-flash": {"input": 0.50, "cache_read": 0.05, "output": 2.00, "reasoning": 2.00},
-}
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, BASE_DIR)
 
-def calculate_stage_cost(model: str, input_tokens: int, cache_read_tokens: int, output_tokens: int, reasoning_tokens: int) -> float:
-    rates = RATE_CARD.get(model, {"input": 2.50, "cache_read": 0.25, "output": 10.00, "reasoning": 10.00})
-    uncached_input = max(0, input_tokens - cache_read_tokens)
-    cost = (
-        (uncached_input * rates["input"]) +
-        (cache_read_tokens * rates["cache_read"]) +
-        (output_tokens * rates["output"]) +
-        (reasoning_tokens * rates["reasoning"])
-    ) / 1_000_000.0
-    return round(cost, 6)
+from experiment_config import (  # noqa: E402
+    EFFORT_PINS,
+    MODEL_PINS,
+    PROMPTS,
+    STAGES,
+    STAGE_TIMEOUT_SECONDS,
+    TASK_TIMEOUT_SECONDS,
+    OMP_BIN,
+    normalize_usage,
+)
+from runner_common import (  # noqa: E402
+    copy_runtime_file,
+    prepare_isolated_omp_agent_dir,
+    read_guard_events,
+    run_captured_process,
+    sandbox_command,
+    trace_violations,
+)
 
-def parse_omp_telemetry(stdout_str: str, model: str) -> dict:
-    total_input = 0
-    total_output = 0
-    total_cache_read = 0
-    total_cache_write = 0
-    total_reasoning = 0
-    total_tokens = 0
+CONFIG_OVERLAY = os.path.join(BASE_DIR, "config_overlay.yml")
+GUARD_EXTENSION = os.path.join(BASE_DIR, "security", "benchmark_guard.ts")
+
+
+def parse_omp_telemetry(stdout: str, role: str) -> dict:
+    turn_usages = []
+    message_usages = []
     tool_calls = []
     text_responses = []
-    num_turns = 0
-    
-    for line in stdout_str.splitlines():
+    thinking_chars = 0
+    resolved_models = set()
+    providers = set()
+    for line in stdout.splitlines():
         line = line.strip()
-        if not line or not line.startswith("{"):
+        if not line.startswith("{"):
             continue
         try:
             event = json.loads(line)
         except json.JSONDecodeError:
             continue
-            
         event_type = event.get("type")
-        
-        if event_type == "turn_end":
-            num_turns += 1
-            msg = event.get("message", {})
-            usage = msg.get("usage", {})
-            total_input += usage.get("input", 0)
-            total_output += usage.get("output", 0)
-            total_cache_read += usage.get("cacheRead", 0)
-            total_cache_write += usage.get("cacheWrite", 0)
-            total_reasoning += usage.get("reasoningTokens", 0)
-            total_tokens += usage.get("totalTokens", 0)
-            
-            for c in msg.get("content", []):
-                if c.get("type") == "text" and c.get("text"):
-                    text_responses.append(c["text"])
-                    
-        elif event_type == "tool_execution_end":
-            tool_calls.append({
-                "tool": event.get("toolName"),
-                "is_error": event.get("isError", False)
-            })
-            
+        if event_type in {"turn_end", "message_end"}:
+            message = event.get("message", event)
+            usage = message.get("usage") or event.get("usage") or {}
+            if usage:
+                target = turn_usages if event_type == "turn_end" else message_usages
+                target.append(usage)
+            if message.get("model"):
+                resolved_models.add(message["model"])
+            if message.get("provider"):
+                providers.add(message["provider"])
+            for content in message.get("content", []):
+                if not isinstance(content, dict):
+                    continue
+                c_type = content.get("type")
+                if c_type == "text" and content.get("text"):
+                    text_responses.append(content["text"])
+                elif c_type == "thinking" and content.get("thinking"):
+                    thinking_chars += len(content["thinking"])
+        elif event_type == "tool_execution_start":
+            tool_calls.append({"tool": event.get("toolName"), "args": event.get("args")})
         elif event_type == "agent_end":
-            for m in event.get("messages", []):
-                if m.get("role") == "assistant":
-                    for c in m.get("content", []):
-                        if c.get("type") == "text" and c.get("text"):
-                            text_responses.append(c["text"])
-                            
-    final_text = "\n".join(text_responses[-2:]) if text_responses else ""
-    cost_usd = calculate_stage_cost(model, total_input, total_cache_read, total_output, total_reasoning)
-    
+            for message in event.get("messages", []):
+                if message.get("role") != "assistant":
+                    continue
+                for content in message.get("content", []):
+                    if not isinstance(content, dict):
+                        continue
+                    c_type = content.get("type")
+                    if c_type == "text" and content.get("text"):
+                        text_responses.append(content["text"])
+                    elif c_type == "thinking" and content.get("thinking"):
+                        thinking_chars += len(content["thinking"])
+
+    # OMP currently emits the same completed message through multiple lifecycle
+    # events. turn_end is authoritative; message_end is a compatibility fallback.
+    usages = turn_usages or message_usages
+    input_tokens = sum(item.get("input", 0) for item in usages)
+    cache_read_tokens = sum(item.get("cacheRead", 0) for item in usages)
+    cache_write_tokens = sum(item.get("cacheWrite", 0) for item in usages)
+    output_tokens = sum(item.get("output", 0) for item in usages)
+    reasoning_tokens = sum(item.get("reasoningTokens", 0) for item in usages)
+    if reasoning_tokens <= 0 and thinking_chars > 0:
+        # Provider returned thinking blocks in content without populating usage.reasoningTokens
+        reasoning_tokens = max(1, thinking_chars // 4)
+    normalized = normalize_usage(
+        role,
+        "omp",
+        input_tokens,
+        cache_read_tokens,
+        output_tokens,
+        reasoning_tokens,
+    )
     return {
-        "num_turns": num_turns,
-        "input_tokens": total_input,
-        "cache_read_tokens": total_cache_read,
-        "cache_write_tokens": total_cache_write,
-        "output_tokens": total_output,
-        "reasoning_tokens": total_reasoning,
-        "total_tokens": total_tokens if total_tokens > 0 else (total_input + total_output),
-        "cost_usd": cost_usd,
+        "num_turns": len(usages),
+        "input_tokens": input_tokens,
+        "cache_read_tokens": cache_read_tokens,
+        "cache_write_tokens": cache_write_tokens,
+        "output_tokens": output_tokens,
+        "reasoning_tokens": reasoning_tokens,
+        **normalized,
         "tool_calls_count": len(tool_calls),
         "tool_calls": tool_calls,
-        "final_text": final_text[:1500]
+        "resolved_models": sorted(resolved_models),
+        "resolved_providers": sorted(providers),
+        "final_text": "\n".join(text_responses[-2:])[-4000:],
     }
 
-def run_omp_stage(stage_name: str, model: str, prompt: str, cwd: str, timeout_sec: int = 180, continue_session: bool = False) -> dict:
-    start_time = time.time()
-    cmd = [
+
+def empty_telemetry(role: str) -> dict:
+    return {
+        "num_turns": 0,
+        "input_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "output_tokens": 0,
+        "reasoning_tokens": 0,
+        **normalize_usage(role, "omp", 0, 0, 0, 0),
+        "tool_calls_count": 0,
+        "tool_calls": [],
+        "resolved_models": [],
+        "resolved_providers": [],
+        "final_text": "",
+    }
+
+
+def run_omp_stage(
+    stage_name: str,
+    role: str,
+    prompt: str,
+    cwd: str,
+    artifact_dir: str,
+    runtime_dir: str,
+    omp_agent_dir: str,
+    config_path: str,
+    guard_path: str,
+    guard_log: str,
+    deadline: float,
+    continue_session: bool,
+) -> dict:
+    model = MODEL_PINS[role]["arm_a"]
+    remaining = deadline - time.monotonic()
+    timeout = min(STAGE_TIMEOUT_SECONDS, max(0.0, remaining))
+    if timeout <= 0:
+        return {
+            "stage": stage_name,
+            "role": role,
+            "configured_model": model,
+            "configured_effort": EFFORT_PINS["omp"],
+            "success": False,
+            "returncode": -1,
+            "duration": 0.0,
+            "error": "TASK_TIMEOUT",
+            "command": [],
+            "telemetry": empty_telemetry(role),
+            "stdout_summary": "",
+            "stderr_summary": "",
+            "protocol_violations": [{"code": "TASK_TIMEOUT"}],
+        }
+
+    command = [
         OMP_BIN,
         "--mode", "json",
         "-p", prompt,
         f"--model={model}",
-        "--thinking=max",
+        f"--thinking={EFFORT_PINS['omp']}",
         "--auto-approve",
         "--no-extensions",
-        f"--config={CONFIG_OVERLAY}",
-        "--tools=read,edit,write,bash,grep,glob",  # disable web_search
-        "--cwd", cwd
+        f"--hook={guard_path}",
+        f"--config={config_path}",
+        f"--session-dir={os.path.join(runtime_dir, 'sessions')}",
+        f"--max-time={int(timeout)}",
+        "--tools=read,edit,write,bash,grep,glob",
+        "--cwd", cwd,
     ]
     if continue_session:
-        cmd.append("--continue")
-    
+        command.append("--continue")
+
+    env = os.environ.copy()
+    env.update({
+        "PI_CODING_AGENT_DIR": omp_agent_dir,
+        "BENCHMARK_WORKSPACE": os.path.realpath(cwd),
+        "BENCHMARK_GUARD_LOG": guard_log,
+    })
+    stdout_path = os.path.join(artifact_dir, f"{stage_name}.stdout.jsonl")
+    stderr_path = os.path.join(artifact_dir, f"{stage_name}.stderr.log")
     print(f"[Arm A - OMP] Starting {stage_name} with {model}...")
-    try:
-        proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout_sec)
-        elapsed = time.time() - start_time
-        success = (proc.returncode == 0)
-        telemetry = parse_omp_telemetry(proc.stdout, model)
-        return {
-            "stage": stage_name,
-            "model": model,
-            "success": success,
-            "returncode": proc.returncode,
-            "duration": round(elapsed, 2),
-            "telemetry": telemetry,
-            "stdout_summary": telemetry["final_text"],
-            "stderr": proc.stderr[-1000:]
-        }
-    except subprocess.TimeoutExpired:
-        elapsed = time.time() - start_time
-        print(f"[Arm A - OMP] {stage_name} TIMED OUT after {timeout_sec}s")
-        return {
-            "stage": stage_name,
-            "model": model,
-            "success": False,
-            "returncode": -1,
-            "duration": round(elapsed, 2),
-            "error": "TIMEOUT",
-            "telemetry": {
-                "num_turns": 0,
-                "input_tokens": 0,
-                "cache_read_tokens": 0,
-                "cache_write_tokens": 0,
-                "output_tokens": 0,
-                "reasoning_tokens": 0,
-                "total_tokens": 0,
-                "cost_usd": 0.0,
-                "tool_calls_count": 0,
-                "tool_calls": [],
-                "final_text": ""
-            }
-        }
-def run_arm_a(task_meta: dict, workspace_dir: str) -> dict:
-    task_id = task_meta["task_id"]
-    impl_file = task_meta["impl_file"]
-    
-    total_start = time.time()
-    stages = []
-    
-    # Stage 1: Planner with Grok 4.6 (Max reasoning)
-    plan_prompt = (
-        f"You are the Planner agent. Inspect README.md and public_test.py. "
-        f"Design the complete architecture, data structures, and edge-case handling for {impl_file}. "
-        f"Write your step-by-step implementation guide and specifications to 01_PLAN.md and local://plan.md. "
-        f"DO NOT edit {impl_file} or any code files."
+    process = run_captured_process(
+        sandbox_command(command, cwd),
+        cwd,
+        timeout,
+        stdout_path,
+        stderr_path,
+        env,
     )
-    s1 = run_omp_stage("1_PLANNER", "xai-oauth/grok-4.6", plan_prompt, workspace_dir, timeout_sec=300, continue_session=False)
-    stages.append(s1)
-    # Stage 2: Worker (Initial Implementation) with Codex GPT-5.6 Luna (Max reasoning)
-    worker_initial_prompt = (
-        f"You are the Worker agent. Read 01_PLAN.md and README.md. "
-        f"Implement the complete, working solution in {impl_file}. "
-        f"Use bash to run 'python3 -m unittest public_test.py' to verify basic sanity. "
-        f"DO NOT modify public_test.py or any test files."
-    )
-    s2 = run_omp_stage("2_WORKER_INITIAL", "openai-codex/gpt-5.6-luna", worker_initial_prompt, workspace_dir, timeout_sec=300, continue_session=True)
-    stages.append(s2)
-    # Stage 3: Reviewer with Gemini 3.8 Flash (Max reasoning)
-    reviewer_prompt = (
-        f"You are the Reviewer & Quality Audit agent. Inspect {impl_file} against README.md and public_test.py. "
-        f"Run 'python3 -m unittest public_test.py' in bash. Audit the code for subtle edge cases, algorithmic flaws, "
-        f"off-by-one errors, or performance traps. Write your detailed code review findings, failing edge cases, "
-        f"and required fixes to 02_REVIEW.md and local://review.md. DO NOT edit code files."
-    )
-    s3 = run_omp_stage("3_REVIEWER", "google-antigravity/gemini-3.8-flash", reviewer_prompt, workspace_dir, timeout_sec=240, continue_session=True)
-    stages.append(s3)
-    # Stage 4: Worker (Refinement & Fixes) with Codex GPT-5.6 Luna (Max reasoning)
-    worker_refine_prompt = (
-        f"You are the Worker agent in refinement phase. Read 02_REVIEW.md, 01_PLAN.md, and README.md. "
-        f"Address all review findings, bug reports, and edge-case issues in {impl_file}. "
-        f"Use bash to run 'python3 -m unittest public_test.py' to verify. "
-        f"Ensure all requirements from README.md are satisfied. DO NOT edit test files."
-    )
-    s4 = run_omp_stage("4_WORKER_REFINE", "openai-codex/gpt-5.6-luna", worker_refine_prompt, workspace_dir, timeout_sec=300, continue_session=True)
-    stages.append(s4)
-    total_elapsed = time.time() - total_start
-    
-    total_tokens = sum(s.get("telemetry", {}).get("total_tokens", 0) for s in stages)
-    total_cost_usd = round(sum(s.get("telemetry", {}).get("cost_usd", 0.0) for s in stages), 6)
-    total_tool_calls = sum(s.get("telemetry", {}).get("tool_calls_count", 0) for s in stages)
-    total_turns = sum(s.get("telemetry", {}).get("num_turns", 0) for s in stages)
-    
+    telemetry = parse_omp_telemetry(process["stdout"], role)
+    violations = trace_violations(process["stdout"], process["stderr"])
+    expected_resolved = model.split("/", 1)[-1]
+    if telemetry["resolved_models"] and expected_resolved not in telemetry["resolved_models"]:
+        violations.append({
+            "code": "MODEL_MISMATCH",
+            "expected": expected_resolved,
+            "actual": telemetry["resolved_models"],
+        })
+    if not telemetry["resolved_models"]:
+        violations.append({"code": "MODEL_ID_UNRECORDED", "expected": expected_resolved})
+    if telemetry["reasoning_tokens"] <= 0:
+        violations.append({"code": "NO_REASONING_TOKENS"})
+    if process["timed_out"]:
+        violations.append({"code": "STAGE_TIMEOUT"})
+
+    success = process["returncode"] == 0 and not process["timed_out"]
     return {
-        "arm": "arm_a_omp",
-        "task_id": task_id,
-        "duration": round(total_elapsed, 2),
-        "total_tokens": total_tokens,
-        "total_cost_usd": total_cost_usd,
-        "total_turns": total_turns,
-        "total_tool_calls": total_tool_calls,
-        "stages": stages
+        "stage": stage_name,
+        "role": role,
+        "configured_model": model,
+        "configured_effort": EFFORT_PINS["omp"],
+        "success": success,
+        "returncode": process["returncode"],
+        "duration": process["duration"],
+        "error": "TIMEOUT" if process["timed_out"] else None,
+        "command": command,
+        "telemetry": telemetry,
+        "stdout_trace": process["stdout_trace"],
+        "stderr_trace": process["stderr_trace"],
+        "stdout_summary": telemetry["final_text"],
+        "stderr_summary": process["stderr"][-2000:],
+        "protocol_violations": violations,
     }
 
+
+def run_arm_a(task_meta: dict, workspace_dir: str, artifact_dir: str) -> dict:
+    os.makedirs(artifact_dir, exist_ok=True)
+    runtime_dir = tempfile.mkdtemp(prefix=f"harness_runtime_{task_meta['task_id']}_arm_a_")
+    omp_agent_dir = prepare_isolated_omp_agent_dir(runtime_dir)
+    config_path = copy_runtime_file(CONFIG_OVERLAY, runtime_dir)
+    guard_path = copy_runtime_file(GUARD_EXTENSION, runtime_dir)
+    guard_log = os.path.join(artifact_dir, "benchmark_guard.ndjson")
+    deadline = time.monotonic() + TASK_TIMEOUT_SECONDS
+    started = time.monotonic()
+    stages = []
+    violations = []
+
+    for index, (stage_name, role, required_artifact) in enumerate(STAGES):
+        stage = run_omp_stage(
+            stage_name,
+            role,
+            PROMPTS[stage_name].format(impl_file=task_meta["impl_file"]),
+            workspace_dir,
+            artifact_dir,
+            runtime_dir,
+            omp_agent_dir,
+            config_path,
+            guard_path,
+            guard_log,
+            deadline,
+            continue_session=index > 0,
+        )
+        stages.append(stage)
+        violations.extend({"stage": stage_name, **item} for item in stage["protocol_violations"])
+        if not stage["success"]:
+            violations.append({"stage": stage_name, "code": "STAGE_FAILED"})
+        if required_artifact and not os.path.isfile(os.path.join(workspace_dir, required_artifact)):
+            violations.append({
+                "stage": stage_name,
+                "code": "MISSING_HANDOFF",
+                "path": required_artifact,
+            })
+
+    guard_events = read_guard_events(guard_log)
+    violations.extend({"stage": "guard", **event} for event in guard_events)
+    total_duration = round(time.monotonic() - started, 2)
+    if total_duration > TASK_TIMEOUT_SECONDS + 2:
+        violations.append({"stage": "task", "code": "TASK_TIMEOUT"})
+
+    return {
+        "arm": "arm_a_omp",
+        "task_id": task_meta["task_id"],
+        "duration": total_duration,
+        "normalized_total_tokens": sum(
+            stage["telemetry"]["normalized_total_tokens"] for stage in stages
+        ),
+        "total_cost_usd": round(sum(stage["telemetry"]["cost_usd"] for stage in stages), 6),
+        "total_turns": sum(stage["telemetry"]["num_turns"] for stage in stages),
+        "total_tool_calls": sum(stage["telemetry"]["tool_calls_count"] for stage in stages),
+        "protocol_valid": not violations,
+        "protocol_violations": violations,
+        "guard_log": guard_log,
+        "stages": stages,
+    }
+
+
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: arm_a_omp.py <task_id> <workspace_dir>")
-        sys.exit(1)
-    with open(os.path.join(os.path.dirname(__file__), "../../../benchmarks/aider-python/manifest.json")) as f:
-        manifest = json.load(f)
-    meta = next(item for item in manifest if item["task_id"] == sys.argv[1])
-    res = run_arm_a(meta, sys.argv[2])
-    print(json.dumps(res, indent=2))
+    if len(sys.argv) != 4:
+        raise SystemExit("Usage: arm_a_omp.py <task_id> <workspace_dir> <artifact_dir>")
+    with open(os.path.join(BASE_DIR, "../../benchmarks/aider-python/manifest.json")) as handle:
+        manifest = json.load(handle)
+    metadata = next(item for item in manifest if item["task_id"] == sys.argv[1])
+    print(json.dumps(run_arm_a(metadata, sys.argv[2], sys.argv[3]), indent=2))

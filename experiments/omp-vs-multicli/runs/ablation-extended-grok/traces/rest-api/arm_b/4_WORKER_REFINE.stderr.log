@@ -1,0 +1,3 @@
+Reading additional input from stdin...
+2026-09-06T19:07:08.692552Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"OAuth\", resource_metadata=\"https://mcp.cloudflare.com/.well-known/oauth-protected-resource/mcp\"" })
+2026-09-06T19:10:11.573708Z ERROR codex_core::tools::router: error=exec_command failed for `/bin/zsh -lc 'find __pycache__ -maxdepth 1 -type f -print && rm -rf __pycache__ && git status --short'`: CreateProcess { message: "Rejected(\"`/bin/zsh -lc 'find __pycache__ -maxdepth 1 -type f -print && rm -rf __pycache__ && git status --short'` rejected: rm -f style commands are not permitted. Use a safer approach\")" }

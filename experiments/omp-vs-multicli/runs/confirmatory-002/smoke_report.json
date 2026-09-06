@@ -1,0 +1,238 @@
+{
+  "results": {
+    "planner": {
+      "arm_a": {
+        "command": [
+          "/Users/agentlab/AgentWork/bin/omp",
+          "--mode",
+          "json",
+          "-p",
+          "Use your configured maximum reasoning depth to calculate 17 * 19. Do not call tools. Return only the final numeric answer.",
+          "--model=xai-oauth/grok-4.6",
+          "--thinking=max",
+          "--auto-approve",
+          "--no-extensions",
+          "--hook=/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_runtime_uw2u4e2z/omp-planner/benchmark_guard.ts",
+          "--config=/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_runtime_uw2u4e2z/omp-planner/config_overlay.yml",
+          "--session-dir=/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_runtime_uw2u4e2z/omp-planner/sessions",
+          "--max-time=120",
+          "--tools=read,edit,write,bash,grep,glob",
+          "--cwd",
+          "/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_smoke_fu42t985"
+        ],
+        "configured_effort": "max",
+        "configured_model": "xai-oauth/grok-4.6",
+        "passed": true,
+        "reasoning_tokens": 65,
+        "resolved_models": [
+          "grok-4.6"
+        ],
+        "returncode": 0,
+        "stderr_trace": {
+          "bytes": 0,
+          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-002/smoke_traces/omp-planner.stderr.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "stdout_trace": {
+          "bytes": 9754,
+          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-002/smoke_traces/omp-planner.stdout.jsonl",
+          "sha256": "5c4e322c07e85a2f1abf16a750f0646dc621c3ff344bacd268130d751617dda9"
+        }
+      },
+      "arm_b": {
+        "command": [
+          "/Users/agentlab/.grok/bin/grok",
+          "-p",
+          "Use your configured maximum reasoning depth to calculate 17 * 19. Do not call tools. Return only the final numeric answer.",
+          "--model",
+          "grok-4.6",
+          "--effort",
+          "xhigh",
+          "--always-approve",
+          "--disable-web-search",
+          "--session-id",
+          "a941c912-6338-4041-9b20-781655d5ffa4",
+          "--output-format",
+          "json"
+        ],
+        "configured_effort": "xhigh",
+        "configured_model": "grok-4.6",
+        "identity_proof": "resolved telemetry",
+        "passed": true,
+        "provider": "grok",
+        "reasoning_tokens": 98,
+        "resolved_models": [
+          "grok-4.6-build"
+        ],
+        "returncode": 0,
+        "stderr_trace": {
+          "bytes": 0,
+          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-002/smoke_traces/grok.stderr.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "stdout_trace": {
+          "bytes": 829,
+          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-002/smoke_traces/grok.stdout.jsonl",
+          "sha256": "49a866d23a53b2030d616e7d07b3344c37ae956d30fdf14957c1a067a2ecce60"
+        }
+      }
+    },
+    "reviewer": {
+      "arm_a": {
+        "command": [
+          "/Users/agentlab/AgentWork/bin/omp",
+          "--mode",
+          "json",
+          "-p",
+          "Use your configured maximum reasoning depth to calculate 17 * 19. Do not call tools. Return only the final numeric answer.",
+          "--model=google-antigravity/gemini-3.8-flash",
+          "--thinking=max",
+          "--auto-approve",
+          "--no-extensions",
+          "--hook=/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_runtime_uw2u4e2z/omp-reviewer/benchmark_guard.ts",
+          "--config=/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_runtime_uw2u4e2z/omp-reviewer/config_overlay.yml",
+          "--session-dir=/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_runtime_uw2u4e2z/omp-reviewer/sessions",
+          "--max-time=120",
+          "--tools=read,edit,write,bash,grep,glob",
+          "--cwd",
+          "/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_smoke_fu42t985"
+        ],
+        "configured_effort": "max",
+        "configured_model": "google-antigravity/gemini-3.8-flash",
+        "passed": true,
+        "reasoning_tokens": 163,
+        "resolved_models": [
+          "gemini-3.8-flash"
+        ],
+        "returncode": 0,
+        "stderr_trace": {
+          "bytes": 0,
+          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-002/smoke_traces/omp-reviewer.stderr.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "stdout_trace": {
+          "bytes": 6725,
+          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-002/smoke_traces/omp-reviewer.stdout.jsonl",
+          "sha256": "8f0f6e65eb8357032f78969ba08d14bf7612a4a5e9475900425477de90b27fc2"
+        }
+      },
+      "arm_b": {
+        "command": [
+          "/Users/agentlab/.local/bin/agy",
+          "-p",
+          "Use your configured maximum reasoning depth to calculate 17 * 19. Do not call tools. Return only the final numeric answer.",
+          "--model",
+          "gemini-3.8-flash-high",
+          "--effort",
+          "high",
+          "--sandbox",
+          "--new-project",
+          "--dangerously-skip-permissions",
+          "--output-format",
+          "json"
+        ],
+        "configured_effort": "high",
+        "configured_model": "gemini-3.8-flash-high",
+        "identity_proof": "explicit strict argv + pinned binary",
+        "passed": true,
+        "provider": "agy",
+        "reasoning_tokens": 166,
+        "resolved_models": [],
+        "returncode": 0,
+        "stderr_trace": {
+          "bytes": 0,
+          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-002/smoke_traces/agy.stderr.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "stdout_trace": {
+          "bytes": 255,
+          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-002/smoke_traces/agy.stdout.jsonl",
+          "sha256": "af90988f07e293425b09819de99070aa9bd064379e2c8bc050f4e1aa9a8fda2d"
+        }
+      }
+    },
+    "worker": {
+      "arm_a": {
+        "command": [
+          "/Users/agentlab/AgentWork/bin/omp",
+          "--mode",
+          "json",
+          "-p",
+          "Use your configured maximum reasoning depth to calculate 17 * 19. Do not call tools. Return only the final numeric answer.",
+          "--model=openai-codex/gpt-5.6-luna",
+          "--thinking=max",
+          "--auto-approve",
+          "--no-extensions",
+          "--hook=/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_runtime_uw2u4e2z/omp-worker/benchmark_guard.ts",
+          "--config=/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_runtime_uw2u4e2z/omp-worker/config_overlay.yml",
+          "--session-dir=/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_runtime_uw2u4e2z/omp-worker/sessions",
+          "--max-time=120",
+          "--tools=read,edit,write,bash,grep,glob",
+          "--cwd",
+          "/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_smoke_fu42t985"
+        ],
+        "configured_effort": "max",
+        "configured_model": "openai-codex/gpt-5.6-luna",
+        "passed": true,
+        "reasoning_tokens": 31,
+        "resolved_models": [
+          "gpt-5.6-luna"
+        ],
+        "returncode": 0,
+        "stderr_trace": {
+          "bytes": 0,
+          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-002/smoke_traces/omp-worker.stderr.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "stdout_trace": {
+          "bytes": 9920,
+          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-002/smoke_traces/omp-worker.stdout.jsonl",
+          "sha256": "ca2abb7808126aabb363e7f4b1ccd57288c315343d0d3785b022ac33571713e2"
+        }
+      },
+      "arm_b": {
+        "command": [
+          "/Users/agentlab/.local/bin/codex",
+          "-c",
+          "model=\"gpt-5.6-luna\"",
+          "-c",
+          "model_reasoning_effort=\"max\"",
+          "-a",
+          "never",
+          "-s",
+          "workspace-write",
+          "exec",
+          "--skip-git-repo-check",
+          "--ignore-user-config",
+          "--ephemeral",
+          "--strict-config",
+          "--json",
+          "Use your configured maximum reasoning depth to calculate 17 * 19. Do not call tools. Return only the final numeric answer."
+        ],
+        "configured_effort": "max",
+        "configured_model": "gpt-5.6-luna",
+        "identity_proof": "explicit strict argv + pinned binary",
+        "passed": true,
+        "provider": "codex",
+        "reasoning_tokens": 20,
+        "resolved_models": [],
+        "returncode": 0,
+        "stderr_trace": {
+          "bytes": 39,
+          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-002/smoke_traces/codex.stderr.log",
+          "sha256": "1aa26269eb1cc57f86b235a03cda53c004edb5b1e9fc99d4da4f00843293d721"
+        },
+        "stdout_trace": {
+          "bytes": 347,
+          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-002/smoke_traces/codex.stdout.jsonl",
+          "sha256": "19b62177b0c91ccee30f930c0800acc700a260f7310d0c2f306e275e526f1de9"
+        }
+      }
+    }
+  },
+  "run_id": "confirmatory-002",
+  "run_manifest_path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-002/run_manifest.json",
+  "run_manifest_sha256": "2af4d3a7ff280e4d51e10f8583c6d0ab9ee52a4861ec5ffb904e3e4ffdc8e3e2",
+  "schema_version": 2,
+  "status": "pass"
+}

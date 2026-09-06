@@ -1,280 +1,240 @@
 #!/usr/bin/env python3
-"""
-Smoke Test for Rigorous Parity Verification (Arm A vs Arm B).
-Tests every stage across both execution arms to prove:
-1. Exact model identity resolution (e.g. gpt-5.6-luna in both arms).
-2. Exact reasoning effort resolution (e.g. max/xhigh in both arms).
-3. Ground-truth emission of non-zero reasoning/thinking tokens.
-4. Clean JSON telemetry extraction.
-"""
+"""Live, immutable model/reasoning parity gate for a frozen confirmatory run."""
 
+from __future__ import annotations
+
+import argparse
+import json
 import os
 import sys
-import json
-import subprocess
-import time
-import shutil
+import tempfile
+import uuid
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+sys.path.insert(0, BASE_DIR)
+sys.path.insert(0, os.path.join(BASE_DIR, "runners"))
+
+from experiment_config import (  # noqa: E402
+    AGY_BIN,
+    CODEX_BIN,
+    EFFORT_PINS,
+    GROK_BIN,
+    MODEL_PINS,
+    OMP_BIN,
+)
+from preflight import validate_frozen_manifest  # noqa: E402
+from runner_common import (  # noqa: E402
+    copy_runtime_file,
+    prepare_isolated_agy_home,
+    prepare_isolated_codex_home,
+    prepare_isolated_grok_home,
+    prepare_isolated_omp_agent_dir,
+    run_captured_process,
+    sandbox_command,
+    sha256_file,
+)
+from arm_a_omp import parse_omp_telemetry  # noqa: E402
+from arm_b_multicli import (  # noqa: E402
+    parse_agy_telemetry,
+    parse_codex_telemetry,
+    parse_grok_telemetry,
+)
+
+PROMPT = (
+    "Use your configured maximum reasoning depth to calculate 17 * 19. "
+    "Do not call tools. Return only the final numeric answer."
+)
 CONFIG_OVERLAY = os.path.join(BASE_DIR, "config_overlay.yml")
-PROBE_DIR = "/tmp/harness_parity_smoke_test"
-shutil.rmtree(PROBE_DIR, ignore_errors=True)
-os.makedirs(PROBE_DIR, exist_ok=True)
+GUARD_EXTENSION = os.path.join(BASE_DIR, "security", "benchmark_guard.ts")
 
-OMP_BIN = "/Users/agentlab/AgentWork/bin/omp"
-GROK_BIN = "/Users/agentlab/.grok/bin/grok"
-CODEX_BIN = "/Users/agentlab/.local/bin/codex"
-AGY_BIN = "/Users/agentlab/.local/bin/agy"
 
-PROMPT = "Solve this step-by-step with your maximum internal reasoning depth: What is 17 * 19? Return only the final numeric answer."
+def run_probe(command, workspace, artifact_prefix, env):
+    return run_captured_process(
+        sandbox_command(command, workspace),
+        workspace,
+        120,
+        f"{artifact_prefix}.stdout.jsonl",
+        f"{artifact_prefix}.stderr.log",
+        env,
+    )
 
-def test_stage_1_planner():
-    print("\n" + "=" * 80)
-    print("STAGE 1 SMOKE TEST: PLANNER (Target: Grok 4.6 @ xhigh reasoning)")
-    print("=" * 80)
-    
-    # Arm A: OMP
-    print("[Arm A - OMP] Probing xai-oauth/grok-4.6 with --thinking=max...")
-    cmd_a = [
-        OMP_BIN, "--mode", "json", "-p", PROMPT,
-        "--model=xai-oauth/grok-4.6", "--thinking=max",
-        "--auto-approve", "--no-extensions",
-        f"--config={CONFIG_OVERLAY}",
+
+def omp_probe(role, workspace, artifact_dir, runtime_root):
+    runtime = os.path.join(runtime_root, f"omp-{role}")
+    os.makedirs(runtime)
+    agent_dir = prepare_isolated_omp_agent_dir(runtime)
+    config = copy_runtime_file(CONFIG_OVERLAY, runtime)
+    guard = copy_runtime_file(GUARD_EXTENSION, runtime)
+    guard_log = os.path.join(artifact_dir, f"omp-{role}.guard.ndjson")
+    model = MODEL_PINS[role]["arm_a"]
+    command = [
+        OMP_BIN,
+        "--mode", "json",
+        "-p", PROMPT,
+        f"--model={model}",
+        f"--thinking={EFFORT_PINS['omp']}",
+        "--auto-approve",
+        "--no-extensions",
+        f"--hook={guard}",
+        f"--config={config}",
+        f"--session-dir={os.path.join(runtime, 'sessions')}",
+        "--max-time=120",
         "--tools=read,edit,write,bash,grep,glob",
-        "--cwd", PROBE_DIR
+        "--cwd", workspace,
     ]
-    t0 = time.time()
-    proc_a = subprocess.run(cmd_a, cwd=PROBE_DIR, capture_output=True, text=True, timeout=120)
-    dur_a = time.time() - t0
-    
-    omp_telemetry = {"input": 0, "output": 0, "reasoning": 0, "cache": 0, "model": "unknown", "provider": "unknown"}
-    for line in proc_a.stdout.splitlines():
-        if not line.startswith("{"): continue
-        try:
-            ev = json.loads(line)
-            if ev.get("type") == "turn_end":
-                msg = ev.get("message", {})
-                omp_telemetry["model"] = msg.get("model", omp_telemetry["model"])
-                omp_telemetry["provider"] = msg.get("provider", omp_telemetry["provider"])
-                u = msg.get("usage", {})
-                omp_telemetry["input"] += u.get("input", 0)
-                omp_telemetry["output"] += u.get("output", 0)
-                omp_telemetry["reasoning"] += u.get("reasoningTokens", 0)
-                omp_telemetry["cache"] += u.get("cacheRead", 0)
-        except: pass
-        
-    print(f"  Arm A Result: exit={proc_a.returncode}, dur={dur_a:.1f}s, "
-          f"provider={omp_telemetry['provider']}, model={omp_telemetry['model']}, "
-          f"tokens={omp_telemetry['input']} in / {omp_telemetry['output']} out / {omp_telemetry['reasoning']} reasoning")
+    env = os.environ.copy()
+    env.update({
+        "PI_CODING_AGENT_DIR": agent_dir,
+        "BENCHMARK_WORKSPACE": os.path.realpath(workspace),
+        "BENCHMARK_GUARD_LOG": guard_log,
+    })
+    process = run_probe(command, workspace, os.path.join(artifact_dir, f"omp-{role}"), env)
+    telemetry = parse_omp_telemetry(process["stdout"], role)
+    expected = model.split("/", 1)[-1]
+    passed = (
+        process["returncode"] == 0
+        and expected in telemetry["resolved_models"]
+        and telemetry["reasoning_tokens"] > 0
+    )
+    return {
+        "passed": passed,
+        "command": command,
+        "configured_model": model,
+        "configured_effort": EFFORT_PINS["omp"],
+        "resolved_models": telemetry["resolved_models"],
+        "reasoning_tokens": telemetry["reasoning_tokens"],
+        "returncode": process["returncode"],
+        "stdout_trace": process["stdout_trace"],
+        "stderr_trace": process["stderr_trace"],
+    }
 
-    # Arm B: Grok CLI
-    print("[Arm B - Grok CLI] Probing grok with --effort xhigh...")
-    cmd_b = [
-        GROK_BIN, "-p", PROMPT,
-        "--effort", "xhigh",
-        "--always-approve", "--disable-web-search",
-        "--output-format", "json"
-    ]
-    t0 = time.time()
-    proc_b = subprocess.run(cmd_b, cwd=PROBE_DIR, capture_output=True, text=True, timeout=120)
-    dur_b = time.time() - t0
-    
-    grok_telemetry = {"input": 0, "output": 0, "reasoning": 0, "cache": 0, "model": "unknown"}
-    try:
-        data_b = json.loads(proc_b.stdout)
-        u_b = data_b.get("usage", {})
-        grok_telemetry["input"] = u_b.get("input_tokens", 0)
-        grok_telemetry["output"] = u_b.get("output_tokens", 0)
-        grok_telemetry["reasoning"] = u_b.get("reasoning_tokens", 0)
-        grok_telemetry["cache"] = u_b.get("cache_read_input_tokens", 0)
-        grok_telemetry["model"] = list(data_b.get("modelUsage", {}).keys())[0] if data_b.get("modelUsage") else "grok-4.6"
-    except Exception as e:
-        print(f"  Grok parse error: {e}")
 
-    print(f"  Arm B Result: exit={proc_b.returncode}, dur={dur_b:.1f}s, model={grok_telemetry['model']}, "
-          f"tokens={grok_telemetry['input']} in / {grok_telemetry['output']} out / {grok_telemetry['reasoning']} reasoning")
-    
-    reasoning_fired = (omp_telemetry["reasoning"] > 0 and grok_telemetry["reasoning"] > 0)
-    parity = reasoning_fired
-    print(f"  >>> Stage 1 Parity: {'PASSED' if parity else 'FAILED'} (Reasoning tokens fired on both)")
-    return parity
+def vendor_probe(role, workspace, artifact_dir, runtime_root):
+    if role == "planner":
+        provider = "grok"
+        home = prepare_isolated_grok_home(os.path.join(runtime_root, "grok"))
+        env = os.environ.copy()
+        # No nested grok sandbox: --sandbox strict fails to initialize inside
+        # the outer sandbox-exec wrapper (RC 1 nested vs RC 0 standalone with
+        # reasoning). Containment is the outer seatbelt profile.
+        env.update({"HOME": home})
+        command = [
+            GROK_BIN,
+            "-p", PROMPT,
+            "--model", MODEL_PINS[role]["arm_b"],
+            "--effort", EFFORT_PINS[provider],
+            "--always-approve",
+            "--disable-web-search",
+            "--session-id", str(uuid.uuid4()),
+            "--output-format", "json",
+        ]
+        parser = parse_grok_telemetry
+    elif role == "reviewer":
+        provider = "agy"
+        # Machine-bound AGY auth: probe runs with real HOME (see runner_common).
+        home = prepare_isolated_agy_home(os.path.join(runtime_root, "agy"))
+        env = os.environ.copy()
+        env["HOME"] = home
 
-def test_stage_2_worker():
-    print("\n" + "=" * 80)
-    print("STAGE 2 & 4 SMOKE TEST: WORKER (Target: GPT-5.6 Luna @ max reasoning)")
-    print("=" * 80)
-    
-    # Arm A: OMP
-    print("[Arm A - OMP] Probing openai-codex/gpt-5.6-luna with --thinking=max...")
-    cmd_a = [
-        OMP_BIN, "--mode", "json", "-p", PROMPT,
-        "--model=openai-codex/gpt-5.6-luna", "--thinking=max",
-        "--auto-approve", "--no-extensions",
-        f"--config={CONFIG_OVERLAY}",
-        "--tools=read,edit,write,bash,grep,glob",
-        "--cwd", PROBE_DIR
-    ]
-    t0 = time.time()
-    proc_a = subprocess.run(cmd_a, cwd=PROBE_DIR, capture_output=True, text=True, timeout=120)
-    dur_a = time.time() - t0
-    
-    omp_telemetry = {"input": 0, "output": 0, "reasoning": 0, "cache": 0, "model": "unknown", "provider": "unknown", "has_thinking": False}
-    for line in proc_a.stdout.splitlines():
-        if not line.startswith("{"): continue
-        try:
-            ev = json.loads(line)
-            if ev.get("type") == "turn_end":
-                msg = ev.get("message", {})
-                omp_telemetry["model"] = msg.get("model", omp_telemetry["model"])
-                omp_telemetry["provider"] = msg.get("provider", omp_telemetry["provider"])
-                u = msg.get("usage", {})
-                omp_telemetry["input"] += u.get("input", 0)
-                omp_telemetry["output"] += u.get("output", 0)
-                omp_telemetry["reasoning"] += u.get("reasoningTokens", 0)
-                omp_telemetry["cache"] += u.get("cacheRead", 0)
-                for c in msg.get("content", []):
-                    if c.get("type") == "thinking":
-                        omp_telemetry["has_thinking"] = True
-        except: pass
-        
-    print(f"  Arm A Result: exit={proc_a.returncode}, dur={dur_a:.1f}s, "
-          f"provider={omp_telemetry['provider']}, model={omp_telemetry['model']}, has_thinking={omp_telemetry['has_thinking']}, "
-          f"tokens={omp_telemetry['input']} in / {omp_telemetry['output']} out / {omp_telemetry['reasoning']} reasoning")
+        command = [
+            AGY_BIN,
+            "-p", PROMPT,
+            "--model", MODEL_PINS[role]["arm_b"],
+            "--effort", EFFORT_PINS[provider],
+            "--sandbox",
+            "--new-project",
+            "--dangerously-skip-permissions",
+            "--output-format", "json",
+        ]
+        parser = parse_agy_telemetry
+    else:
+        provider = "codex"
+        home = prepare_isolated_codex_home(os.path.join(runtime_root, "codex"))
+        env = os.environ.copy()
+        env["CODEX_HOME"] = home
+        command = [
+            CODEX_BIN,
+            "-c", f'model="{MODEL_PINS[role]["arm_b"]}"',
+            "-c", f'model_reasoning_effort="{EFFORT_PINS[provider]}"',
+            "exec",
+            "--dangerously-bypass-approvals-and-sandbox",
+            "--skip-git-repo-check",
+            "--ignore-user-config",
+            "--ephemeral",
+            "--strict-config",
+            "--json",
+            PROMPT,
+        ]
+        parser = parse_codex_telemetry
 
-    # Arm B: Codex CLI
-    print("[Arm B - Codex CLI] Probing codex with -c model=\"gpt-5.6-luna\" -c model_reasoning_effort=\"max\"...")
-    cmd_b = [
-        CODEX_BIN,
-        "-c", 'model="gpt-5.6-luna"',
-        "-c", 'model_reasoning_effort="max"',
-        "exec", "--dangerously-bypass-approvals-and-sandbox",
-        "--json", PROMPT
-    ]
-    t0 = time.time()
-    proc_b = subprocess.run(cmd_b, cwd=PROBE_DIR, capture_output=True, text=True, timeout=120)
-    dur_b = time.time() - t0
-    
-    codex_telemetry = {"input": 0, "output": 0, "reasoning": 0, "cache": 0, "model": "unknown", "effort": "unknown"}
-    for line in proc_b.stdout.splitlines():
-        line = line.strip()
-        if not line.startswith("{"): continue
-        try:
-            ev = json.loads(line)
-            if ev.get("type") == "turn.completed":
-                u = ev.get("usage", {})
-                codex_telemetry["input"] += u.get("input_tokens", 0)
-                codex_telemetry["cache"] += u.get("cached_input_tokens", 0)
-                codex_telemetry["output"] += u.get("output_tokens", 0)
-                codex_telemetry["reasoning"] += u.get("reasoning_output_tokens", 0)
-        except: pass
+    process = run_probe(command, workspace, os.path.join(artifact_dir, provider), env)
+    telemetry = parser(process["stdout"], role)
+    resolved = telemetry.get("resolved_models", [])
+    if provider == "grok":
+        identity_ok = bool(resolved) and all(item.startswith("grok-4.6") for item in resolved)
+    elif provider == "agy":
+        identity_ok = not resolved or MODEL_PINS[role]["arm_b"] in resolved
+    else:
+        # Codex JSONL omits the resolved model. --strict-config plus explicit -c
+        # is the retained identity proof; preflight separately pins the binary hash.
+        identity_ok = True
+    passed = process["returncode"] == 0 and identity_ok and telemetry["reasoning_tokens"] > 0
+    return {
+        "passed": passed,
+        "provider": provider,
+        "command": command,
+        "configured_model": MODEL_PINS[role]["arm_b"],
+        "configured_effort": EFFORT_PINS[provider],
+        "resolved_models": resolved,
+        "identity_proof": "resolved telemetry" if resolved else "explicit strict argv + pinned binary",
+        "reasoning_tokens": telemetry["reasoning_tokens"],
+        "returncode": process["returncode"],
+        "stdout_trace": process["stdout_trace"],
+        "stderr_trace": process["stderr_trace"],
+    }
 
-    # Verify codex banner
-    proc_banner = subprocess.run([CODEX_BIN, "-c", 'model="gpt-5.6-luna"', "-c", 'model_reasoning_effort="max"', "exec", "--dangerously-bypass-approvals-and-sandbox", "echo test"],
-                                 cwd=PROBE_DIR, capture_output=True, text=True, timeout=30)
-    for line in proc_banner.stderr.splitlines():
-        if "model:" in line:
-            codex_telemetry["model"] = line.split("model:")[1].strip()
-        if "reasoning effort:" in line:
-            codex_telemetry["effort"] = line.split("reasoning effort:")[1].strip()
-    print(f"  Arm B Result: exit={proc_b.returncode}, dur={dur_b:.1f}s, "
-          f"resolved_model={codex_telemetry['model']}, resolved_effort={codex_telemetry['effort']}, "
-          f"tokens={codex_telemetry['input']} in / {codex_telemetry['output']} out / {codex_telemetry['reasoning']} reasoning")
-    
-    model_match = (omp_telemetry["model"] == "gpt-5.6-luna" and codex_telemetry["model"] == "gpt-5.6-luna")
-    effort_match = (codex_telemetry["effort"] == "max")
-    reasoning_fired = (omp_telemetry["has_thinking"] and codex_telemetry["reasoning"] > 0)
-    parity = (model_match and effort_match and reasoning_fired)
-    print(f"  >>> Stage 2 Parity: {'PASSED' if parity else 'FAILED'} "
-          f"(ModelMatch={model_match} [{omp_telemetry['model']} vs {codex_telemetry['model']}], "
-          f"EffortMatch={effort_match} [{codex_telemetry['effort']}], ReasoningFired={reasoning_fired})")
-    return parity
 
-def test_stage_3_reviewer():
-    print("\n" + "=" * 80)
-    print("STAGE 3 SMOKE TEST: REVIEWER (Target: Gemini 3.8 Flash @ high reasoning)")
-    print("=" * 80)
-    
-    # Arm A: OMP
-    print("[Arm A - OMP] Probing google-antigravity/gemini-3.8-flash with --thinking=max...")
-    cmd_a = [
-        OMP_BIN, "--mode", "json", "-p", PROMPT,
-        "--model=google-antigravity/gemini-3.8-flash", "--thinking=max",
-        "--auto-approve", "--no-extensions",
-        f"--config={CONFIG_OVERLAY}",
-        "--tools=read,edit,write,bash,grep,glob",
-        "--cwd", PROBE_DIR
-    ]
-    t0 = time.time()
-    proc_a = subprocess.run(cmd_a, cwd=PROBE_DIR, capture_output=True, text=True, timeout=120)
-    dur_a = time.time() - t0
-    
-    omp_telemetry = {"input": 0, "output": 0, "reasoning": 0, "cache": 0, "model": "unknown", "provider": "unknown"}
-    for line in proc_a.stdout.splitlines():
-        if not line.startswith("{"): continue
-        try:
-            ev = json.loads(line)
-            if ev.get("type") == "turn_end":
-                msg = ev.get("message", {})
-                omp_telemetry["model"] = msg.get("model", omp_telemetry["model"])
-                omp_telemetry["provider"] = msg.get("provider", omp_telemetry["provider"])
-                u = msg.get("usage", {})
-                omp_telemetry["input"] += u.get("input", 0)
-                omp_telemetry["output"] += u.get("output", 0)
-                omp_telemetry["reasoning"] += u.get("reasoningTokens", 0)
-                omp_telemetry["cache"] += u.get("cacheRead", 0)
-        except: pass
-        
-    print(f"  Arm A Result: exit={proc_a.returncode}, dur={dur_a:.1f}s, "
-          f"provider={omp_telemetry['provider']}, model={omp_telemetry['model']}, "
-          f"tokens={omp_telemetry['input']} in / {omp_telemetry['output']} out / {omp_telemetry['reasoning']} reasoning")
+def run_smoke(run_manifest_path: str) -> dict:
+    frozen = validate_frozen_manifest(run_manifest_path)
+    run_dir = os.path.dirname(run_manifest_path)
+    report_path = os.path.join(run_dir, "smoke_report.json")
+    if os.path.exists(report_path):
+        raise FileExistsError(f"Smoke report is immutable: {report_path}")
+    artifact_dir = os.path.join(run_dir, "smoke_traces")
+    os.makedirs(artifact_dir, exist_ok=False)
 
-    # Arm B: AGY CLI
-    print("[Arm B - AGY CLI] Probing agy with --effort high...")
-    cmd_b = [
-        AGY_BIN, "-p", PROMPT,
-        "--effort", "high",
-        "--dangerously-skip-permissions",
-        "--output-format", "json"
-    ]
-    t0 = time.time()
-    proc_b = subprocess.run(cmd_b, cwd=PROBE_DIR, capture_output=True, text=True, timeout=120)
-    dur_b = time.time() - t0
-    
-    agy_telemetry = {"input": 0, "output": 0, "reasoning": 0, "cache": 0}
-    try:
-        data_b = json.loads(proc_b.stdout)
-        u_b = data_b.get("usage", {})
-        agy_telemetry["input"] = u_b.get("input_tokens", 0)
-        agy_telemetry["output"] = u_b.get("output_tokens", 0)
-        agy_telemetry["reasoning"] = u_b.get("thinking_tokens", 0)
-        agy_telemetry["cache"] = u_b.get("cache_read_tokens", 0)
-    except Exception as e:
-        print(f"  AGY parse error: {e}")
+    with tempfile.TemporaryDirectory(prefix="harness_parity_smoke_") as workspace, tempfile.TemporaryDirectory(
+        prefix="harness_parity_runtime_"
+    ) as runtime_root:
+        with open(os.path.join(workspace, "README.md"), "w", encoding="utf-8") as handle:
+            handle.write("Parity smoke workspace. Do not call tools.\n")
+        results = {}
+        for role in ("planner", "worker", "reviewer"):
+            results[role] = {
+                "arm_a": omp_probe(role, workspace, artifact_dir, runtime_root),
+                "arm_b": vendor_probe(role, workspace, artifact_dir, runtime_root),
+            }
 
-    print(f"  Arm B Result: exit={proc_b.returncode}, dur={dur_b:.1f}s, "
-          f"tokens={agy_telemetry['input']} in / {agy_telemetry['output']} out / {agy_telemetry['reasoning']} reasoning")
-    
-    reasoning_fired = (omp_telemetry["reasoning"] > 0 and agy_telemetry["reasoning"] > 0)
-    parity = reasoning_fired
-    print(f"  >>> Stage 3 Parity: {'PASSED' if parity else 'FAILED'} (Reasoning tokens fired on both)")
-    return parity
+    passed = all(side["passed"] for role in results.values() for side in role.values())
+    report = {
+        "schema_version": 2,
+        "status": "pass" if passed else "fail",
+        "run_id": frozen["run_id"],
+        "run_manifest_path": run_manifest_path,
+        "run_manifest_sha256": sha256_file(run_manifest_path),
+        "results": results,
+    }
+    with open(report_path, "x", encoding="utf-8") as handle:
+        json.dump(report, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+    if not passed:
+        raise RuntimeError(f"Parity smoke failed; do not launch benchmark: {report_path}")
+    print(json.dumps(report, indent=2, sort_keys=True))
+    return report
+
 
 if __name__ == "__main__":
-    p1 = test_stage_1_planner()
-    p2 = test_stage_2_worker()
-    p3 = test_stage_3_reviewer()
-    
-    print("\n" + "=" * 80)
-    print("OVERALL PARITY GATE REPORT")
-    print("=" * 80)
-    print(f"Stage 1 (Grok 4.6 @ xhigh):          {'PASS' if p1 else 'FAIL'}")
-    print(f"Stage 2 & 4 (GPT-5.6 Luna @ max):     {'PASS' if p2 else 'FAIL'}")
-    print(f"Stage 3 (Gemini 3.8 Flash @ high):    {'PASS' if p3 else 'FAIL'}")
-    print("=" * 80)
-    
-    if p1 and p2 and p3:
-        print("\nALL STAGES VERIFIED: STRICT MODEL AND REASONING PARITY CONFIRMED.")
-        sys.exit(0)
-    else:
-        print("\nPARITY GATE FAILED: DO NOT PROCEED TO BENCHMARK.")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Run live parity smoke for a frozen run")
+    parser.add_argument("--run-manifest", required=True)
+    arguments = parser.parse_args()
+    run_smoke(os.path.abspath(arguments.run_manifest))

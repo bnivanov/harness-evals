@@ -1,261 +1,343 @@
 #!/usr/bin/env python3
-"""
-Arm B Runner: Disaggregated Multi-CLI Swarm.
-Chains specialized standalone CLIs:
-1. Grok CLI (Recon) -> 01_RECON.md
-2. Claude Code CLI (Plan) -> 02_PLAN.md
-3. Codex CLI (Implement) -> edits implementation file
-4. Gemini / Antigravity CLI (Verify) -> reviews & fixes
-"""
+"""Arm B: four isolated vendor CLI processes joined by disk handoffs."""
 
+from __future__ import annotations
+
+import json
 import os
 import sys
+import tempfile
 import time
-import subprocess
-import json
+import uuid
 
-GROK_BIN = "/Users/agentlab/.grok/bin/grok"
-CODEX_BIN = "/Users/agentlab/.local/bin/codex"
-AGY_BIN = "/Users/agentlab/.local/bin/agy"
-RATE_CARD = {
-    "grok": {"input": 3.00, "cache_read": 0.30, "output": 15.00, "reasoning": 15.00},
-    "codex": {"input": 2.50, "cache_read": 0.25, "output": 10.00, "reasoning": 10.00},
-    "agy": {"input": 0.50, "cache_read": 0.05, "output": 2.00, "reasoning": 2.00},
-}
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, BASE_DIR)
 
-def calculate_stage_cost(tool: str, input_tokens: int, cache_read_tokens: int, output_tokens: int, reasoning_tokens: int) -> float:
-    rates = RATE_CARD.get(tool, {"input": 2.50, "cache_read": 0.25, "output": 10.00, "reasoning": 10.00})
-    uncached_input = max(0, input_tokens - cache_read_tokens)
-    cost = (
-        (uncached_input * rates["input"]) +
-        (cache_read_tokens * rates["cache_read"]) +
-        (output_tokens * rates["output"]) +
-        (reasoning_tokens * rates["reasoning"])
-    ) / 1_000_000.0
-    return round(cost, 6)
+from experiment_config import (  # noqa: E402
+    AGY_BIN,
+    CODEX_BIN,
+    EFFORT_PINS,
+    GROK_BIN,
+    MODEL_PINS,
+    PROMPTS,
+    STAGES,
+    STAGE_TIMEOUT_SECONDS,
+    TASK_TIMEOUT_SECONDS,
+    normalize_usage,
+)
+from runner_common import (  # noqa: E402
+    prepare_isolated_agy_home,
+    prepare_isolated_codex_home,
+    prepare_isolated_grok_home,
+    run_captured_process,
+    sandbox_command,
+    trace_violations,
+)
 
-def parse_grok_telemetry(stdout_str: str) -> dict:
+
+def parse_grok_telemetry(stdout: str, role: str) -> dict:
     try:
-        data = json.loads(stdout_str)
-        usage = data.get("usage", {})
-        inp = usage.get("input_tokens", 0)
-        cache_read = usage.get("cache_read_input_tokens", 0)
-        cache_write = usage.get("cache_creation_input_tokens", 0)
-        out = usage.get("output_tokens", 0)
-        reasoning = usage.get("reasoning_tokens", 0)
-        total = usage.get("total_tokens", inp + out)
-        num_turns = data.get("num_turns", 1)
-        cost = calculate_stage_cost("grok", inp, cache_read, out, reasoning)
-        text = data.get("text", "")
-        return {
-            "num_turns": num_turns,
-            "input_tokens": inp,
-            "cache_read_tokens": cache_read,
-            "cache_write_tokens": cache_write,
-            "output_tokens": out,
-            "reasoning_tokens": reasoning,
-            "total_tokens": total,
-            "cost_usd": cost,
-            "final_text": text[:1500]
-        }
-    except Exception as e:
-        return {"error": str(e), "num_turns": 1, "input_tokens": 0, "cache_read_tokens": 0, "cache_write_tokens": 0, "output_tokens": 0, "reasoning_tokens": 0, "total_tokens": 0, "cost_usd": 0.0, "final_text": stdout_str[:1500]}
+        data = json.loads(stdout)
+    except json.JSONDecodeError as error:
+        data = {"parse_error": str(error), "text": stdout[-4000:]}
+    usage = data.get("usage", {})
+    input_tokens = usage.get("input_tokens", 0)
+    cache_read_tokens = usage.get("cache_read_input_tokens", 0)
+    output_tokens = usage.get("output_tokens", 0)
+    reasoning_tokens = usage.get("reasoning_tokens", 0)
+    normalized = normalize_usage(
+        role, "grok", input_tokens, cache_read_tokens, output_tokens, reasoning_tokens
+    )
+    return {
+        "num_turns": data.get("num_turns", 0),
+        "input_tokens": input_tokens,
+        "cache_read_tokens": cache_read_tokens,
+        "cache_write_tokens": usage.get("cache_creation_input_tokens", 0),
+        "output_tokens": output_tokens,
+        "reasoning_tokens": reasoning_tokens,
+        **normalized,
+        "resolved_models": sorted(data.get("modelUsage", {}).keys()),
+        "session_id": data.get("sessionId"),
+        "request_id": data.get("requestId"),
+        "parse_error": data.get("parse_error"),
+        "final_text": data.get("text", "")[-4000:],
+    }
 
-def parse_codex_telemetry(stdout_str: str) -> dict:
-    total_inp = 0
-    total_cache_read = 0
-    total_cache_write = 0
-    total_out = 0
-    total_reasoning = 0
-    num_turns = 0
-    text_pieces = []
-    
-    for line in stdout_str.splitlines():
+
+def parse_codex_telemetry(stdout: str, role: str) -> dict:
+    input_tokens = cache_read_tokens = cache_write_tokens = 0
+    output_tokens = reasoning_tokens = num_turns = 0
+    messages = []
+    resolved_models = set()
+    tool_calls = []
+    parse_errors = 0
+    for line in stdout.splitlines():
         line = line.strip()
-        if not line or not line.startswith("{"):
+        if not line.startswith("{"):
             continue
         try:
             event = json.loads(line)
         except json.JSONDecodeError:
+            parse_errors += 1
             continue
-            
-        event_type = event.get("type")
-        if event_type == "turn.completed":
+        if event.get("model"):
+            resolved_models.add(event["model"])
+        if event.get("type") == "turn.completed":
             num_turns += 1
             usage = event.get("usage", {})
-            total_inp += usage.get("input_tokens", 0)
-            total_cache_read += usage.get("cached_input_tokens", 0)
-            total_cache_write += usage.get("cache_write_input_tokens", 0)
-            total_out += usage.get("output_tokens", 0)
-            total_reasoning += usage.get("reasoning_output_tokens", 0)
-        elif event_type == "item.completed":
+            input_tokens += usage.get("input_tokens", 0)
+            cache_read_tokens += usage.get("cached_input_tokens", 0)
+            cache_write_tokens += usage.get("cache_write_input_tokens", 0)
+            output_tokens += usage.get("output_tokens", 0)
+            reasoning_tokens += usage.get("reasoning_output_tokens", 0)
+        elif event.get("type") == "item.completed":
             item = event.get("item", {})
             if item.get("type") == "agent_message" and item.get("text"):
-                text_pieces.append(item["text"])
-                
-    total_tokens = total_inp + total_out
-    cost = calculate_stage_cost("codex", total_inp, total_cache_read, total_out, total_reasoning)
+                messages.append(item["text"])
+            elif item.get("type") in {"command_execution", "mcp_tool_call", "file_change"}:
+                tool_calls.append(item)
+    normalized = normalize_usage(
+        role, "codex", input_tokens, cache_read_tokens, output_tokens, reasoning_tokens
+    )
     return {
         "num_turns": num_turns,
-        "input_tokens": total_inp,
-        "cache_read_tokens": total_cache_read,
-        "cache_write_tokens": total_cache_write,
-        "output_tokens": total_out,
-        "reasoning_tokens": total_reasoning,
-        "total_tokens": total_tokens,
-        "cost_usd": cost,
-        "final_text": "\n".join(text_pieces[-2:]) if text_pieces else ""
+        "input_tokens": input_tokens,
+        "cache_read_tokens": cache_read_tokens,
+        "cache_write_tokens": cache_write_tokens,
+        "output_tokens": output_tokens,
+        "reasoning_tokens": reasoning_tokens,
+        **normalized,
+        "resolved_models": sorted(resolved_models),
+        "tool_calls_count": len(tool_calls),
+        "tool_calls": tool_calls,
+        "parse_errors": parse_errors,
+        "final_text": "\n".join(messages[-2:])[-4000:],
     }
 
-def parse_agy_telemetry(stdout_str: str) -> dict:
-    try:
-        data = json.loads(stdout_str)
-        usage = data.get("usage", {})
-        inp = usage.get("input_tokens", 0)
-        cache_read = usage.get("cache_read_tokens", 0)
-        out = usage.get("output_tokens", 0)
-        reasoning = usage.get("thinking_tokens", 0)
-        total = usage.get("total_tokens", inp + out)
-        num_turns = data.get("num_turns", 1)
-        cost = calculate_stage_cost("agy", inp, cache_read, out, reasoning)
-        text = data.get("response", "")
-        return {
-            "num_turns": num_turns,
-            "input_tokens": inp,
-            "cache_read_tokens": cache_read,
-            "cache_write_tokens": 0,
-            "output_tokens": out,
-            "reasoning_tokens": reasoning,
-            "total_tokens": total,
-            "cost_usd": cost,
-            "final_text": text[:1500]
-        }
-    except Exception as e:
-        return {"error": str(e), "num_turns": 1, "input_tokens": 0, "cache_read_tokens": 0, "cache_write_tokens": 0, "output_tokens": 0, "reasoning_tokens": 0, "total_tokens": 0, "cost_usd": 0.0, "final_text": stdout_str[:1500]}
 
-def run_cli_stage(stage_name: str, tool_kind: str, cmd: list, cwd: str, timeout_sec: int = 180) -> dict:
-    start_time = time.time()
-    print(f"[Arm B - Multi-CLI] Starting {stage_name}: {' '.join(cmd[:3])}...")
+def parse_agy_telemetry(stdout: str, role: str) -> dict:
     try:
-        proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout_sec)
-        elapsed = time.time() - start_time
-        success = (proc.returncode == 0)
-        
-        if tool_kind == "grok":
-            telemetry = parse_grok_telemetry(proc.stdout)
-        elif tool_kind == "codex":
-            telemetry = parse_codex_telemetry(proc.stdout)
-        elif tool_kind == "agy":
-            telemetry = parse_agy_telemetry(proc.stdout)
-        else:
-            telemetry = {"total_tokens": 0, "cost_usd": 0.0, "final_text": proc.stdout[:500]}
-            
+        data = json.loads(stdout)
+    except json.JSONDecodeError as error:
+        data = {"parse_error": str(error), "response": stdout[-4000:]}
+    usage = data.get("usage", {})
+    input_tokens = usage.get("input_tokens", 0)
+    cache_read_tokens = usage.get("cache_read_tokens", 0)
+    output_tokens = usage.get("output_tokens", 0)
+    reasoning_tokens = usage.get("thinking_tokens", 0)
+    normalized = normalize_usage(
+        role, "agy", input_tokens, cache_read_tokens, output_tokens, reasoning_tokens
+    )
+    resolved = data.get("model") or data.get("model_id")
+    return {
+        "num_turns": data.get("num_turns", 0),
+        "input_tokens": input_tokens,
+        "cache_read_tokens": cache_read_tokens,
+        "cache_write_tokens": usage.get("cache_write_tokens", 0),
+        "output_tokens": output_tokens,
+        "reasoning_tokens": reasoning_tokens,
+        **normalized,
+        "resolved_models": [resolved] if resolved else [],
+        "parse_error": data.get("parse_error"),
+        "final_text": data.get("response", data.get("text", ""))[-4000:],
+    }
+
+
+def empty_telemetry(role: str, provider: str) -> dict:
+    return {
+        "num_turns": 0,
+        "input_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "output_tokens": 0,
+        "reasoning_tokens": 0,
+        **normalize_usage(role, provider, 0, 0, 0, 0),
+        "resolved_models": [],
+        "final_text": "",
+    }
+
+
+def run_cli_stage(
+    stage_name: str,
+    role: str,
+    provider: str,
+    command: list[str],
+    cwd: str,
+    artifact_dir: str,
+    deadline: float,
+    env: dict[str, str],
+) -> dict:
+    remaining = deadline - time.monotonic()
+    timeout = min(STAGE_TIMEOUT_SECONDS, max(0.0, remaining))
+    configured_model = MODEL_PINS[role]["arm_b"]
+    if timeout <= 0:
         return {
             "stage": stage_name,
-            "tool": cmd[0],
-            "tool_kind": tool_kind,
-            "success": success,
-            "returncode": proc.returncode,
-            "duration": round(elapsed, 2),
-            "telemetry": telemetry,
-            "stdout_summary": telemetry["final_text"],
-            "stderr": proc.stderr[-1000:]
-        }
-    except subprocess.TimeoutExpired:
-        elapsed = time.time() - start_time
-        print(f"[Arm B - Multi-CLI] {stage_name} TIMED OUT after {timeout_sec}s")
-        return {
-            "stage": stage_name,
-            "tool": cmd[0],
-            "tool_kind": tool_kind,
+            "role": role,
+            "provider": provider,
+            "configured_model": configured_model,
+            "configured_effort": EFFORT_PINS[provider],
             "success": False,
             "returncode": -1,
-            "duration": round(elapsed, 2),
-            "error": "TIMEOUT",
-            "telemetry": {
-                "num_turns": 0,
-                "input_tokens": 0,
-                "cache_read_tokens": 0,
-                "cache_write_tokens": 0,
-                "output_tokens": 0,
-                "reasoning_tokens": 0,
-                "total_tokens": 0,
-                "cost_usd": 0.0,
-                "final_text": ""
-            }
+            "duration": 0.0,
+            "error": "TASK_TIMEOUT",
+            "command": command,
+            "telemetry": empty_telemetry(role, provider),
+            "stdout_summary": "",
+            "stderr_summary": "",
+            "protocol_violations": [{"code": "TASK_TIMEOUT"}],
         }
-def run_arm_b(task_meta: dict, workspace_dir: str) -> dict:
-    task_id = task_meta["task_id"]
-    impl_file = task_meta["impl_file"]
-    
-    total_start = time.time()
-    stages = []
-    
-    # Stage 1: Planner with Grok CLI (Max reasoning)
-    plan_prompt = (
-        f"Inspect README.md and public_test.py. "
-        f"Design the complete architecture, data structures, and edge-case handling for {impl_file}. "
-        f"Write your step-by-step implementation guide and specifications to 01_PLAN.md. "
-        f"DO NOT edit {impl_file} or any code files."
+
+    stdout_path = os.path.join(artifact_dir, f"{stage_name}.stdout.jsonl")
+    stderr_path = os.path.join(artifact_dir, f"{stage_name}.stderr.log")
+    print(f"[Arm B - Multi-CLI] Starting {stage_name} with {provider}...")
+    process = run_captured_process(
+        sandbox_command(command, cwd),
+        cwd,
+        timeout,
+        stdout_path,
+        stderr_path,
+        env,
     )
-    cmd_s1 = [GROK_BIN, "-p", plan_prompt, "--effort", "xhigh", "--always-approve", "--disable-web-search", "--output-format", "json"]
-    s1 = run_cli_stage("1_PLANNER", "grok", cmd_s1, workspace_dir, timeout_sec=300)
-    stages.append(s1)
-    
-    # Stage 2: Worker (Initial Implementation) with Codex CLI (Max reasoning)
-    worker_initial_prompt = (
-        f"Read 01_PLAN.md and README.md. "
-        f"Implement the complete, working solution in {impl_file}. "
-        f"Run 'python3 -m unittest public_test.py' to verify basic functionality. "
-        f"DO NOT modify public_test.py or any test files."
-    )
-    cmd_s2 = [CODEX_BIN, "-c", 'model="gpt-5.6-luna"', "-c", 'model_reasoning_effort="max"', "exec", "--dangerously-bypass-approvals-and-sandbox", "--json", worker_initial_prompt]
-    s2 = run_cli_stage("2_WORKER_INITIAL", "codex", cmd_s2, workspace_dir, timeout_sec=300)
-    stages.append(s2)
-    
-    # Stage 3: Reviewer with Antigravity / Gemini CLI (Max reasoning: --effort high)
-    reviewer_prompt = (
-        f"Inspect {impl_file} against README.md and public_test.py. "
-        f"Run 'python3 -m unittest public_test.py'. Audit the code for subtle edge cases, algorithmic flaws, "
-        f"off-by-one errors, or performance traps. Write your detailed code review findings, failing edge cases, "
-        f"and required fixes to 02_REVIEW.md. DO NOT edit code files."
-    )
-    cmd_s3 = [AGY_BIN, "-p", reviewer_prompt, "--effort", "high", "--dangerously-skip-permissions", "--output-format", "json"]
-    s3 = run_cli_stage("3_REVIEWER", "agy", cmd_s3, workspace_dir, timeout_sec=240)
-    stages.append(s3)
-    
-    # Stage 4: Worker (Refinement & Fixes) with Codex CLI (Max reasoning)
-    worker_refine_prompt = (
-        f"Read 02_REVIEW.md, 01_PLAN.md, and README.md. "
-        f"Address all review findings, bug reports, and edge-case issues in {impl_file}. "
-        f"Run 'python3 -m unittest public_test.py' to verify. "
-        f"Ensure all requirements from README.md are satisfied. DO NOT edit test files."
-    )
-    cmd_s4 = [CODEX_BIN, "-c", 'model="gpt-5.6-luna"', "-c", 'model_reasoning_effort="max"', "exec", "--dangerously-bypass-approvals-and-sandbox", "--json", worker_refine_prompt]
-    s4 = run_cli_stage("4_WORKER_REFINE", "codex", cmd_s4, workspace_dir, timeout_sec=300)
-    stages.append(s4)
-    total_elapsed = time.time() - total_start
-    
-    total_tokens = sum(s.get("telemetry", {}).get("total_tokens", 0) for s in stages)
-    total_cost_usd = round(sum(s.get("telemetry", {}).get("cost_usd", 0.0) for s in stages), 6)
-    total_turns = sum(s.get("telemetry", {}).get("num_turns", 0) for s in stages)
-    
+    if provider == "grok":
+        telemetry = parse_grok_telemetry(process["stdout"], role)
+    elif provider == "codex":
+        telemetry = parse_codex_telemetry(process["stdout"], role)
+    else:
+        telemetry = parse_agy_telemetry(process["stdout"], role)
+
+    violations = trace_violations(process["stdout"], process["stderr"])
+    if telemetry.get("parse_error"):
+        violations.append({"code": "TELEMETRY_PARSE_ERROR", "detail": telemetry["parse_error"]})
+    if telemetry["reasoning_tokens"] <= 0:
+        violations.append({"code": "NO_REASONING_TOKENS"})
+    if process["timed_out"]:
+        violations.append({"code": "STAGE_TIMEOUT"})
+    if provider == "grok":
+        actual = telemetry["resolved_models"]
+        if not actual or not all(model.startswith("grok-4.6") for model in actual):
+            violations.append({"code": "MODEL_MISMATCH", "expected": configured_model, "actual": actual})
+
+    success = process["returncode"] == 0 and not process["timed_out"]
     return {
-        "arm": "arm_b_multicli",
-        "task_id": task_id,
-        "duration": round(total_elapsed, 2),
-        "total_tokens": total_tokens,
-        "total_cost_usd": total_cost_usd,
-        "total_turns": total_turns,
-        "stages": stages
+        "stage": stage_name,
+        "role": role,
+        "provider": provider,
+        "configured_model": configured_model,
+        "configured_effort": EFFORT_PINS[provider],
+        "success": success,
+        "returncode": process["returncode"],
+        "duration": process["duration"],
+        "error": "TIMEOUT" if process["timed_out"] else None,
+        "command": command,
+        "telemetry": telemetry,
+        "stdout_trace": process["stdout_trace"],
+        "stderr_trace": process["stderr_trace"],
+        "stdout_summary": telemetry["final_text"],
+        "stderr_summary": process["stderr"][-2000:],
+        "protocol_violations": violations,
     }
 
+
+def run_arm_b(task_meta: dict, workspace_dir: str, artifact_dir: str) -> dict:
+    os.makedirs(artifact_dir, exist_ok=True)
+    runtime_dir = tempfile.mkdtemp(prefix=f"harness_runtime_{task_meta['task_id']}_arm_b_")
+    grok_home = prepare_isolated_grok_home(runtime_dir)
+    codex_home = prepare_isolated_codex_home(runtime_dir)
+    agy_home = prepare_isolated_agy_home(runtime_dir)
+    deadline = time.monotonic() + TASK_TIMEOUT_SECONDS
+    started = time.monotonic()
+    stages = []
+    violations = []
+
+    for stage_name, role, required_artifact in STAGES:
+        prompt = PROMPTS[stage_name].format(impl_file=task_meta["impl_file"])
+        env = os.environ.copy()
+        if role == "planner":
+            provider = "grok"
+            env["HOME"] = grok_home
+            # Single containment layer (outer sandbox-exec): grok's internal
+            # --sandbox strict cannot initialize nested (see smoke evidence).
+            command = [
+                GROK_BIN,
+                "-p", prompt,
+                "--model", MODEL_PINS[role]["arm_b"],
+                "--effort", EFFORT_PINS[provider],
+                "--always-approve",
+                "--disable-web-search",
+                "--session-id", str(uuid.uuid4()),
+                "--output-format", "json",
+            ]
+        elif role == "reviewer":
+            provider = "agy"
+            # agy_home is the real HOME: AGY auth is machine-bound, so the
+            # reviewer runs with real auth under --new-project + sandbox.
+            env["HOME"] = agy_home
+
+            command = [
+                AGY_BIN,
+                "-p", prompt,
+                "--model", MODEL_PINS[role]["arm_b"],
+                "--effort", EFFORT_PINS[provider],
+                "--sandbox",
+                "--new-project",
+                "--dangerously-skip-permissions",
+                "--output-format", "json",
+            ]
+        else:
+            provider = "codex"
+            env["CODEX_HOME"] = codex_home
+            command = [
+                CODEX_BIN,
+                "-c", f'model="{MODEL_PINS[role]["arm_b"]}"',
+                "-c", f'model_reasoning_effort="{EFFORT_PINS[provider]}"',
+                "exec",
+                "--dangerously-bypass-approvals-and-sandbox",
+                "--skip-git-repo-check",
+                "--ignore-user-config",
+                "--ephemeral",
+                "--strict-config",
+                "--json",
+                prompt,
+            ]
+
+        stage = run_cli_stage(
+            stage_name, role, provider, command, workspace_dir, artifact_dir, deadline, env
+        )
+        stages.append(stage)
+        violations.extend({"stage": stage_name, **item} for item in stage["protocol_violations"])
+        if not stage["success"]:
+            violations.append({"stage": stage_name, "code": "STAGE_FAILED"})
+        if required_artifact and not os.path.isfile(os.path.join(workspace_dir, required_artifact)):
+            violations.append({
+                "stage": stage_name,
+                "code": "MISSING_HANDOFF",
+                "path": required_artifact,
+            })
+
+    duration = round(time.monotonic() - started, 2)
+    if duration > TASK_TIMEOUT_SECONDS + 2:
+        violations.append({"stage": "task", "code": "TASK_TIMEOUT"})
+    return {
+        "arm": "arm_b_multicli",
+        "task_id": task_meta["task_id"],
+        "duration": duration,
+        "normalized_total_tokens": sum(
+            stage["telemetry"]["normalized_total_tokens"] for stage in stages
+        ),
+        "total_cost_usd": round(sum(stage["telemetry"]["cost_usd"] for stage in stages), 6),
+        "total_turns": sum(stage["telemetry"]["num_turns"] for stage in stages),
+        "total_tool_calls": sum(stage["telemetry"].get("tool_calls_count", 0) for stage in stages),
+        "protocol_valid": not violations,
+        "protocol_violations": violations,
+        "stages": stages,
+    }
+
+
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: arm_b_multicli.py <task_id> <workspace_dir>")
-        sys.exit(1)
-    with open(os.path.join(os.path.dirname(__file__), "../../../benchmarks/aider-python/manifest.json")) as f:
-        manifest = json.load(f)
-    meta = next(item for item in manifest if item["task_id"] == sys.argv[1])
-    res = run_arm_b(meta, sys.argv[2])
-    print(json.dumps(res, indent=2))
+    if len(sys.argv) != 4:
+        raise SystemExit("Usage: arm_b_multicli.py <task_id> <workspace_dir> <artifact_dir>")
+    with open(os.path.join(BASE_DIR, "../../benchmarks/aider-python/manifest.json")) as handle:
+        manifest = json.load(handle)
+    metadata = next(item for item in manifest if item["task_id"] == sys.argv[1])
+    print(json.dumps(run_arm_b(metadata, sys.argv[2], sys.argv[3]), indent=2))

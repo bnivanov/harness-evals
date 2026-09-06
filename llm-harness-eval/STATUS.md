@@ -4,8 +4,7 @@
 
 ## Phase
 
-`2 — Pilot Complete` → Multi-model SWE lifecycle pilot completed across Arm A (OMP) and Arm B (Multi-CLI); Track A protocol frozen
-## Now
+`3 — Benchmark & Ablation Complete` → Full N=25 multi-model SWE lifecycle matrix (50 runs) and 8-task extended-horizon ablation completed with statistical significance testing ($p < 0.05$).
 
 - [x] Create project space (`llm-harness-eval`)
 - [x] Continuity files: BRIEF, STATUS, DECISIONS, LEARNINGS, possible-harnesses, evaluation-log
@@ -18,6 +17,9 @@
 - [x] Infrastructure milestone: integrated Oh My Pi (`omp`) backend into HarnessRouter ([PR #68](https://github.com/HarnessRouter/harnessrouter/pull/68)) to support headless UHP evaluation across Pi and OMP
 - [x] Agree evaluation protocol (tasks + metrics) — Wave 1 Track A frozen in [`waves/wave-1-track-a-protocol.md`](waves/wave-1-track-a-protocol.md) (Grok Build × Pi × OMP, pinned `grok-4.6`/`grok-build-0.1`, 3 tasks from Aider Python benchmark)
 - [x] First pilot eval entry in `evaluation-log.md` (3 tasks × 2 arms = 6 runs with full token burn and rate-card cost telemetry)
+- [x] Full N=25 Confirmatory Run completed and verified (50 runs recorded under `confirmatory-003`)
+- [x] Stage-level fairness and isolation analysis (Tier 2) completed (confirmed 100% downstream parity when plan delivered)
+- [x] Extended-horizon Grok ablation (Tier 3, 8 tasks, 600s ceiling) completed (proved 99.3% pass ratio recovery and quantified 20-25% Multi-CLI tax)
 ## Blockers
 
 - Several image logos still unresolved (hexagon cluster, white K, etc.)
