@@ -82,21 +82,21 @@ The primary benchmark evaluated all 25 paired tasks (50 individual runs) under t
 
 ![Primary Benchmark Results](visuals/out/03-primary-benchmark-results.png)
 
-| Metric | Arm A (Unified OMP) | Arm B (Multi-CLI) | Delta / Significance Level |
-|---|---|---|---|
-| **Binary Task Resolution (1.0)** | **19 / 25 (76.0%)** | **13 / 25 (52.0%)** | **+24.0% advantage ($p = 0.03125^*$)** |
-| **Oracle Unit Test Pass Ratio** | **88.5% (389 / 439)** | **60.6% (266 / 439)** | **+27.9% advantage ($p = 0.01560^*$)** |
-| **Mean Wall-Clock Latency** | **452.0s (~7.5 min)** | **609.7s (~10.2 min)** | **OMP is 157.7s faster ($p = 0.00008^*$)** |
-| **Mean Token Consumption** | **1,082,556 tokens** | **1,300,513 tokens** | **OMP saves 217,957 tokens ($p = 0.00100^*$)** |
-| **Total Benchmark Spend** | **$16.92 ($0.6769/task)** | **$15.96 ($0.6727/task)** | **Parity ($p = 0.6338$, Delta +$0.0042)** |
+Under strict production conditions, the headline performance metrics show a clear separation:
 
-*Asterisks denote statistical significance at $\alpha = 0.05$.*
+* **Binary Task Resolution ($R=1.0$):** Arm A (Unified OMP) resolved **19 of 25 tasks (76.0%)** versus **13 of 25 tasks (52.0%)** for Arm B (Multi-CLI Swarm). This is a **+24.0% resolution advantage** for OMP, which is statistically significant ($p = 0.03125$, exact McNemar test).
+* **Oracle Unit Test Pass Ratio:** Arm A achieved an **88.5% mean pass ratio (389 of 439 tests)** versus **60.6% (266 of 439 tests)** for Arm B. This **+27.9% pass ratio advantage** is statistically significant ($W^+ = 28.0, p = 0.01560$, paired Wilcoxon signed-rank test).
+* **Mean Wall-Clock Latency:** Arm A completed tasks in **452.0 seconds (~7.5 minutes)** on average, compared to **609.7 seconds (~10.2 minutes)** for Arm B. OMP was **157.7 seconds faster per task**, representing a 25.9% speedup ($W^+ = 5.0, p = 0.00008$).
+* **Mean Token Consumption:** Arm A consumed **1,082,556 tokens** per task versus **1,300,513 tokens** for Arm B, saving **217,957 tokens per task** through unified session KV-caching ($W^+ = 46.0, p = 0.00100$).
+* **Total Benchmark Spend:** Total spend across all 25 tasks was **$16.92** for Arm A ($0.6769 per task) versus **$15.96** for Arm B ($0.6727 per task), demonstrating statistical cost parity ($p = 0.6338$, paired Wilcoxon test).
 
-### Statistical significance analysis
-1. **Binary Task Resolution ($R=1.0$):** Unified OMP fully resolved 19 out of 25 tasks (76.0%, 95% CI: [56.6%, 88.5%]), whereas the Multi-CLI Swarm resolved 13 out of 25 tasks (52.0%, 95% CI: [33.5%, 70.0%]). The exact two-sided McNemar test on discordant pairs yielded **$p = 0.03125$**, confirming that OMP's reliability advantage is statistically significant.
-2. **Oracle Pass Ratio:** Evaluating partial pass rates across all 439 unit assertions, OMP achieved an 88.5% mean pass ratio versus 60.6% for Multi-CLI. The paired Wilcoxon signed-rank test confirmed a significant difference ($W^+ = 28.0, p = 0.01560$).
-3. **Execution Latency:** OMP was faster on 24 out of 25 tasks, averaging 452.0 seconds per task compared to 609.7 seconds for Multi-CLI. The Wilcoxon signed-rank test on paired latencies yielded **$W^+ = 5.0, p = 0.00008$**, proving that OMP's latency advantage is consistent and structural.
-4. **Token Consumption:** OMP burned an average of 1,082,556 tokens per task versus 1,300,513 tokens for Multi-CLI ($p = 0.00100$), saving an average of 217,957 tokens per task due to session-level prompt caching.
+The full per-task outcome ledger illustrates where the two architectures diverged across all 25 problems:
+
+![Full 25-Task Outcome Ledger](visuals/out/07-full-25-task-ledger.png)
+
+In 15 tasks, both arms performed with identical full or partial accuracy (`affine-cipher`, `book-store`, `bowling`, `grade-school`, `hangman`, `phone-number`, `pig-latin`, `poker`, `proverb`, `robot-name`, `simple-linked-list`, `transpose`, `tree-building`, `two-bucket`, and `wordy`). 
+
+However, in 8 tasks (`go-counting`, `grep`, `list-ops`, `pov`, `react`, `scale-generator`, `sgf-parsing`), OMP achieved full resolution while Multi-CLI scored 0% due to Stage 1 planning timeouts. In only 2 tasks (`connect` and `rest-api`), both arms failed to pass the oracle suite.
 
 ---
 
@@ -106,18 +106,18 @@ To understand the root cause of the 12 failed tasks in Multi-CLI, we examined wh
 
 ![Stage Breakdown and Parity](visuals/out/04-stage-parity-breakdown.png)
 
-| Stage | Target Model Role | Arm A (OMP) | Arm B (Multi-CLI) | Empirical Finding |
-|---|---|---|---|---|
-| **Stage 1: Planner** | Grok 4.6 @ xhigh | **25/25 (100%) · 147.5s** | 17/25 (68%) · 239.8s | Grok CLI timed out on 8 tasks |
-| **Stage 2: Worker Init** | GPT-5.6 Luna @ max | **25/25 (100%) · 110.2s** | 25/25 (100%) · 99.7s | 100% Execution Parity |
-| **Stage 3: Reviewer** | Gemini 3.8 Flash @ high | **25/25 (100%) · 100.1s** | 25/25 (100%) · 151.6s | 100% Audit Parity (OMP 51s faster) |
-| **Stage 4: Worker Ref** | GPT-5.6 Luna @ max | **25/25 (100%) · 66.6s** | 21/25 (84%) · 108.1s | Parity on all planned tasks |
+A stage-by-stage comparison reveals the exact location of the bottleneck:
+
+* **Stage 1 (Planner - Grok 4.6 @ xhigh):** OMP achieved a 100% planning completion rate (25/25) averaging 147.5 seconds, whereas Grok CLI completed 17 of 25 passes (68%) in 239.8 seconds before hitting the 300-second ceiling on 8 tasks.
+* **Stage 2 (Worker Initial - GPT-5.6 Luna @ max):** Initial implementation saw full success across both tools (25/25 runs each), with Codex CLI taking 99.7 seconds and OMP taking 110.2 seconds.
+* **Stage 3 (Reviewer - Gemini 3.8 Flash @ high):** Automated review passes succeeded universally in both environments (25/25 audits), though OMP finished in 100.1 seconds compared to 151.6 seconds for Antigravity CLI (a 51.5-second speed advantage).
+* **Stage 4 (Worker Refine - GPT-5.6 Luna @ max):** Code refinement completed cleanly for all 25 tasks in OMP (66.6s average), whereas Codex CLI resolved 21 of 25 tasks (84% in 108.1s), failing only when Stage 1 had produced no architectural plan.
 
 ### The conditional parity finding
 When we conditioned the analysis on the **17 tasks where Grok Stage 1 completed successfully in both arms**, an important finding emerged:
 
-* **Arm A (OMP) Resolution Rate:** **13 / 17 (76.5%)** | Pass Ratio: **89.2%**
-* **Arm B (Multi-CLI) Resolution Rate:** **13 / 17 (76.5%)** | Pass Ratio: **89.2%**
+* **Arm A (OMP) Resolution Rate:** **13 of 17 tasks (76.5%)** | Mean Pass Ratio: **89.2%**
+* **Arm B (Multi-CLI) Resolution Rate:** **13 of 17 tasks (76.5%)** | Mean Pass Ratio: **89.2%**
 
 This proves that **Codex Luna and Gemini Flash perform with exact 89.2% parity across both harness architectures**. When given a clear architectural blueprint, Codex and Gemini in standalone CLI mode are just as capable of writing and debugging code as they are inside OMP.
 
@@ -132,46 +132,42 @@ The entire performance gap in the primary matrix was driven by **Stage 1**:
 
 To test whether the Multi-CLI Swarm could recover if Grok CLI were granted sufficient time, we ran an extended-horizon ablation (`ablation-extended-grok`) across the 8 timed-out tasks with the planning ceiling expanded from 300 seconds to **600 seconds**.
 
-![Ablation Recovery and Tax](visuals/out/05-ablation-recovery-tax.png)
+![Ablation Task Recovery Breakdown](visuals/out/05-ablation-task-breakdown.png)
 
-| Task ID | Primary Matrix (300s SLA) | Tier 3 Ablation (600s Ceiling) | Grok Dur | Task Dur | Task Cost |
-|---|---|---|---|---|---|
-| **scale-generator** | 0 / 17 (0.0%) | **17 / 17 (100.0%) PERFECT** | 454.0s | 679.8s | $1.0251 |
-| **sgf-parsing** | 0 / 23 (0.0%) | **23 / 23 (100.0%) PERFECT** | 328.9s | 678.5s | $0.9937 |
-| **react** | 0 / 14 (0.0%) | **14 / 14 (100.0%) PERFECT** | 342.2s | 1015.0s | $1.2210 |
-| **rest-api** | 0 / 9 (0.0%) | **9 / 9 (100.0%) PERFECT** | 215.3s | 795.8s | $1.0112 |
-| **pov** | 0 / 15 (0.0%) | **14 / 15 (93.3%)** | 408.4s | 796.2s | $1.0929 |
-| **list-ops** | 0 / 24 (0.0%) | **24 / 24 (100.0%) PERFECT** | 205.7s | 531.7s | $0.7336 |
-| **grep** | 0 / 25 (0.0%) | **25 / 25 (100.0%) PERFECT** | 155.9s | 484.3s | $0.7034 |
-| **go-counting** | 0 / 11 (0.0%) | **11 / 11 (100.0%) PERFECT** | 420.0s | 769.8s | $1.1016 |
-| **TOTALS / RATIOS** | **0 / 138 (0.0%)** | **137 / 138 (99.3%)** | **316.3s** | **5751.1s** | **$7.8826** |
+The ablation confirmed our hypothesis across all 8 tasks:
 
-### The timeout hypothesis confirmed
-The ablation results were unambiguous:
-* Unit test pass rate on these 8 tasks jumped from **0.0% (0 / 138) to 99.3% (137 / 138)**.
-* Binary task resolutions jumped from **0 / 8 to 7 / 8 (87.5%)**.
-* Seven of the eight tasks achieved a **100% perfect pass**.
+* **`scale-generator`:** Recovered from 0/17 (0%) to **17/17 (100%)** with Grok planning in 454.0s ($1.0251).
+* **`sgf-parsing`:** Recovered from 0/23 (0%) to **23/23 (100%)** with Grok planning in 328.9s ($0.9937).
+* **`react`:** Recovered from 0/14 (0%) to **14/14 (100%)** with Grok planning in 342.2s ($1.2210).
+* **`rest-api`:** Recovered from 0/9 (0%) to **9/9 (100%)** with Grok planning in 215.3s ($1.0112).
+* **`pov`:** Recovered from 0/15 (0%) to **14/15 (93.3%)** with Grok planning in 408.4s ($1.0929).
+* **`list-ops`:** Recovered from 0/24 (0%) to **24/24 (100%)** with Grok planning in 205.7s ($0.7336).
+* **`grep`:** Recovered from 0/25 (0%) to **25/25 (100%)** with Grok planning in 155.9s ($0.7034).
+* **`go-counting`:** Recovered from 0/11 (0%) to **11/11 (100%)** with Grok planning in ~420.0s ($1.1016).
 
-This confirmed our hypothesis: **Standalone CLI downstream agents were never broken. Given adequate planning runway, Multi-CLI produces near-flawless implementations.**
+Across the 8 tasks, unit test pass rates jumped from **0.0% (0 of 138) to 99.3% (137 of 138)**, and full task resolutions jumped from **0 of 8 to 7 of 8 (87.5%)**.
+
+This confirms: **Standalone CLI downstream agents were never broken. Given adequate planning runway, Multi-CLI produces near-flawless implementations.**
 
 ### Quantifying the Multi-CLI tax
 However, comparing Arm A and Arm B on these exact 8 tasks revealed the true cost of process-boundary orchestration:
 
-| Metric | Arm A (Unified OMP) | Arm B (Multi-CLI Ablation) | Architectural Penalty |
-|---|---|---|---|
-| **Unit Test Pass Ratio** | 128 / 138 (92.8%) | **137 / 138 (99.3%)** | Multi-CLI +6.5% |
-| **Binary Task Resolution** | 6 / 8 (75.0%) | **7 / 8 (87.5%)** | Multi-CLI +1 task |
-| **Cumulative Wall Latency** | **4,462.7s (~74.4 min)** | **5,751.1s (~95.9 min)** | Multi-CLI takes **+21.5 min (+28.9%)** |
-| **Cumulative Dollar Spend** | **$6.42** | **$7.88** | Multi-CLI costs **+$1.46 (+22.8%)** |
+![The Multi-CLI Tax](visuals/out/06-ablation-head-to-head-tax.png)
+
+On these 8 tasks:
+* **Unit Test Pass Ratio:** Arm A (OMP) scored **92.8% (128 of 138 tests)** versus **99.3% (137 of 138 tests)** for Multi-CLI Ablation (+6.5% for Multi-CLI).
+* **Binary Task Resolution:** Arm A resolved **6 of 8 tasks (75.0%)** versus **7 of 8 tasks (87.5%)** for Multi-CLI (+1 task for Multi-CLI).
+* **Cumulative Wall Latency:** Arm A completed the 8 tasks in **4,462.7 seconds (~74.4 minutes)** versus **5,751.1 seconds (~95.9 minutes)** for Multi-CLI. Multi-CLI took **21.5 additional minutes (+28.9% slower)**.
+* **Cumulative Dollar Spend:** Arm A burned **$6.42** versus **$7.88** for Multi-CLI. Multi-CLI was **$1.46 more expensive (+22.8% higher cost)**.
 
 To achieve accuracy parity on these 8 tasks, the Multi-CLI Swarm required **21.5 additional minutes of execution time (+28.9%)** and burned **$1.46 more in tokens (+22.8%)**.
 
 ### The synthetic 25-task matrix (relaxed SLA regime)
 When we construct a synthetic 25-task matrix combining the primary runs with the ablation results (representing an environment with unconstrained timeouts), we observe the long-term trade-off:
 
-* **Binary Resolution:** OMP: 19 / 25 (76.0%) vs. Multi-CLI: 20 / 25 (80.0%) - **Functional Parity ($\Delta = 1$ task)**.
-* **Unit Test Pass Ratio:** OMP: 409 / 439 (93.2%) vs. Multi-CLI: 418 / 439 (95.2%) - **Functional Parity**.
-* **Total Benchmark Latency:** OMP: **11,299.7s (188.3 min)** vs. Multi-CLI: **14,325.8s (238.8 min)**. OMP is **50.4 minutes faster (21.1% latency reduction)**.
+* **Binary Resolution:** OMP: 19 of 25 tasks (76.0%) vs. Multi-CLI: 20 of 25 tasks (80.0%) - **Functional Parity ($\Delta = 1$ task)**.
+* **Unit Test Pass Ratio:** OMP: 409 of 439 tests (93.2%) vs. Multi-CLI: 418 of 439 tests (95.2%) - **Functional Parity**.
+* **Total Benchmark Latency:** OMP: **11,299.7 seconds (188.3 minutes)** vs. Multi-CLI: **14,325.8 seconds (238.8 minutes)**. OMP is **50.4 minutes faster (21.1% latency reduction)**.
 * **Total Benchmark Spend:** OMP: **$16.92** vs. Multi-CLI: **$20.46**. OMP is **$3.54 cheaper (17.3% cost reduction)**.
 
 In an unconstrained environment, Multi-CLI can match the accuracy of Unified OMP, but it pays an ongoing **20% to 25% tax in time and money** to do so.
