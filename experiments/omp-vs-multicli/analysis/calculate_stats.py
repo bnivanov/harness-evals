@@ -68,13 +68,13 @@ def analyze():
     n_10 = 0
     n_11 = 0
     
-    ratios_a = []
-    ratios_b = []
-    durations_a = []
-    durations_b = []
+    ratios_a, ratios_b = [], []
+    durations_a, durations_b = [], []
+    tokens_a, tokens_b = [], []
+    costs_a, costs_b = [], []
     
-    print(f"{'Task ID':<25} | {'Arm A (OMP)':<15} | {'Arm B (Multi-CLI)':<18} | {'Delta':<10}")
-    print("-" * 75)
+    print(f"{'Task ID':<20} | {'Arm A (Pass/Dur/Cost)':<26} | {'Arm B (Pass/Dur/Cost)':<26} | {'Delta Pass':<10}")
+    print("-" * 90)
     
     for tid in sorted(paired_tasks):
         ra = by_task[tid]["arm_a"]["verification"].get("ratio", 0.0)
@@ -85,10 +85,20 @@ def analyze():
         da = by_task[tid]["arm_a"]["execution"].get("duration", 0.0)
         db = by_task[tid]["arm_b"]["execution"].get("duration", 0.0)
         
+        ta = by_task[tid]["arm_a"]["execution"].get("total_tokens", 0)
+        tb = by_task[tid]["arm_b"]["execution"].get("total_tokens", 0)
+        
+        ca = by_task[tid]["arm_a"]["execution"].get("total_cost_usd", 0.0)
+        cb = by_task[tid]["arm_b"]["execution"].get("total_cost_usd", 0.0)
+        
         ratios_a.append(ra)
         ratios_b.append(rb)
         durations_a.append(da)
         durations_b.append(db)
+        tokens_a.append(ta)
+        tokens_b.append(tb)
+        costs_a.append(ca)
+        costs_b.append(cb)
         
         if pa: a_pass_count += 1
         if pb: b_pass_count += 1
@@ -98,23 +108,33 @@ def analyze():
         elif not pa and pb: n_01 += 1
         else: n_00 += 1
         
-        print(f"{tid:<25} | {ra*100:>5.1f}% ({'PASS' if pa else 'FAIL'}) | {rb*100:>5.1f}% ({'PASS' if pb else 'FAIL'})     | {(ra-rb)*100:>+5.1f}%")
+        summary_a = f"{ra*100:4.0f}% | {da:5.1f}s | ${ca:6.4f}"
+        summary_b = f"{rb*100:4.0f}% | {db:5.1f}s | ${cb:6.4f}"
+        print(f"{tid:<20} | {summary_a:<26} | {summary_b:<26} | {(ra-rb)*100:>+5.1f}%")
 
     N = len(paired_tasks)
     w_lower_a, w_upper_a = wilson_score_interval(a_pass_count, N)
     w_lower_b, w_upper_b = wilson_score_interval(b_pass_count, N)
-    
     mcnemar_p = mcnemar_exact_p(n_10, n_01)
     
-    print("\n-------------------------------------------------------")
-    print("PRIMARY STATISTICAL METRICS")
-    print("-------------------------------------------------------")
-    print(f"Arm A (OMP) Binary Resolution:       {a_pass_count}/{N} ({a_pass_count/N*100:.1f}%) [95% CI: {w_lower_a}% - {w_upper_a}%]")
-    print(f"Arm B (Multi-CLI) Binary Resolution: {b_pass_count}/{N} ({b_pass_count/N*100:.1f}%) [95% CI: {w_lower_b}% - {w_upper_b}%]")
-    print(f"Mean Pass Ratio:                     Arm A = {sum(ratios_a)/N*100:.1f}% | Arm B = {sum(ratios_b)/N*100:.1f}%")
-    print(f"Contingency Table (Discordance):     n_10 (A wins) = {n_10} | n_01 (B wins) = {n_01} | Tied = {n_11 + n_00}")
-    print(f"Exact McNemar Test (Two-sided):      p = {mcnemar_p:.4f} ({'STATISTICALLY SIGNIFICANT (p < 0.05)' if mcnemar_p < 0.05 else 'NOT SIGNIFICANT (p >= 0.05)'})")
-    print("-------------------------------------------------------\n")
+    mean_dur_a = sum(durations_a) / N
+    mean_dur_b = sum(durations_b) / N
+    mean_tok_a = sum(tokens_a) / N
+    mean_tok_b = sum(tokens_b) / N
+    mean_cost_a = sum(costs_a) / N
+    mean_cost_b = sum(costs_b) / N
+    
+    print("\n-----------------------------------------------------------------------------------------")
+    print("PRIMARY COMPARATIVE METRICS (ARM A vs ARM B)")
+    print("-----------------------------------------------------------------------------------------")
+    print(f"Binary Resolution (P=1.0):   Arm A = {a_pass_count}/{N} ({a_pass_count/N*100:.1f}%) [95% CI: {w_lower_a}% - {w_upper_a}%]")
+    print(f"                              Arm B = {b_pass_count}/{N} ({b_pass_count/N*100:.1f}%) [95% CI: {w_lower_b}% - {w_upper_b}%]")
+    print(f"Mean Oracle Pass Ratio:       Arm A = {sum(ratios_a)/N*100:.1f}% | Arm B = {sum(ratios_b)/N*100:.1f}%")
+    print(f"Mean Wall-Clock Latency:      Arm A = {mean_dur_a:.1f}s | Arm B = {mean_dur_b:.1f}s (Delta: {mean_dur_a - mean_dur_b:+.1f}s)")
+    print(f"Mean Token Consumption:       Arm A = {mean_tok_a:,.0f} tokens | Arm B = {mean_tok_b:,.0f} tokens")
+    print(f"Mean Standardized Cost (USD): Arm A = ${mean_cost_a:.4f} | Arm B = ${mean_cost_b:.4f} (Delta: ${mean_cost_a - mean_cost_b:+.4f})")
+    print(f"Exact McNemar Test:           p = {mcnemar_p:.4f} ({'STATISTICALLY SIGNIFICANT' if mcnemar_p < 0.05 else 'NOT SIGNIFICANT'})")
+    print("-----------------------------------------------------------------------------------------\n")
 
 if __name__ == "__main__":
     analyze()

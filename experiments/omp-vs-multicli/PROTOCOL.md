@@ -115,3 +115,61 @@ Token usage across both arms is converted to canonical USD costs to prevent subs
 | **Claude 3.7 Sonnet**| `anthropic/claude-3-7-sonnet` | $3.00 | $0.30 | $15.00 | $15.00 |
 | **GPT-5.6 / Codex** | `openai/gpt-5.6-luna` | $2.50 | $0.25 | $10.00 | $10.00 |
 | **Gemini 3.8 Flash** | `google/gemini-3.8-flash` | $0.50 | $0.05 | $2.00 | $2.00 |
+
+---
+
+## 6. Telemetry Normalization & Fair Accounting Specification
+
+To ensure exact comparability between the unified harness (Arm A) and standalone CLIs (Arm B), all executions must capture granular token telemetry and normalize it through a uniform accounting contract.
+
+### 6.1 Telemetry Extraction Contracts
+
+1. **Arm A: Unified OMP (`--mode json -p`)**:
+   * Parses NDJSON stream emitted to stdout.
+   * Reads `turn_end` and `message_end` event usage objects:
+     * `input`: Prompt tokens.
+     * `cacheRead`: Prompt tokens served from provider cache.
+     * `output`: Generated completion tokens.
+     * `reasoningTokens`: Thinking/scratchpad tokens.
+   * Aggregates across all turns within each stage.
+
+2. **Arm B: Disaggregated Multi-CLI**:
+   * **Planner (`grok --output-format json -p`)**:
+     * Extracts `usage.input_tokens`, `usage.cache_read_input_tokens`, `usage.output_tokens`, `usage.reasoning_tokens`, and `num_turns`.
+   * **Worker (`codex exec --json`)**:
+     * Parses JSONL event stream from stdout.
+     * Aggregates across all `turn.completed` events:
+       * `input_tokens`: Base prompt tokens.
+       * `cached_input_tokens`: Cached prompt tokens.
+       * `output_tokens`: Generated tokens.
+       * `reasoning_output_tokens`: High-effort reasoning tokens.
+   * **Reviewer (`agy -p --output-format json`)**:
+     * Extracts `usage.input_tokens`, `usage.cache_read_tokens`, `usage.output_tokens`, `usage.thinking_tokens`, and `num_turns`.
+
+### 6.2 Standardized Cost & Token Formula
+
+For every stage $s$ with model $M$:
+
+$$\text{Uncached Input} = \max(0, \text{Total Input} - \text{Cache Read})$$
+
+$$\text{Cost}_s = \frac{\text{Uncached Input} \times P_{\text{in}} + \text{Cache Read} \times P_{\text{cache}} + \text{Output} \times P_{\text{out}} + \text{Reasoning} \times P_{\text{reasoning}}}{1,000,000}$$
+
+Where $P_{\text{in}}, P_{\text{cache}}, P_{\text{out}}, P_{\text{reasoning}}$ are fixed by the pre-registered Reference Rate Card (Section 5), preventing subscription vs. pay-per-token pricing distortions.
+
+### 6.3 Controlled Variables (Held Strictly Constant)
+
+| Variable | Control Mechanism | Parity Check |
+| :--- | :--- | :--- |
+| **Model Family & Generation** | Pinned frontier models per stage | Identical models used in Arm A and Arm B at each stage |
+| **Reasoning Depth** | Maximum available reasoning effort | OMP: `--thinking=max`<br>Codex: `model_reasoning_effort="high"`<br>AGY: `--effort high`<br>Grok: Native full reasoning |
+| **Tool Surface** | Identical primitive capabilities | File read, file write, file edit, bash unit test runner |
+| **Network Isolation** | Strict offline execution | Web search disabled; external network calls blocked and audited |
+| **Stage Prompts** | Verbatim identical instructions | Identical role descriptions, constraints, and instructions |
+| **Evaluation Sandbox** | Anti-cheating rings 1–5 | Quarantined oracle test suite; clean ephemeral single-commit git repo; external test execution |
+| **Verification Oracle** | Quarantined Exercism test suite | Independent test runner parsing assertions; zero reliance on agent self-reports |
+
+### 6.4 The Sole Independent Variable
+
+The **only variable permitted to differ** between Arm A and Arm B is the **orchestration and handoff substrate**:
+* **Arm A**: An integrated harness (`omp`) maintaining continuous session memory (`--continue`), unified tool coordination, and hash-anchored edits.
+* **Arm B**: Disaggregated standalone vendor CLIs (`grok`, `codex`, `agy`) communicating strictly across process boundaries through serialized markdown files on disk (`01_PLAN.md`, `02_REVIEW.md`).
