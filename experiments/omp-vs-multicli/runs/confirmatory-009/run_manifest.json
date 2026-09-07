@@ -95,7 +95,7 @@
       "unit_tests": "pass"
     }
   },
-  "created_at": "2026-09-07T20:12:45.339326Z",
+  "created_at": "2026-09-07T20:19:12.135109Z",
   "legacy_pilot_results": {
     "included": false,
     "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/results",
@@ -130,8 +130,8 @@
     "run_matrix.py": "6ff9c3b4aaf848765e358e499c4f05834e78b075964443a5a55ae827402c8c14",
     "run_task.py": "68eadb4b3f9941682cd8bbed8d7f1ac0d5f4a090ece03ff6511033e8e12cb354",
     "runner_common.py": "b9fbcf83ecfcc6c82a225ec86c1976073aebfe772aa2af8d7502d21c8eb57964",
-    "runners/arm_a_omp.py": "104fa61796b1144991ec6ab2b70165966c9a6ee1857e4aba454c2c4cf6553eb4",
-    "runners/arm_b_multicli.py": "d2c5981d769d54afedccd8a8a57387c428d7274b6de3a3c9cb268f776dc6db48",
+    "runners/arm_a_omp.py": "87c61c0e504d279c328dac7f7d54dc8f113588149b369f2e8a10a038b775f467",
+    "runners/arm_b_multicli.py": "7e08641c889d3c18c887b846b53e1cfc1758efb78752b4205e382b05bb4d1886",
     "security/benchmark_guard.test.ts": "adcf2d7dcb57df195c3e6dd2ae7c5d27c4fdbe11ec4cb7177d920b4d427dc9f1",
     "security/benchmark_guard.ts": "6b5b7e9a779bf4b583d016e0f0d41d8fbf31436739130ab60bbe1b484520e890",
     "smoke_test_parity.py": "70a451d0eb2f4725732c97cbebca1b706a5b3320de8a9d37d9adf7ff5d2e9add",

@@ -214,6 +214,25 @@ console.log(JSON.stringify(decision || {{ ok: true }}));
         new_dirs = [d for d in after_eval - before_eval if d.startswith("harness_")]
         self.assertEqual(len(new_dirs), 0, f"run_evaluation dry-run leaked temp directories: {new_dirs}")
 
+    def test_stage_runners_early_exit_and_signatures(self):
+        import time
+        from arm_a_omp import run_omp_stage
+        from arm_b_multicli import run_cli_stage
+
+        res_a = run_omp_stage(
+            "1_PLANNER", "planner", "test", "/tmp", "/tmp", "/tmp", "/tmp", "/tmp/config.yml", "/tmp/guard.ts", "/tmp/guard.ndjson",
+            deadline=time.monotonic() - 1, continue_session=False, scratch_dir="/tmp"
+        )
+        self.assertEqual(res_a["configured_model"], "xai-oauth/grok-4.6")
+        self.assertEqual(res_a["error"], "TASK_TIMEOUT")
+
+        res_b = run_cli_stage(
+            "1_PLANNER", "planner", "grok", ["echo"], "/tmp", "/tmp",
+            deadline=time.monotonic() - 1, env={}, scratch_dir="/tmp"
+        )
+        self.assertEqual(res_b["configured_model"], "grok-4.6")
+        self.assertEqual(res_b["error"], "TASK_TIMEOUT")
+
 
 if __name__ == "__main__":
     unittest.main()

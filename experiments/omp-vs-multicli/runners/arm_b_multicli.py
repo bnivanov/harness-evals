@@ -169,6 +169,7 @@ def run_cli_stage(
     env: dict[str, str],
     scratch_dir: str | None = None,
 ) -> dict:
+    remaining = deadline - time.monotonic()
     timeout = min(STAGE_TIMEOUT_SECONDS, max(0.0, remaining))
     configured_model = MODEL_PINS[role]["arm_b"]
     configured_effort = EFFORT_MATRIX[role]["arm_b"]

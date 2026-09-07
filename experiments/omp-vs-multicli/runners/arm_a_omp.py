@@ -153,6 +153,7 @@ def run_omp_stage(
     continue_session: bool,
     scratch_dir: str | None = None,
 ) -> dict:
+    model = MODEL_PINS[role]["arm_a"]
     remaining = deadline - time.monotonic()
     timeout = min(STAGE_TIMEOUT_SECONDS, max(0.0, remaining))
     if timeout <= 0:
