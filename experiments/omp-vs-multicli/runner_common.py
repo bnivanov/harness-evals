@@ -64,11 +64,15 @@ def scrub_workstation_paths(obj: Any) -> Any:
 
 
 
-def seatbelt_profile(workspace: str) -> str:
+def seatbelt_profile(workspace: str, scratch_dir: str | None = None) -> str:
     """Deny access to the source tree and execution of common network clients."""
 
     root = os.path.realpath(PROJECT_ROOT).replace('"', '\\"')
     workspace_real = os.path.realpath(workspace).replace('"', '\\"')
+    scratch_allow = ""
+    if scratch_dir:
+        scratch_real = os.path.realpath(scratch_dir).replace('"', '\\"')
+        scratch_allow = f'(allow file-read* file-write* (subpath "{scratch_real}"))\n'
     deny_exec = "\n".join(
         f'  (deny process-exec (literal "{path}"))'
         for path in NETWORK_EXECUTABLES
@@ -80,14 +84,15 @@ def seatbelt_profile(workspace: str) -> str:
         f'(deny file-read* (subpath "{root}"))\n'
         f'(deny file-write* (subpath "{root}"))\n'
         f'(allow file-read* file-write* (subpath "{workspace_real}"))\n'
+        f"{scratch_allow}"
         f"{deny_exec}\n"
     )
 
 
-def sandbox_command(command: list[str], workspace: str) -> list[str]:
+def sandbox_command(command: list[str], workspace: str, scratch_dir: str | None = None) -> list[str]:
     if not os.path.isfile(SANDBOX_EXEC):
         raise RuntimeError(f"Required sandbox executable is missing: {SANDBOX_EXEC}")
-    return [SANDBOX_EXEC, "-p", seatbelt_profile(workspace), *command]
+    return [SANDBOX_EXEC, "-p", seatbelt_profile(workspace, scratch_dir), *command]
 
 
 def write_trace(path: str, content: str) -> dict:

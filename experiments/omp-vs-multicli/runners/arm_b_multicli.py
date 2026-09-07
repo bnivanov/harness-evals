@@ -166,8 +166,8 @@ def run_cli_stage(
     artifact_dir: str,
     deadline: float,
     env: dict[str, str],
+    scratch_dir: str | None = None,
 ) -> dict:
-    remaining = deadline - time.monotonic()
     timeout = min(STAGE_TIMEOUT_SECONDS, max(0.0, remaining))
     configured_model = MODEL_PINS[role]["arm_b"]
     configured_effort = EFFORT_MATRIX[role]["arm_b"]
@@ -193,7 +193,7 @@ def run_cli_stage(
     stderr_path = os.path.join(artifact_dir, f"{stage_name}.stderr.log")
     print(f"[Arm B - Multi-CLI] Starting {stage_name} with {provider}...")
     process = run_captured_process(
-        sandbox_command(command, cwd),
+        sandbox_command(command, cwd, scratch_dir),
         cwd,
         timeout,
         stdout_path,
@@ -240,8 +240,7 @@ def run_cli_stage(
     }
 
 
-def run_arm_b(task_meta: dict, workspace_dir: str, artifact_dir: str) -> dict:
-    os.makedirs(artifact_dir, exist_ok=True)
+def run_arm_b(task_meta: dict, workspace_dir: str, artifact_dir: str, scratch_dir: str | None = None) -> dict:
     runtime_dir = tempfile.mkdtemp(prefix=f"harness_runtime_{task_meta['task_id']}_arm_b_")
     grok_home = prepare_isolated_grok_home(runtime_dir)
     codex_home = prepare_isolated_codex_home(runtime_dir)
@@ -254,6 +253,9 @@ def run_arm_b(task_meta: dict, workspace_dir: str, artifact_dir: str) -> dict:
     for stage_name, role, required_artifact in STAGES:
         prompt = PROMPTS[stage_name].format(impl_file=task_meta["impl_file"])
         env = os.environ.copy()
+        if scratch_dir:
+            env["BENCHMARK_SCRATCH_DIR"] = os.path.realpath(scratch_dir)
+            env["TMPDIR"] = os.path.realpath(scratch_dir)
         if role == "planner":
             provider = "grok"
             env["HOME"] = grok_home
@@ -303,7 +305,7 @@ def run_arm_b(task_meta: dict, workspace_dir: str, artifact_dir: str) -> dict:
             ]
 
         stage = run_cli_stage(
-            stage_name, role, provider, command, workspace_dir, artifact_dir, deadline, env
+            stage_name, role, provider, command, workspace_dir, artifact_dir, deadline, env, scratch_dir=scratch_dir
         )
         stages.append(stage)
         violations.extend({"stage": stage_name, **item} for item in stage["protocol_violations"])

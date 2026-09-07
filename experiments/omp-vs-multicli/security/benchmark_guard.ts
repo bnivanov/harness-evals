@@ -1,19 +1,22 @@
 /**
  * Explicitly loaded OMP extension (`--extension` / `--hook`).
- * Intercepts tool_call and fail-closes on workspace escapes and network/package fetch.
+ * Intercepts tool_call and fail-closes on foreign URI schemes,
+ * access to quarantined benchmark directories/solutions,
+ * access to the project repository outside the workspace/scratch,
+ * agent configuration homes, and network/package fetch.
  */
 import { appendFileSync, existsSync, mkdirSync, realpathSync } from "node:fs";
 import { basename, dirname, isAbsolute, resolve, sep } from "node:path";
 
-type ToolCallEvent = {
+export type ToolCallEvent = {
   toolName?: string;
   tool?: string;
   input?: Record<string, unknown>;
 };
 
-type GuardDecision = { block: true; reason: string };
+export type GuardDecision = { block: true; reason: string };
 
-type ExtensionAPI = {
+export type ExtensionAPI = {
   on: (
     event: "tool_call" | string,
     handler: (
@@ -49,6 +52,14 @@ function workspaceFromEnv(): string {
   return (process.env.BENCHMARK_WORKSPACE ?? "").trim();
 }
 
+function scratchDirFromEnv(): string {
+  return (process.env.BENCHMARK_SCRATCH_DIR ?? process.env.TMPDIR ?? "").trim();
+}
+
+function projectRootFromEnv(): string {
+  return (process.env.PROJECT_ROOT ?? "").trim();
+}
+
 function isLocalUri(value: string): boolean {
   return /^local:\/\//i.test(value.trim());
 }
@@ -57,17 +68,17 @@ const URI_SCHEME = /^([a-z][a-z0-9+.-]*):\/\//i;
 
 /**
  * Harness-internal schemes (`skill://`, `artifact://`, `history://`, ...) resolve
- * inside the harness and never touch the workspace, so the path checks below
+ * inside the harness and never touch the workspace, so file system checks
  * cannot see them. Only `file://` (canonicalized) and `local://` are allowed.
  */
-function foreignUriScheme(value: string): string | undefined {
+export function foreignUriScheme(value: string): string | undefined {
   const match = URI_SCHEME.exec(value.trim());
   if (!match) return undefined;
   const scheme = match[1].toLowerCase();
-  return scheme === "file" ? undefined : scheme;
+  return (scheme === "file" || scheme === "local") ? undefined : scheme;
 }
 
-function isOrdinaryNonPath(value: string): boolean {
+export function isOrdinaryNonPath(value: string): boolean {
   const v = value.trim();
   if (!v || isLocalUri(v)) return true;
   if (v.includes("://")) return false;
@@ -78,7 +89,7 @@ function isOrdinaryNonPath(value: string): boolean {
   return !v.includes("/") && !v.includes("\\");
 }
 
-function canonicalize(raw: string, workspace: string): string {
+export function canonicalize(raw: string, workspace: string): string {
   let value = raw.trim();
   if (value.toLowerCase().startsWith("file://")) {
     try {
@@ -87,7 +98,11 @@ function canonicalize(raw: string, workspace: string): string {
       value = value.slice("file://".length);
     }
   }
-  const abs = resolve(workspace, value);
+  if (value.startsWith("~/") || value === "~") {
+    const home = process.env.HOME || "";
+    value = resolve(home, value.slice(2));
+  }
+  const abs = resolve(workspace || ".", value);
   const missing: string[] = [];
   let cursor = abs;
   while (true) {
@@ -107,26 +122,78 @@ function canonicalize(raw: string, workspace: string): string {
   return abs;
 }
 
-function isInsideWorkspace(canonical: string, workspace: string): boolean {
-  let root = resolve(workspace);
+export function isSubpath(target: string, parentDir: string): boolean {
+  if (!parentDir || !target) return false;
+  let parent = resolve(parentDir);
   try {
-    if (existsSync(workspace)) root = realpathSync(workspace);
-  } catch {
-    // Keep the resolved workspace path if realpath fails.
-  }
-  if (canonical === root) return true;
-  const prefix = root.endsWith(sep) ? root : root + sep;
-  return canonical.startsWith(prefix);
+    if (existsSync(parentDir)) parent = realpathSync(parentDir);
+  } catch {}
+  let child = resolve(target);
+  try {
+    if (existsSync(target)) child = realpathSync(target);
+  } catch {}
+  if (child === parent) return true;
+  const prefix = parent.endsWith(sep) ? parent : parent + sep;
+  return child.startsWith(prefix);
 }
 
-function pathOutsideReason(raw: string, workspace: string): string | undefined {
+/**
+ * Returns a rejection reason if the candidate path violates benchmark quarantine:
+ * - Foreign URI schemes (skill://, artifact://, history://, etc.)
+ * - Quarantined benchmark directories (oracle solutions, held-out tests, other tasks)
+ * - Project repository files outside the active workspace and private scratch directory
+ * - Agent configuration and history homes (~/.omp, ~/.codex, ~/.gemini, etc.)
+ */
+export function forbiddenTargetReason(
+  raw: string,
+  workspace: string,
+  scratchDir: string,
+  projectRoot: string,
+): string | undefined {
   const value = raw.trim();
-  if (!value || isLocalUri(value) || isOrdinaryNonPath(value)) return undefined;
+  if (!value || isLocalUri(value)) return undefined;
+
   const scheme = foreignUriScheme(value);
-  if (scheme) return `blocked ${scheme}:// resource outside benchmark workspace`;
-  if (!workspace) return "path outside benchmark workspace";
+  if (scheme) return `blocked ${scheme}:// resource`;
+
+  if (isOrdinaryNonPath(value)) return undefined;
+
   const canonical = canonicalize(value, workspace);
-  if (!isInsideWorkspace(canonical, workspace)) return "path outside benchmark workspace";
+
+  // 1. Quarantined benchmark directories (oracle solutions, tasks)
+  if (/\/benchmarks\/aider-python\/(?:oracle|tasks)\b/i.test(canonical) || /\/benchmarks\/aider-python\/(?:oracle|tasks)\b/i.test(value)) {
+    // If the canonical path is strictly inside the assigned workspace, it's allowed
+    if (workspace && isSubpath(canonical, workspace)) {
+      return undefined;
+    }
+    return "access to quarantined benchmark directory";
+  }
+
+  // 2. Project repository tree outside workspace and scratch
+  if (projectRoot && isSubpath(canonical, projectRoot)) {
+    if (workspace && isSubpath(canonical, workspace)) return undefined;
+    if (scratchDir && isSubpath(canonical, scratchDir)) return undefined;
+    return "access to project repository outside benchmark workspace";
+  }
+
+  // 3. Agent configuration / session directories
+  const home = process.env.HOME || "";
+  if (home) {
+    const agentHomes = [
+      resolve(home, ".omp"),
+      resolve(home, ".codex"),
+      resolve(home, ".gemini"),
+      resolve(home, ".grok"),
+      resolve(home, ".cursor"),
+      resolve(home, ".t3"),
+    ];
+    for (const aHome of agentHomes) {
+      if (isSubpath(canonical, aHome)) {
+        return "access to agent configuration directory";
+      }
+    }
+  }
+
   return undefined;
 }
 
@@ -176,18 +243,31 @@ function block(
   return { block: true, reason };
 }
 
-function inspectPathTool(
+export function inspectPathTool(
   tool: string,
   input: Record<string, unknown> | undefined,
 ): GuardDecision | void {
   const workspace = workspaceFromEnv();
+  const scratchDir = scratchDirFromEnv();
+  const projectRoot = projectRootFromEnv();
+
   for (const candidate of collectPathFields(input)) {
-    const err = pathOutsideReason(candidate, workspace);
+    const err = forbiddenTargetReason(candidate, workspace, scratchDir, projectRoot);
     if (err) return block(tool, err, input);
+
+    // For file modification tools (write, edit): strictly require workspace or scratchDir
+    if (tool === "write" || tool === "edit") {
+      const canonical = canonicalize(candidate, workspace);
+      const inWorkspace = workspace && isSubpath(canonical, workspace);
+      const inScratch = scratchDir && isSubpath(canonical, scratchDir);
+      if (!inWorkspace && !inScratch) {
+        return block(tool, "write/edit target outside workspace", input);
+      }
+    }
   }
 }
 
-function inspectBash(input: Record<string, unknown> | undefined): GuardDecision | void {
+export function inspectBash(input: Record<string, unknown> | undefined): GuardDecision | void {
   const raw = input?.command ?? input?.cmd ?? input?.script;
   const command = typeof raw === "string" ? raw : Array.isArray(raw) ? raw.map(String).join(" ") : "";
   if (!command.trim()) return;
@@ -197,12 +277,15 @@ function inspectBash(input: Record<string, unknown> | undefined): GuardDecision 
   if (NETWORK_IMPORT.test(command)) return block("bash", "blocked network import", input);
 
   const workspace = workspaceFromEnv();
+  const scratchDir = scratchDirFromEnv();
+  const projectRoot = projectRootFromEnv();
+
   BASH_PATH_TOKEN.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = BASH_PATH_TOKEN.exec(command))) {
     const token = m[1];
     if (!token || token.startsWith("-")) continue;
-    const err = pathOutsideReason(token, workspace);
+    const err = forbiddenTargetReason(token, workspace, scratchDir, projectRoot);
     if (err) return block("bash", err, input);
   }
 }

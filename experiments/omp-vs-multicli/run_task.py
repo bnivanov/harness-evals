@@ -107,6 +107,7 @@ def run_evaluation(
         raise FileExistsError(f"Immutable attempt already exists for {task_id}/{arm}")
 
     workspace = setup_workspace(task_meta, arm)
+    scratch_dir = tempfile.mkdtemp(prefix=f"harness_scratch_{task_id}_{arm}_")
     artifact_dir = os.path.join(os.path.dirname(results_dir), "traces", task_id, arm)
     print(f"Initialized isolated workspace: {workspace}")
 
@@ -136,9 +137,9 @@ def run_evaluation(
 
     try:
         execution = (
-            run_arm_a(task_meta, workspace, artifact_dir)
+            run_arm_a(task_meta, workspace, artifact_dir, scratch_dir=scratch_dir)
             if arm == "arm_a"
-            else run_arm_b(task_meta, workspace, artifact_dir)
+            else run_arm_b(task_meta, workspace, artifact_dir, scratch_dir=scratch_dir)
         )
         oracle = verify_task(task_id, workspace)
         protocol_valid = bool(execution.get("protocol_valid")) and not oracle.get("tampered", False)
@@ -193,6 +194,7 @@ def run_evaluation(
         }
     atomic_json_write(result_path, combined)
     os.unlink(attempt_path)
+    shutil.rmtree(scratch_dir, ignore_errors=True)
     print(
         f"Saved immutable result: {result_path}\n"
         f"Score: {combined['verification']['passed_tests']}/{combined['verification']['total_tests']} "

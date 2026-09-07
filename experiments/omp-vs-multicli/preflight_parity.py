@@ -240,12 +240,12 @@ def execute_arm_with_retries(runner: Any, meta: dict, src_task: str, arm_name: s
     last_exc = None
     for attempt in range(1, MAX_INFRA_RETRIES + 2):
         with tempfile.TemporaryDirectory(prefix=f"pilot_{task_id}_{arm_name}_{rep}_att{attempt}_") as workdir:
+            scratch_dir = tempfile.mkdtemp(prefix=f"pilot_scratch_{task_id}_{arm_name}_{rep}_att{attempt}_")
             art_dir = os.path.join(tempfile.mkdtemp(prefix="pilot_art_"), "artifacts")
             t0 = time.monotonic()
             try:
                 subprocess.run(["cp", "-R", f"{src_task}/.", workdir], check=True)
-                result = runner(meta, workdir, art_dir)
-                dur = round(time.monotonic() - t0, 2)
+                result = runner(meta, workdir, art_dir, scratch_dir=scratch_dir)
                 stage_tokens = {}
                 for s in result.get("stages", []):
                     s_name = s["stage"]
@@ -264,8 +264,8 @@ def execute_arm_with_retries(runner: Any, meta: dict, src_task: str, arm_name: s
                 print(f"    [Attempt {attempt}/{MAX_INFRA_RETRIES+1}] Infrastructure error on {arm_name} for {task_id}: {exc}")
                 time.sleep(1.0)
             finally:
+                shutil.rmtree(scratch_dir, ignore_errors=True)
                 shutil.rmtree(os.path.dirname(art_dir), ignore_errors=True)
-
     return {
         "duration": dur,
         "protocol_valid": False,

@@ -15,6 +15,7 @@ sys.path.insert(0, BASE_DIR)
 from experiment_config import (  # noqa: E402
     EFFORT_MATRIX,
     MODEL_PINS,
+    PROJECT_ROOT,
     PROMPTS,
     STAGES,
     STAGE_TIMEOUT_SECONDS,
@@ -149,8 +150,8 @@ def run_omp_stage(
     guard_log: str,
     deadline: float,
     continue_session: bool,
+    scratch_dir: str | None = None,
 ) -> dict:
-    model = MODEL_PINS[role]["arm_a"]
     remaining = deadline - time.monotonic()
     timeout = min(STAGE_TIMEOUT_SECONDS, max(0.0, remaining))
     if timeout <= 0:
@@ -194,12 +195,16 @@ def run_omp_stage(
         "PI_CODING_AGENT_DIR": omp_agent_dir,
         "BENCHMARK_WORKSPACE": os.path.realpath(cwd),
         "BENCHMARK_GUARD_LOG": guard_log,
+        "PROJECT_ROOT": os.path.realpath(PROJECT_ROOT),
     })
+    if scratch_dir:
+        env["BENCHMARK_SCRATCH_DIR"] = os.path.realpath(scratch_dir)
+        env["TMPDIR"] = os.path.realpath(scratch_dir)
     stdout_path = os.path.join(artifact_dir, f"{stage_name}.stdout.jsonl")
     stderr_path = os.path.join(artifact_dir, f"{stage_name}.stderr.log")
     print(f"[Arm A - OMP] Starting {stage_name} with {model}...")
     process = run_captured_process(
-        sandbox_command(command, cwd),
+        sandbox_command(command, cwd, scratch_dir),
         cwd,
         timeout,
         stdout_path,
@@ -244,8 +249,7 @@ def run_omp_stage(
     }
 
 
-def run_arm_a(task_meta: dict, workspace_dir: str, artifact_dir: str) -> dict:
-    os.makedirs(artifact_dir, exist_ok=True)
+def run_arm_a(task_meta: dict, workspace_dir: str, artifact_dir: str, scratch_dir: str | None = None) -> dict:
     runtime_dir = tempfile.mkdtemp(prefix=f"harness_runtime_{task_meta['task_id']}_arm_a_")
     omp_agent_dir = prepare_isolated_omp_agent_dir(runtime_dir)
     config_path = copy_runtime_file(CONFIG_OVERLAY, runtime_dir)
@@ -270,6 +274,7 @@ def run_arm_a(task_meta: dict, workspace_dir: str, artifact_dir: str) -> dict:
             guard_log,
             deadline,
             continue_session=index > 0,
+            scratch_dir=scratch_dir,
         )
         stages.append(stage)
         violations.extend({"stage": stage_name, **item} for item in stage["protocol_violations"])

@@ -1,0 +1,136 @@
+{
+  "benchmark_sha256": "08afd128e301fc120ba2d4bbbe3d47ae4e0c2265eefbd8dc0cebd38a3eda7f09",
+  "binary_pins": {
+    "agy": {
+      "path": "$HOME/.local/bin/agy",
+      "sha256": "d583be1344ea9cfa0c45cff2c1342af7837f4833c4edb65e69bee84776a45caa",
+      "version": "1.1.27"
+    },
+    "codex": {
+      "path": "$HOME/.local/bin/codex",
+      "sha256": "a30ec314bbd0e3721632234d07db7c99855db3b9f1e32dbe8c791947f07e7629",
+      "version": "codex-cli 0.153.4"
+    },
+    "grok": {
+      "path": "$HOME/.grok/bin/grok",
+      "sha256": "3dfa7f04fbb5427a8fbead286591543aaecb478b3a0ab222c4329eca1a3b2f86",
+      "version": "grok 1.0.5 (5115b46bc909) [stable]"
+    },
+    "omp": {
+      "path": "$HOME/AgentWork/bin/omp",
+      "sha256": "a4c5c9cc5b8222184d0d7429b0bb6ac2a92bbe45dd11bf68e4b1360050791909",
+      "version": "omp/18.1.13"
+    }
+  },
+  "checks": {
+    "binaries": {
+      "agy": {
+        "path": "$HOME/.local/bin/agy",
+        "sha256": "d583be1344ea9cfa0c45cff2c1342af7837f4833c4edb65e69bee84776a45caa",
+        "version": "1.1.27"
+      },
+      "codex": {
+        "path": "$HOME/.local/bin/codex",
+        "sha256": "a30ec314bbd0e3721632234d07db7c99855db3b9f1e32dbe8c791947f07e7629",
+        "version": "codex-cli 0.153.4"
+      },
+      "grok": {
+        "path": "$HOME/.grok/bin/grok",
+        "sha256": "3dfa7f04fbb5427a8fbead286591543aaecb478b3a0ab222c4329eca1a3b2f86",
+        "version": "grok 1.0.5 (5115b46bc909) [stable]"
+      },
+      "omp": {
+        "path": "$HOME/AgentWork/bin/omp",
+        "sha256": "a4c5c9cc5b8222184d0d7429b0bb6ac2a92bbe45dd11bf68e4b1360050791909",
+        "version": "omp/18.1.13"
+      }
+    },
+    "isolated_omp_profile": {
+      "auth_present": true,
+      "history_present": false,
+      "skills_present": false
+    },
+    "model_catalogs": {
+      "agy": "gemini-3.8-flash",
+      "codex_login": "Logged in using ChatGPT",
+      "grok": "grok-4.6"
+    },
+    "oracle": {
+      "per_task": {
+        "affine-cipher": 16,
+        "book-store": 20,
+        "bowling": 31,
+        "connect": 10,
+        "go-counting": 11,
+        "grade-school": 20,
+        "grep": 25,
+        "hangman": 7,
+        "list-ops": 24,
+        "phone-number": 21,
+        "pig-latin": 22,
+        "poker": 37,
+        "pov": 15,
+        "proverb": 8,
+        "react": 14,
+        "rest-api": 9,
+        "robot-name": 4,
+        "scale-generator": 17,
+        "sgf-parsing": 23,
+        "simple-linked-list": 20,
+        "transpose": 12,
+        "tree-building": 13,
+        "two-bucket": 9,
+        "variable-length-quantity": 26,
+        "wordy": 25
+      },
+      "task_count": 25,
+      "test_cases": 439
+    },
+    "seatbelt": {
+      "benchmark_source_read": "denied",
+      "workspace_read": "allowed"
+    }
+  },
+  "created_at": "2026-09-07T19:37:47.775065Z",
+  "legacy_pilot_results": {
+    "included": false,
+    "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/results",
+    "reason": "Exploratory pilot failed final protocol audit; confirmatory run starts clean."
+  },
+  "model_pins": {
+    "planner": {
+      "arm_a": "xai-oauth/grok-4.6",
+      "arm_b": "grok-4.6"
+    },
+    "reviewer": {
+      "arm_a": "google-antigravity/gemini-3.8-flash",
+      "arm_b": "gemini-3.8-flash"
+    },
+    "worker": {
+      "arm_a": "openai-codex/gpt-5.6-luna",
+      "arm_b": "gpt-5.6-luna"
+    }
+  },
+  "project_root": "$HOME/AgentWork/projects/harness-evals",
+  "results_dir": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-005/results",
+  "run_id": "confirmatory-005",
+  "schema_version": 2,
+  "source_hashes": {
+    "ANTI_CHEATING.md": "a5ad9de45f1e1bf5fdec695e516182d7994eae5036146606f558a3b984a9d3f8",
+    "PROTOCOL.md": "d94ea4832eb6d2978b4c0aec46529ba328c06cfb7ab9e3a50c24a484e9c8fb5d",
+    "analysis/calculate_stats.py": "58c27082287c3e1c01e23c09053415084b796d6495a579f3f57473ebdeabad9c",
+    "config_overlay.yml": "0da00e8cfe5b40cf0079bbaaa43c8d62efe54cacfeeedf2691d418703d0a64a4",
+    "experiment_config.py": "4530cc5c2965ee7d7b15e0096356c05758894b694be3fdc8a1a2f1166e356474",
+    "preflight.py": "e403f5fda0ebaf1cd1f12f64f49163a4b3f587abf571594c3acb2966683f9678",
+    "preflight_parity.py": "f34142adaa3d20dabf3cec05556f306ad728e79da59a69c68bc1aef00d9fbfc5",
+    "run_matrix.py": "6ff9c3b4aaf848765e358e499c4f05834e78b075964443a5a55ae827402c8c14",
+    "run_task.py": "5e2b71ac2aff466d444fc4b71a1ce07271fbcb55fb1cebbb96fe7ccad24c7d5b",
+    "runner_common.py": "0cd3ee4d165b7385ee8bf4f649efc6dab328e757193cc155b99e453185f27053",
+    "runners/arm_a_omp.py": "d10e69ff5802fc89bc72e35136d523fd7931e795f446db1b1e510e9781be4b5c",
+    "runners/arm_b_multicli.py": "7ed27cbb1aba58c27bb0f9281562742fc3002b0cc9caad2775bff48cb92a4a8d",
+    "security/benchmark_guard.ts": "5b3077cfeaef7e5dfa369bdcad2e1214d9eee7a56d98d8cb2520ad99b0653b9d",
+    "smoke_test_parity.py": "648200d9095bc4de365a7aee9b758422a4817cc5ad6369d1f2c9e6bcd1e463f3",
+    "verifier/oracle_verifier.py": "a9d334f5ddc4da29561f08500d2c506fae63d3cf22e47f54552f92169d847315"
+  },
+  "status": "ready"
+}
