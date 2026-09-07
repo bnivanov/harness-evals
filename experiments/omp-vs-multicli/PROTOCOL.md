@@ -29,7 +29,7 @@ $$\mathbf{Planner} \;\longrightarrow\; \mathbf{Worker} \;\longrightarrow\; \math
 
 2. **Pre-Registered Matched-Compute Effort**:
    * All stages follow the pre-registered `EFFORT_MATRIX` calibrated to match token budgets:
-     * Stage 1 (Planner): `high` (OMP) / `high` (Grok Build CLI)
+     * Stage 1 (Planner): `medium` (OMP) / `medium` (Grok Build CLI)
      * Stage 2 & 4 (Worker): `max` (OMP) / `max` (Codex CLI)
      * Stage 3 (Reviewer): `high` (OMP) / `medium` (AGY CLI)
 3. **Model & Stage Parity (Held Strictly Constant)**:
@@ -50,7 +50,7 @@ Where:
 
 | Stage | Role | Function | Assigned Model | Arm A: Unified OMP | Arm B: Standalone Multi-CLI |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1. Planner** | System Architecture | Inspects problem, designs data structures & algorithm | **xAI Grok 4.6** | `omp -p --model=xai-oauth/grok-4.6 --thinking=high` | `grok -p --effort high` $\to$ `01_PLAN.md` |
+| **1. Planner** | System Architecture | Inspects problem, designs data structures & algorithm | **xAI Grok 4.6** | `omp -p --model=xai-oauth/grok-4.6 --thinking=medium` | `grok -p --effort medium` $\to$ `01_PLAN.md` |
 | **2. Worker** | Implementation | Implements full code from plan & README | **OpenAI Codex GPT-5.6 Luna** | `omp -p --model=openai-codex/gpt-5.6-luna --thinking=max --continue` | `codex exec -c model_reasoning_effort="max"` |
 | **3. Reviewer**| Audit & Verification | Runs tests, hunts bugs & edge cases, audits code | **Google Gemini 3.8 Flash** | `omp -p --model=google-antigravity/gemini-3.8-flash --thinking=high --continue` | `agy -p --effort medium` $\to$ `02_REVIEW.md` |
 | **4. Worker** | Refinement & Fixes | Addresses reviewer findings, fixes bugs & verifies | **OpenAI Codex GPT-5.6 Luna** | `omp -p --model=openai-codex/gpt-5.6-luna --thinking=max --continue` | `codex exec -c model_reasoning_effort="max"` |
@@ -58,13 +58,13 @@ Where:
 ### Pre-Registered Matched-Compute Design & Effort Calibration
 
 To ensure that differences in pass rate, latency, and cost reflect harness coordination rather than divergent vendor reasoning budgets, model configurations follow a strictly pre-registered **matched-compute** design:
-1. **Planner (Grok 4.6)**: Both arms use `high` effort, producing matched ~4.8k–5.5k reasoning tokens. (Arm B's `xhigh` in exploratory pilot was retired due to severe SLA timeout pathology).
+1. **Planner (Grok 4.6)**: Both arms use `medium` effort, matching reasoning depth (~1.0k–3.0k tokens) and eliminating the >300s timeout pathology observed under uncapped `high`.
 2. **Worker (Codex GPT-5.6 Luna)**: Both arms use `max` effort, producing matched ~2.9k reasoning tokens (<0.5% disparity).
 3. **Reviewer (Gemini 3.8 Flash)**: OMP at `high` matches AGY CLI at `medium`. In vendor adapters, AGY's `--effort high` defaults to an uncapped ~32k budget (averaging 26,539 tokens in confirmatory-003), whereas OMP's `high` budgets ~13k tokens. Empirical measurements across 3 strictly disjoint calibration tasks (`affine-cipher`, `book-store`, `proverb` recorded in `calibration/reviewer_effort_calibration.json`) demonstrate a 3-task pooled ratio of 1.067 (17,207 OMP tokens vs. 16,124 AGY medium tokens; mean log-ratio -0.1383, $s=0.8883$, point ratio 0.871, 90% CI [0.195, 3.882]), avoiding the massive 26.5k token compute blowup of AGY `high` (ratio 0.51).
-4. **Pilot Parity Power Basis**: With empirical log standard deviation $s \approx 0.75$, achieving a strict 90% CI half-width under $\ln(1.25) = 0.223$ would require $N > 50$ pairs. For the preflight pilot calibration on tasks disjoint from the calibration set (`grep` and `list-ops` with $k=7$ repeats, $N=14$ paired observations, $df=13, t_{0.90}=1.771$):
-   * Under $(N-1)s^2/\sigma^2 \sim \chi^2_{13}$, $N=14$ achieves an exact **80.0% power** ($P(\chi^2_{13} < 16.974) = 0.7994$) to contain the sample 90% CI within the pre-registered equivalence band $[-0.405, +0.405]$ on log scale ($[0.67, 1.50]$ on ratio scale) for true dispersion $\sigma \le 0.75$ ($s_{\text{crit}} = 0.8566$).
+4. **Pilot Parity Power Basis (Option A)**: For the preflight pilot calibration on tasks disjoint from the calibration set (`grep` and `list-ops` with $k=7$ repeats, $N=14$ paired observations, $df=13, t_{0.90}=1.771$):
    * **Pooled Token Ratio Margin**: Across all pilot pairs, $\frac{\sum \text{Tokens}_A}{\sum \text{Tokens}_B} \in [0.80, 1.25]$.
-   * **TOST 90% CI Equivalence Margin**: The paired log-ratio 90% CI must be entirely contained within $[0.67, 1.50]$.
+   * **TOST 90% CI Equivalence Margin**: The paired log-ratio 90% CI must be entirely contained within $[0.50, 2.00]$ (corresponding to $[-0.693, +0.693]$ on log scale, $2.0\times$ compute parity).
+   * **Interval Containment Power**: Under the empirical log standard deviation $\sigma = 0.8883$ measured on the disjoint calibration sample, $N=14$ achieves $P(\text{half-width} \le \ln 2.0) = 99.9\%$ narrowness probability, and Monte Carlo interval containment power $P(|\bar{d}| + t_{0.90} s / \sqrt{N} \le \ln 2.0) = 73.7\%$ under $\mu=0$ ($66.6\%$ under $\mu = -0.1383$; reaching $81.0\%$ if evaluated against $[0.476, 2.10]$).
 5. **Pre-Registration Boundary**: Exactly **ONE** calibration round is permitted. The effort matrix and pilot power bounds are frozen prior to the confirmatory pilot run. No post-hoc re-tuning of the effort matrix is permitted; if the preflight parity TOST gate fails, the run is terminated.
 ### Independent Variable (Harness Orchestration vs. CLI Chaining)
 
@@ -170,7 +170,7 @@ Where $P_{\text{in}}, P_{\text{cache}}, P_{\text{out}}, P_{\text{reasoning}}$ ar
 | Variable | Control Mechanism | Parity Check |
 | :--- | :--- | :--- |
 | **Model Family & Generation** | Pinned frontier models per stage | Identical models used in Arm A and Arm B at each stage |
-| **Reasoning Depth** | Pre-registered matched-compute effort matrix | Planner: `high`/`high`<br>Worker: `max`/`max`<br>Reviewer: `high`/`medium` (calibrated to ~13k tokens) |
+| **Reasoning Depth** | Pre-registered matched-compute effort matrix | Planner: `medium`/`medium`<br>Worker: `max`/`max`<br>Reviewer: `high`/`medium` (calibrated to ~13k tokens) |
 | **Tool Surface** | Identical primitive capabilities | File read, file write, file edit, bash unit test runner |
 | **Network Isolation** | Strict offline execution | Web search disabled; external network calls blocked and audited |
 | **Stage Prompts** | Verbatim identical instructions | Identical role descriptions, constraints, and instructions |

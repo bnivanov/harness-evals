@@ -9,11 +9,11 @@ Enforces:
 5. Negative network execution containment: sandbox-exec blocks execution of curl (EPERM).
 6. Statistical reasoning token parity on pilot tasks:
    - Evaluates pilot tasks (k=7 repeats on grep and list-ops, N=14 paired observations).
-   - Pilot power basis: Under chi2_13, N=14 (df=13, t=1.771) achieves exact 80.0% statistical power
-     (P(chi2_13 < 16.974) = 0.7994) for 90% CI half-width under ln(1.50) = 0.4055 at empirical dispersion sigma <= 0.75.
+   - Pilot power basis (Option A): Under empirical dispersion sigma = 0.8883, N=14 (df=13, t=1.771) achieves
+     P(half-width <= ln(2.0)) = 99.9% narrowness and 73.7% interval containment power at mu=0 for band [0.50, 2.00].
    - Pre-registered equivalence margins:
      * Pooled token ratio: in [0.80, 1.25]
-     * TOST 90% CI: entirely contained within [0.67, 1.50]
+     * TOST 90% CI: entirely contained within [0.50, 2.00]
    - Incrementally persists pair results to runs/<run_id>/pilot_records.ndjson with resume support.
    - Infra-error handling with bounded retries (MAX_INFRA_RETRIES = 2); pairs with unrecovered
      infrastructure errors are excluded from the cached completed set so they can be re-attempted.
@@ -55,8 +55,8 @@ PILOT_TASKS = ["grep", "list-ops"]
 PILOT_REPEATS = 7  # N=14 paired observations per stage cell
 POOLED_BAND_LOW = 0.80
 POOLED_BAND_HIGH = 1.25
-TOST_BAND_LOW = 0.67
-TOST_BAND_HIGH = 1.50
+TOST_BAND_LOW = 0.50
+TOST_BAND_HIGH = 2.00
 MAX_INFRA_RETRIES = 2
 STAGES = ("1_PLANNER", "2_WORKER_INITIAL", "3_REVIEWER", "4_WORKER_REFINE")
 

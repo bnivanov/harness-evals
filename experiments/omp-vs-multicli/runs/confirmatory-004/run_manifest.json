@@ -1,5 +1,5 @@
 {
-  "benchmark_sha256": "7a6a164c5d4f9b4cde284be7298e3e196b58fe532779b0d0d33138750485d5d4",
+  "benchmark_sha256": "a6593dce8f384e994c883899054c840341b2e2cab2f2b925109a381ef8eef6cf",
   "binary_pins": {
     "agy": {
       "path": "/Users/agentlab/.local/bin/agy",
@@ -91,7 +91,7 @@
       "workspace_read": "allowed"
     }
   },
-  "created_at": "2026-09-07T16:07:23.615150Z",
+  "created_at": "2026-09-07T17:52:48.216898Z",
   "legacy_pilot_results": {
     "included": false,
     "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/results",
@@ -117,19 +117,19 @@
   "schema_version": 2,
   "source_hashes": {
     "ANTI_CHEATING.md": "a5ad9de45f1e1bf5fdec695e516182d7994eae5036146606f558a3b984a9d3f8",
-    "PROTOCOL.md": "8606b3279267aee1715c3602988bb10535c8c1d5cb5974bcbb368a7c5c5c17f1",
+    "PROTOCOL.md": "412bfcf2a989c0263a5800c3ed0c5a322626bfd8c9286888f2d24d188be08c35",
     "analysis/calculate_stats.py": "58c27082287c3e1c01e23c09053415084b796d6495a579f3f57473ebdeabad9c",
     "config_overlay.yml": "0da00e8cfe5b40cf0079bbaaa43c8d62efe54cacfeeedf2691d418703d0a64a4",
-    "experiment_config.py": "9b4e1f1e807f5bef1b3e2a54f22375999d4cc1f44bb81353f3a00a0729c76250",
+    "experiment_config.py": "4530cc5c2965ee7d7b15e0096356c05758894b694be3fdc8a1a2f1166e356474",
     "preflight.py": "de37265bb4fef35625b8b26ca8050473f52762df26a64c42e7e1b86e881e4cc3",
-    "preflight_parity.py": "349b4a79759725c59229990cc1c7d7bbae93d635e2cc9ecf3d8d958f7b761f9d",
+    "preflight_parity.py": "300df4e8a7aa508de5fe0ab215bb80546846641c8e856af838294c6c21a8c39e",
     "run_matrix.py": "6ff9c3b4aaf848765e358e499c4f05834e78b075964443a5a55ae827402c8c14",
     "run_task.py": "00d415265f71932bb2d2a76fe1a273029d30a599ba11555236edc1d6896e3a81",
     "runner_common.py": "352a57c5d153691973b5471b1948738b1944b5069832d1ad761d9e60fad3455b",
     "runners/arm_a_omp.py": "6bad06276624183fa7efaedf2f5e6752613feb7f7148a8eded6795645c91ca25",
     "runners/arm_b_multicli.py": "2c0cc8d64be39037d4f17f0cb1491a20b0dd2885c8b695e10a6f02bc5f3f1951",
     "security/benchmark_guard.ts": "cf6d02741ffa5267ef701ace7ecb6eb7906f3d78a3f37a43e03d4089bd017890",
-    "smoke_test_parity.py": "da812c6254f0505a6039dfe930a76cd65aae716bb6d9489f20cf0ccadc2456db",
+    "smoke_test_parity.py": "734f9f7bce758db0a4a8b2d672b1c38a734d92c01076f051a9d814025d89f2f6",
     "verifier/oracle_verifier.py": "a9d334f5ddc4da29561f08500d2c506fae63d3cf22e47f54552f92169d847315"
   },
   "status": "ready"

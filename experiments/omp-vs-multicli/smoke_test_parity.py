@@ -41,7 +41,7 @@ from arm_b_multicli import (  # noqa: E402
 )
 
 PROMPT = (
-    "Use your configured maximum reasoning depth to calculate 17 * 19. "
+    "Calculate 17 * 19. "
     "Do not call tools. Return only the final numeric answer."
 )
 CONFIG_OVERLAY = os.path.join(BASE_DIR, "config_overlay.yml")

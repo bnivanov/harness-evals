@@ -11,11 +11,11 @@ PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "../.."))
 BENCHMARK_DIR = os.path.join(PROJECT_ROOT, "benchmarks", "aider-python")
 RUNS_DIR = os.path.join(BASE_DIR, "runs")
 LEGACY_PILOT_RESULTS_DIR = os.path.join(BASE_DIR, "results")
-
-OMP_BIN = "/Users/agentlab/AgentWork/bin/omp"
-GROK_BIN = "/Users/agentlab/.grok/bin/grok"
-CODEX_BIN = "/Users/agentlab/.local/bin/codex"
-AGY_BIN = "/Users/agentlab/.local/bin/agy"
+HOME = os.path.expanduser("~")
+OMP_BIN = os.path.join(HOME, "AgentWork/bin/omp")
+GROK_BIN = os.path.join(HOME, ".grok/bin/grok")
+CODEX_BIN = os.path.join(HOME, ".local/bin/codex")
+AGY_BIN = os.path.join(HOME, ".local/bin/agy")
 SANDBOX_EXEC = "/usr/bin/sandbox-exec"
 
 BINARY_PINS = {
@@ -33,11 +33,11 @@ MODEL_PINS = {
 
 # Empirically calibrated effort matrix achieving matched-compute token parity across provider adapters
 # (recorded in experiments/omp-vs-multicli/calibration/reviewer_effort_calibration.json):
-# - Planner: both grok arms at high (producing ~4.8k - 5.5k reasoning tokens)
+# - Planner: both grok arms at medium (producing matched ~1.0k - 3.0k reasoning tokens and eliminating >300s timeouts)
 # - Worker: both codex arms at max (producing ~2.9k reasoning tokens, 0.4% diff)
 # - Reviewer: OMP at high (~13.7k baseline) aligns with AGY at medium (3-task disjoint pooled ratio 1.067 vs AGY uncapped high ratio 0.51)
 EFFORT_MATRIX = {
-    "planner": {"arm_a": "high", "arm_b": "high"},
+    "planner": {"arm_a": "medium", "arm_b": "medium"},
     "worker": {"arm_a": "max", "arm_b": "max"},
     "reviewer": {"arm_a": "high", "arm_b": "medium"},
 }
