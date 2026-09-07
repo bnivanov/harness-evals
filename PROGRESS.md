@@ -309,8 +309,19 @@
      - *Containment Barrier*: T3 Code desktop daemon on `127.0.0.1:3774` operates outside macOS seatbelt (`sandbox-exec`) with full oracle access.
    - **User Decision**: Paused T3 Code evaluation indefinitely. Directed full focus toward verifying that all Experiment 2 outputs, figures, metrics, and claims for the article are mathematically sound, fully disclosed, and audited by Opus 5 High before publication.
 
+10. **Claude Opus 5 High Final Publication Pass Audit & Blocker Remediation**:
+   - Submitted the full updated draft of `ARTICLE.md` to **Claude Opus 5 (Thinking: High)** for an exhaustive, unsparing publication audit.
+   - **Verification Confirmed Clean**: Every headline statistic across Tier 1, Tier 2, Tier 3, and the synthetic matrix reproduces exactly from raw artifacts. Confirmed exact trace counts (6 genuine internal reads in primary, 0 in Tier 4), byte-identical figure rendering, and clean Mann-Whitney ($U=36, p=0.00216$) and sign test ($p=0.03125$) variance probe metrics.
+   - **Remediated Audit Blockers & Gaps**:
+     1. *Fail-Closed Trace Resolution*: Resolved Blocker 1 by implementing `resolve_trace_path()` in `analysis/score_matrix.py` (resolving paths relative to `runs/` for third-party clones) and making `live_regex_codes()` fail-closed (refusing to drop unconfirmed stored violation flags if any trace file is missing/unreachable).
+     2. *Variance Probe Provenance & Push*: Added `runs/variance-probe-001/run_manifest.json` with exact binary pins (`omp/18.1.13` and `grok 1.0.5`), SHA-256 hashes, model pins, and execution flags.
+     3. *Version Drift Disclosures*: Updated Limitation 7 to disclose that `codex-cli 0.153.4` (vs pinned `0.152.0`) and `omp/18.1.12` (vs pinned `18.1.11`) moved in the Tier 4 rerun, while the Tier 3 ablation ran under identical pinned binaries.
+     4. *Subshell Hypothesis Qualified*: Rephrased subshell statements in background item 3 and Tier 2 to explicitly designate subshell latency as an architectural hypothesis, noting that Grok CLI telemetry summarizes stage usage without per-turn tool records.
+     5. *Deadline Awareness Verification*: Disclosed in Limitation 10 that binary inspection was conducted on `omp/18.1.13` (prior builds unrecoverable), confirming that `--max-time` is purely an internal `AbortController` / `setTimeout` timer never visible to the model.
+     6. *Statistical Accuracy*: Corrected the non-tied count from 7 identical tasks to 6 coinciding with McNemar plus `sgf-parsing` (0.957 vs 0.0, concordant on binary resolution).
+
 ### Current Standing & Next Steps
-- **Experiment 2 (Workflow Bench: OMP vs Multi-CLI Swarm)**: Final publication review underway. Auditing all figures, tables, and disclosures against the model-variant finding and variance probe data.
+- **Experiment 2 (Workflow Bench: OMP vs Multi-CLI Swarm)**: PUBLICATION-READY. Every headline number, test statistic, and figure reproduces cleanly; all peer-reviewer critiques from Claude Opus 5 High are resolved and documented; trace resolution is fail-closed across any repository clone; full variance probe provenance is recorded.
 - **T3 Code Evaluation**: PAUSED indefinitely.
 - **Upstream PR #68 (`HarnessRouter/harnessrouter`)**: Merged `upstream/main` with zero conflicts (`mergeable: true`).
 - **Wave 1 Track A Evaluation**: PAUSED per user instruction.

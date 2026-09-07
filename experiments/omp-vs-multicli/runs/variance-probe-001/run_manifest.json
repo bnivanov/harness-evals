@@ -1,0 +1,40 @@
+{
+  "run_id": "variance-probe-001",
+  "created_at": "2026-09-07T11:45:00Z",
+  "experiment": "Stage 1 Planner Variance Probe",
+  "tasks": ["grep", "list-ops"],
+  "repeats": 3,
+  "arms": ["arm_a", "arm_b"],
+  "total_runs": 12,
+  "stage_ceiling_seconds": 600.0,
+  "binary_pins": {
+    "omp": {
+      "path": "/Users/agentlab/AgentWork/bin/omp",
+      "version": "omp/18.1.13",
+      "sha256": "a4c5c9cc5b8222184d0d7429b0bb6ac2a92bbe45dd11bf68e4b1360050791909"
+    },
+    "grok": {
+      "path": "/Users/agentlab/.grok/bin/grok",
+      "version": "grok 1.0.5 (5115b46bc909) [stable]",
+      "sha256": "3dfa7f04fbb5427a8fbead286591543aaecb478b3a0ab222c4329eca1a3b2f86"
+    }
+  },
+  "model_pins": {
+    "planner": {
+      "arm_a": "xai-oauth/grok-4.6",
+      "arm_b": "grok-4.6"
+    }
+  },
+  "resolved_models": {
+    "arm_a": ["grok-4.6"],
+    "arm_b": ["grok-4.6-build"]
+  },
+  "effort_pins": {
+    "omp": "max",
+    "grok": "xhigh"
+  },
+  "flags": {
+    "arm_a": ["--no-skills", "--auto-approve", "--no-extensions"],
+    "arm_b": ["--auto-approve", "--permission-mode auto"]
+  }
+}

@@ -64,19 +64,39 @@ def load_run(run_dir: str) -> dict[str, dict]:
     return out
 
 
-def stage_trace_text(stage: dict) -> str:
+def resolve_trace_path(path: str | None) -> str | None:
+    if not path:
+        return None
+    if os.path.isfile(path):
+        return path
+    if "/runs/" in path:
+        rel = path[path.index("/runs/") + 1 :]
+        candidate = os.path.join(BASE_DIR, rel)
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def stage_trace_text(stage: dict) -> tuple[str, bool]:
+    """Return concatenated trace text and whether all referenced trace files were found."""
     chunks = []
+    all_found = True
     for key in ("stdout_trace", "stderr_trace"):
         meta = stage.get(key) or {}
-        path = meta.get("path")
+        raw_path = meta.get("path")
+        if not raw_path:
+            continue
+        path = resolve_trace_path(raw_path)
         if path and os.path.isfile(path):
             with open(path, encoding="utf-8", errors="replace") as handle:
                 chunks.append(handle.read())
-    return "\n".join(chunks)
+        else:
+            all_found = False
+    return "\n".join(chunks), all_found
 
 
 def live_regex_codes(result: dict) -> set[str]:
-    """Re-verify stored regex violations against the current pattern set."""
+    """Re-verify stored regex violations against the current pattern set (fail-closed)."""
 
     stored = {
         v["code"]
@@ -86,8 +106,11 @@ def live_regex_codes(result: dict) -> set[str]:
     if not stored:
         return set()
     confirmed: set[str] = set()
+    all_traces_available = True
     for stage in result["execution"]["stages"]:
-        text = stage_trace_text(stage)
+        text, ok = stage_trace_text(stage)
+        if not ok:
+            all_traces_available = False
         if not text:
             continue
         for code in stored - confirmed:
@@ -95,6 +118,11 @@ def live_regex_codes(result: dict) -> set[str]:
                 confirmed.add(code)
         if confirmed == stored:
             break
+
+    # Fail-closed: if any trace file was missing and could not be inspected,
+    # refuse to drop unconfirmed stored violation flags as stale.
+    if not all_traces_available and confirmed != stored:
+        return stored
     return confirmed
 
 
