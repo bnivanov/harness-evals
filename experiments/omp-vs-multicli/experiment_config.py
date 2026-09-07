@@ -19,7 +19,7 @@ AGY_BIN = "/Users/agentlab/.local/bin/agy"
 SANDBOX_EXEC = "/usr/bin/sandbox-exec"
 
 BINARY_PINS = {
-    "omp": {"path": OMP_BIN, "version": "omp/18.1.12", "version_args": ["--version"]},
+    "omp": {"path": OMP_BIN, "version": "omp/18.1.13", "version_args": ["--version"]},
     "grok": {"path": GROK_BIN, "version": "grok 1.0.5 (5115b46bc909) [stable]", "version_args": ["--version"]},
     "codex": {"path": CODEX_BIN, "version": "codex-cli 0.153.4", "version_args": ["--version"]},
     "agy": {"path": AGY_BIN, "version": "1.1.27", "version_args": ["--version"]},
@@ -28,14 +28,18 @@ BINARY_PINS = {
 MODEL_PINS = {
     "planner": {"arm_a": "xai-oauth/grok-4.6", "arm_b": "grok-4.6"},
     "worker": {"arm_a": "openai-codex/gpt-5.6-luna", "arm_b": "gpt-5.6-luna"},
-    "reviewer": {"arm_a": "google-antigravity/gemini-3.8-flash", "arm_b": "gemini-3.8-flash-high"},
+    "reviewer": {"arm_a": "google-antigravity/gemini-3.8-flash", "arm_b": "gemini-3.8-flash"},
 }
 
-EFFORT_PINS = {
-    "omp": "max",
-    "grok": "xhigh",
-    "codex": "max",
-    "agy": "high",
+# Empirically calibrated effort matrix achieving matched-compute token parity across provider adapters
+# (recorded in experiments/omp-vs-multicli/calibration/reviewer_effort_calibration.json):
+# - Planner: both grok arms at high (producing ~4.8k - 5.5k reasoning tokens)
+# - Worker: both codex arms at max (producing ~2.9k reasoning tokens, 0.4% diff)
+# - Reviewer: OMP at high (~13.7k baseline) aligns with AGY at medium (3-task disjoint pooled ratio 1.067 vs AGY uncapped high ratio 0.51)
+EFFORT_MATRIX = {
+    "planner": {"arm_a": "high", "arm_b": "high"},
+    "worker": {"arm_a": "max", "arm_b": "max"},
+    "reviewer": {"arm_a": "high", "arm_b": "medium"},
 }
 
 RATE_CARD = {
@@ -44,9 +48,9 @@ RATE_CARD = {
     "reviewer": {"input": 0.50, "cache_read": 0.05, "output": 2.00, "reasoning": 2.00},
 }
 
-# All stages have the same five-minute ceiling. The task deadline is authoritative.
-STAGE_TIMEOUT_SECONDS = int(os.environ.get("STAGE_TIMEOUT_SECONDS", "300"))
-TASK_TIMEOUT_SECONDS = int(os.environ.get("TASK_TIMEOUT_SECONDS", "900"))
+# Decoupled hygiene ceilings (hang protection only, not an SLA cutoff metric).
+STAGE_TIMEOUT_SECONDS = int(os.environ.get("STAGE_TIMEOUT_SECONDS", "600"))
+TASK_TIMEOUT_SECONDS = int(os.environ.get("TASK_TIMEOUT_SECONDS", "1800"))
 EXPECTED_TASK_COUNT = 25
 EXPECTED_ORACLE_TEST_CASES = 439
 

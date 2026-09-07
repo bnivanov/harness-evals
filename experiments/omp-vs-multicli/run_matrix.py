@@ -81,6 +81,33 @@ def require_smoke_report(manifest_path: str) -> dict:
         raise RuntimeError("Smoke report does not match the frozen run manifest")
     return smoke
 
+def require_parity_preflight(manifest_path: str) -> dict:
+    run_dir = os.path.dirname(manifest_path)
+    parity_path = os.path.join(run_dir, "preflight_parity.json")
+    if not os.path.isfile(parity_path):
+        raise RuntimeError(f"Preflight parity report is required before matrix launch: {parity_path}")
+    with open(parity_path, encoding="utf-8") as handle:
+        report = json.load(handle)
+    if report.get("verdict") != "PASS":
+        raise RuntimeError(f"Preflight parity gate did not pass: verdict={report.get('verdict')}")
+    expected_run_id = os.path.basename(run_dir)
+    if report.get("run_id") != expected_run_id:
+        raise RuntimeError(f"Preflight parity report run_id mismatch: expected {expected_run_id}, got {report.get('run_id')}")
+    manifest_hash = sha256_file(manifest_path)
+    report_manifest_hash = report.get("run_manifest_sha256")
+    if not report_manifest_hash:
+        raise RuntimeError("Preflight parity report is missing mandatory non-null run_manifest_sha256")
+    if report_manifest_hash != manifest_hash:
+        raise RuntimeError(
+            f"Preflight parity manifest mismatch: report={report_manifest_hash} vs live={manifest_hash}"
+        )
+    from preflight_parity import compute_composite_source_sha256
+    live_hash, _ = compute_composite_source_sha256()
+    if report.get("composite_source_sha256") != live_hash:
+        raise RuntimeError(
+            f"Preflight parity hash mismatch: report={report.get('composite_source_sha256')} vs live={live_hash}"
+        )
+    return report
 
 
 def run_matrix(run_id: str, mode: str, confirm_launch: bool) -> dict:
@@ -91,6 +118,7 @@ def run_matrix(run_id: str, mode: str, confirm_launch: bool) -> dict:
     reject_interrupted_attempts(results_dir)
     targets = planned_tasks(mode)
     smoke = require_smoke_report(manifest_path) if confirm_launch else None
+    parity = require_parity_preflight(manifest_path) if confirm_launch else None
 
     pending = [
         (task_id, arm)
@@ -108,6 +136,7 @@ def run_matrix(run_id: str, mode: str, confirm_launch: bool) -> dict:
         "legacy_pilot_included": frozen["legacy_pilot_results"]["included"],
         "launch_confirmed": confirm_launch,
         "smoke_report": (smoke["status"] if smoke else "not-required-for-preview"),
+        "parity_preflight": (parity["verdict"] if parity else "not-required-for-preview"),
     }
     print(json.dumps(plan, indent=2))
     if not confirm_launch:

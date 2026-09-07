@@ -13,7 +13,7 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, BASE_DIR)
 
 from experiment_config import (  # noqa: E402
-    EFFORT_PINS,
+    EFFORT_MATRIX,
     MODEL_PINS,
     PROMPTS,
     STAGES,
@@ -93,9 +93,7 @@ def parse_omp_telemetry(stdout: str, role: str) -> dict:
     cache_write_tokens = sum(item.get("cacheWrite", 0) for item in usages)
     output_tokens = sum(item.get("output", 0) for item in usages)
     reasoning_tokens = sum(item.get("reasoningTokens", 0) for item in usages)
-    if reasoning_tokens <= 0 and thinking_chars > 0:
-        # Provider returned thinking blocks in content without populating usage.reasoningTokens
-        reasoning_tokens = max(1, thinking_chars // 4)
+    telemetry_missing = (reasoning_tokens <= 0 and thinking_chars > 0)
     normalized = normalize_usage(
         role,
         "omp",
@@ -111,6 +109,7 @@ def parse_omp_telemetry(stdout: str, role: str) -> dict:
         "cache_write_tokens": cache_write_tokens,
         "output_tokens": output_tokens,
         "reasoning_tokens": reasoning_tokens,
+        "telemetry_missing": telemetry_missing,
         **normalized,
         "tool_calls_count": len(tool_calls),
         "tool_calls": tool_calls,
@@ -159,7 +158,7 @@ def run_omp_stage(
             "stage": stage_name,
             "role": role,
             "configured_model": model,
-            "configured_effort": EFFORT_PINS["omp"],
+            "configured_effort": EFFORT_MATRIX[role]["arm_a"],
             "success": False,
             "returncode": -1,
             "duration": 0.0,
@@ -176,7 +175,7 @@ def run_omp_stage(
         "--mode", "json",
         "-p", prompt,
         f"--model={model}",
-        f"--thinking={EFFORT_PINS['omp']}",
+        f"--thinking={EFFORT_MATRIX[role]['arm_a']}",
         "--auto-approve",
         "--no-extensions",
         "--no-skills",
@@ -220,6 +219,8 @@ def run_omp_stage(
         violations.append({"code": "MODEL_ID_UNRECORDED", "expected": expected_resolved})
     if telemetry["reasoning_tokens"] <= 0:
         violations.append({"code": "NO_REASONING_TOKENS"})
+    if telemetry.get("telemetry_missing"):
+        violations.append({"code": "REASONING_TELEMETRY_MISSING"})
     if process["timed_out"]:
         violations.append({"code": "STAGE_TIMEOUT"})
 
@@ -228,7 +229,7 @@ def run_omp_stage(
         "stage": stage_name,
         "role": role,
         "configured_model": model,
-        "configured_effort": EFFORT_PINS["omp"],
+        "configured_effort": EFFORT_MATRIX[role]["arm_a"],
         "success": success,
         "returncode": process["returncode"],
         "duration": process["duration"],

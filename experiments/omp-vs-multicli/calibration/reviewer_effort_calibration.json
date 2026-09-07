@@ -1,0 +1,66 @@
+{
+  "calibration_target": "Stage 3 (Reviewer) - Gemini 3.8 Flash reasoning token budget matching",
+  "calibrated_at": "2026-09-07T16:15:00Z",
+  "disjoint_tasks": ["affine-cipher", "book-store", "proverb"],
+  "note": "Calibration tasks are strictly disjoint from preflight PILOT_TASKS (grep, list-ops).",
+  "binary_pins": {
+    "omp": {
+      "path": "~/AgentWork/bin/omp",
+      "version": "omp/18.1.13",
+      "flag": "--thinking=high"
+    },
+    "agy": {
+      "path": "~/.local/bin/agy",
+      "version": "1.1.27",
+      "flag": "--effort medium"
+    }
+  },
+  "rationale": "In exploratory and confirmatory-003 runs, AGY CLI with --effort high executed an uncapped ~32k thinking budget (averaging 26,539 tokens in confirmatory-003), whereas OMP's --thinking=high averaged 13,684 tokens (ratio 0.515). Setting AGY CLI to --effort medium constrains thinking to the intended ~4k-12k range, aligning compute budgets across arms.",
+  "empirical_measurements": [
+    {
+      "task_id": "affine-cipher",
+      "role": "reviewer",
+      "omp_high_reasoning_tokens": 5844,
+      "omp_high_duration_seconds": 59.03,
+      "agy_medium_reasoning_tokens": 3831,
+      "agy_medium_duration_seconds": 49.02,
+      "agy_high_baseline_tokens": 17518,
+      "ratio_omp_to_agy_medium": 1.5255,
+      "log_ratio": 0.4223
+    },
+    {
+      "task_id": "book-store",
+      "role": "reviewer",
+      "omp_high_reasoning_tokens": 9713,
+      "omp_high_duration_seconds": 69.09,
+      "agy_medium_reasoning_tokens": 7016,
+      "agy_medium_duration_seconds": 60.14,
+      "agy_high_baseline_tokens": 12728,
+      "ratio_omp_to_agy_medium": 1.3844,
+      "log_ratio": 0.3253
+    },
+    {
+      "task_id": "proverb",
+      "role": "reviewer",
+      "omp_high_reasoning_tokens": 1650,
+      "omp_high_duration_seconds": 28.84,
+      "agy_medium_reasoning_tokens": 5277,
+      "agy_medium_duration_seconds": 63.53,
+      "agy_high_baseline_tokens": null,
+      "ratio_omp_to_agy_medium": 0.3127,
+      "log_ratio": -1.1626
+    }
+  ],
+  "summary_statistics": {
+    "n": 3,
+    "tasks": ["affine-cipher", "book-store", "proverb"],
+    "pooled_omp_tokens": 17207,
+    "pooled_agy_medium_tokens": 16124,
+    "pooled_ratio": 1.0672,
+    "mean_log_ratio": -0.1383,
+    "sd_log_ratio": 0.8883,
+    "se_log_ratio": 0.5129,
+    "point_estimate_ratio": 0.8708,
+    "ci_90_ratio": [0.1953, 3.8824]
+  }
+}

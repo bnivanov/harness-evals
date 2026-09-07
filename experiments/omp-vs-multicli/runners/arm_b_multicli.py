@@ -16,7 +16,7 @@ sys.path.insert(0, BASE_DIR)
 from experiment_config import (  # noqa: E402
     AGY_BIN,
     CODEX_BIN,
-    EFFORT_PINS,
+    EFFORT_MATRIX,
     GROK_BIN,
     MODEL_PINS,
     PROMPTS,
@@ -170,13 +170,14 @@ def run_cli_stage(
     remaining = deadline - time.monotonic()
     timeout = min(STAGE_TIMEOUT_SECONDS, max(0.0, remaining))
     configured_model = MODEL_PINS[role]["arm_b"]
+    configured_effort = EFFORT_MATRIX[role]["arm_b"]
     if timeout <= 0:
         return {
             "stage": stage_name,
             "role": role,
             "provider": provider,
             "configured_model": configured_model,
-            "configured_effort": EFFORT_PINS[provider],
+            "configured_effort": configured_effort,
             "success": False,
             "returncode": -1,
             "duration": 0.0,
@@ -224,7 +225,7 @@ def run_cli_stage(
         "role": role,
         "provider": provider,
         "configured_model": configured_model,
-        "configured_effort": EFFORT_PINS[provider],
+        "configured_effort": configured_effort,
         "success": success,
         "returncode": process["returncode"],
         "duration": process["duration"],
@@ -262,7 +263,7 @@ def run_arm_b(task_meta: dict, workspace_dir: str, artifact_dir: str) -> dict:
                 GROK_BIN,
                 "-p", prompt,
                 "--model", MODEL_PINS[role]["arm_b"],
-                "--effort", EFFORT_PINS[provider],
+                "--effort", EFFORT_MATRIX[role]["arm_b"],
                 "--always-approve",
                 "--disable-web-search",
                 "--session-id", str(uuid.uuid4()),
@@ -278,7 +279,7 @@ def run_arm_b(task_meta: dict, workspace_dir: str, artifact_dir: str) -> dict:
                 AGY_BIN,
                 "-p", prompt,
                 "--model", MODEL_PINS[role]["arm_b"],
-                "--effort", EFFORT_PINS[provider],
+                "--effort", EFFORT_MATRIX[role]["arm_b"],
                 "--sandbox",
                 "--new-project",
                 "--dangerously-skip-permissions",
@@ -290,7 +291,7 @@ def run_arm_b(task_meta: dict, workspace_dir: str, artifact_dir: str) -> dict:
             command = [
                 CODEX_BIN,
                 "-c", f'model="{MODEL_PINS[role]["arm_b"]}"',
-                "-c", f'model_reasoning_effort="{EFFORT_PINS[provider]}"',
+                "-c", f'model_reasoning_effort="{EFFORT_MATRIX[role]["arm_b"]}"',
                 "exec",
                 "--dangerously-bypass-approvals-and-sandbox",
                 "--skip-git-repo-check",

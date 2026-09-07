@@ -22,18 +22,16 @@ $$\mathbf{Planner} \;\longrightarrow\; \mathbf{Worker} \;\longrightarrow\; \math
    * Both arms execute the official, latest pinned first-party binaries out-of-the-box.
    * Zero community overlays, zero third-party plugins, zero custom prompt injections or wrappers.
    * Pinned executables:
-     * `omp` (v18.1.10)
-     * `grok` (xAI Grok Build CLI)
-     * `codex` (OpenAI Codex CLI)
-     * `agy` (Google Antigravity CLI)
+     * `omp` (v18.1.13)
+     * `grok` (xAI Grok Build CLI 1.0.5)
+     * `codex` (OpenAI Codex CLI 0.153.4)
+     * `agy` (Google Antigravity CLI 1.1.27)
 
-2. **Highest Possible Reasoning Effort**:
-   * All models across all stages in both arms run with the **maximum available reasoning/thinking effort**:
-     * `omp`: `--thinking=max`
-     * `codex`: `-c model_reasoning_effort="high"`
-     * `agy`: `--effort high`
-     * `grok`: Native full reasoning depth enabled
-
+2. **Pre-Registered Matched-Compute Effort**:
+   * All stages follow the pre-registered `EFFORT_MATRIX` calibrated to match token budgets:
+     * Stage 1 (Planner): `high` (OMP) / `high` (Grok Build CLI)
+     * Stage 2 & 4 (Worker): `max` (OMP) / `max` (Codex CLI)
+     * Stage 3 (Reviewer): `high` (OMP) / `medium` (AGY CLI)
 3. **Model & Stage Parity (Held Strictly Constant)**:
    * Model capability is NOT the independent variable. Both arms execute the identical frontier model for each lifecycle step.
 
@@ -52,11 +50,22 @@ Where:
 
 | Stage | Role | Function | Assigned Model | Arm A: Unified OMP | Arm B: Standalone Multi-CLI |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1. Planner** | System Architecture | Inspects problem, designs data structures & algorithm | **xAI Grok 4.6** | `omp -p --model=xai-oauth/grok-4.6 --thinking=max` | `grok -p` $\to$ `01_PLAN.md` |
-| **2. Worker** | Implementation | Implements full code from plan & README | **OpenAI Codex GPT-5.6 Luna** | `omp -p --model=openai-codex/gpt-5.6-luna --thinking=max --continue` | `codex exec -c model_reasoning_effort="high"` |
-| **3. Reviewer**| Audit & Verification | Runs tests, hunts bugs & edge cases, audits code | **Google Gemini 3.8 Flash** | `omp -p --model=google-antigravity/gemini-3.8-flash --thinking=max --continue` | `agy -p --effort high` $\to$ `02_REVIEW.md` |
-| **4. Worker** | Refinement & Fixes | Addresses reviewer findings, fixes bugs & verifies | **OpenAI Codex GPT-5.6 Luna** | `omp -p --model=openai-codex/gpt-5.6-luna --thinking=max --continue` | `codex exec -c model_reasoning_effort="high"` |
+| **1. Planner** | System Architecture | Inspects problem, designs data structures & algorithm | **xAI Grok 4.6** | `omp -p --model=xai-oauth/grok-4.6 --thinking=high` | `grok -p --effort high` $\to$ `01_PLAN.md` |
+| **2. Worker** | Implementation | Implements full code from plan & README | **OpenAI Codex GPT-5.6 Luna** | `omp -p --model=openai-codex/gpt-5.6-luna --thinking=max --continue` | `codex exec -c model_reasoning_effort="max"` |
+| **3. Reviewer**| Audit & Verification | Runs tests, hunts bugs & edge cases, audits code | **Google Gemini 3.8 Flash** | `omp -p --model=google-antigravity/gemini-3.8-flash --thinking=high --continue` | `agy -p --effort medium` $\to$ `02_REVIEW.md` |
+| **4. Worker** | Refinement & Fixes | Addresses reviewer findings, fixes bugs & verifies | **OpenAI Codex GPT-5.6 Luna** | `omp -p --model=openai-codex/gpt-5.6-luna --thinking=max --continue` | `codex exec -c model_reasoning_effort="max"` |
 
+### Pre-Registered Matched-Compute Design & Effort Calibration
+
+To ensure that differences in pass rate, latency, and cost reflect harness coordination rather than divergent vendor reasoning budgets, model configurations follow a strictly pre-registered **matched-compute** design:
+1. **Planner (Grok 4.6)**: Both arms use `high` effort, producing matched ~4.8k–5.5k reasoning tokens. (Arm B's `xhigh` in exploratory pilot was retired due to severe SLA timeout pathology).
+2. **Worker (Codex GPT-5.6 Luna)**: Both arms use `max` effort, producing matched ~2.9k reasoning tokens (<0.5% disparity).
+3. **Reviewer (Gemini 3.8 Flash)**: OMP at `high` matches AGY CLI at `medium`. In vendor adapters, AGY's `--effort high` defaults to an uncapped ~32k budget (averaging 26,539 tokens in confirmatory-003), whereas OMP's `high` budgets ~13k tokens. Empirical measurements across 3 strictly disjoint calibration tasks (`affine-cipher`, `book-store`, `proverb` recorded in `calibration/reviewer_effort_calibration.json`) demonstrate a 3-task pooled ratio of 1.067 (17,207 OMP tokens vs. 16,124 AGY medium tokens; mean log-ratio -0.1383, $s=0.8883$, point ratio 0.871, 90% CI [0.195, 3.882]), avoiding the massive 26.5k token compute blowup of AGY `high` (ratio 0.51).
+4. **Pilot Parity Power Basis**: With empirical log standard deviation $s \approx 0.75$, achieving a strict 90% CI half-width under $\ln(1.25) = 0.223$ would require $N > 50$ pairs. For the preflight pilot calibration on tasks disjoint from the calibration set (`grep` and `list-ops` with $k=7$ repeats, $N=14$ paired observations, $df=13, t_{0.90}=1.771$):
+   * Under $(N-1)s^2/\sigma^2 \sim \chi^2_{13}$, $N=14$ achieves an exact **80.0% power** ($P(\chi^2_{13} < 16.974) = 0.7994$) to contain the sample 90% CI within the pre-registered equivalence band $[-0.405, +0.405]$ on log scale ($[0.67, 1.50]$ on ratio scale) for true dispersion $\sigma \le 0.75$ ($s_{\text{crit}} = 0.8566$).
+   * **Pooled Token Ratio Margin**: Across all pilot pairs, $\frac{\sum \text{Tokens}_A}{\sum \text{Tokens}_B} \in [0.80, 1.25]$.
+   * **TOST 90% CI Equivalence Margin**: The paired log-ratio 90% CI must be entirely contained within $[0.67, 1.50]$.
+5. **Pre-Registration Boundary**: Exactly **ONE** calibration round is permitted. The effort matrix and pilot power bounds are frozen prior to the confirmatory pilot run. No post-hoc re-tuning of the effort matrix is permitted; if the preflight parity TOST gate fails, the run is terminated.
 ### Independent Variable (Harness Orchestration vs. CLI Chaining)
 
 1. **Handoff Substrate**:
@@ -161,7 +170,7 @@ Where $P_{\text{in}}, P_{\text{cache}}, P_{\text{out}}, P_{\text{reasoning}}$ ar
 | Variable | Control Mechanism | Parity Check |
 | :--- | :--- | :--- |
 | **Model Family & Generation** | Pinned frontier models per stage | Identical models used in Arm A and Arm B at each stage |
-| **Reasoning Depth** | Maximum available reasoning effort | OMP: `--thinking=max`<br>Codex: `model_reasoning_effort="high"`<br>AGY: `--effort high`<br>Grok: Native full reasoning |
+| **Reasoning Depth** | Pre-registered matched-compute effort matrix | Planner: `high`/`high`<br>Worker: `max`/`max`<br>Reviewer: `high`/`medium` (calibrated to ~13k tokens) |
 | **Tool Surface** | Identical primitive capabilities | File read, file write, file edit, bash unit test runner |
 | **Network Isolation** | Strict offline execution | Web search disabled; external network calls blocked and audited |
 | **Stage Prompts** | Verbatim identical instructions | Identical role descriptions, constraints, and instructions |

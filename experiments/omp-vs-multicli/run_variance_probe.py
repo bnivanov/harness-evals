@@ -132,7 +132,7 @@ def run_stage1_arm_b(task_meta: dict, workspace_dir: str, artifact_dir: str) -> 
             cfg.GROK_BIN,
             "-p", prompt,
             "--model", cfg.MODEL_PINS["planner"]["arm_b"],
-            "--effort", cfg.EFFORT_PINS["grok"],
+            "--effort", cfg.EFFORT_MATRIX["planner"]["arm_b"],
             "--always-approve",
             "--disable-web-search",
             "--session-id", str(uuid.uuid4()),

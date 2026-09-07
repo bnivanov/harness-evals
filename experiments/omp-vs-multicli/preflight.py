@@ -52,6 +52,7 @@ FROZEN_SOURCE_FILES = (
     "verifier/oracle_verifier.py",
     "analysis/calculate_stats.py",
     "security/benchmark_guard.ts",
+    "preflight_parity.py",
 )
 
 
