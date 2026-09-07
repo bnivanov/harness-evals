@@ -1,0 +1,114 @@
+{
+  "run_id": "confirmatory-010",
+  "timestamp": "2026-09-07T22:32:33Z",
+  "composite_source_sha256": "feb499a00986d125089d16ef316eb4b949a14852cc888a498c6a209aaf66b174",
+  "run_manifest_sha256": "00a93db846248c4ba0cde79bc91c572d190ebd475e4e2252f544fad02a02f5d1",
+  "source_hashes": {
+    "PROTOCOL.md": "5ec346b1d3d09c8ab5f00ed08a33fc296d61f4531324f02ac58bd609b359fe71",
+    "ANTI_CHEATING.md": "a5ad9de45f1e1bf5fdec695e516182d7994eae5036146606f558a3b984a9d3f8",
+    "config_overlay.yml": "0da00e8cfe5b40cf0079bbaaa43c8d62efe54cacfeeedf2691d418703d0a64a4",
+    "experiment_config.py": "4530cc5c2965ee7d7b15e0096356c05758894b694be3fdc8a1a2f1166e356474",
+    "runner_common.py": "b9fbcf83ecfcc6c82a225ec86c1976073aebfe772aa2af8d7502d21c8eb57964",
+    "run_task.py": "68eadb4b3f9941682cd8bbed8d7f1ac0d5f4a090ece03ff6511033e8e12cb354",
+    "run_matrix.py": "6ff9c3b4aaf848765e358e499c4f05834e78b075964443a5a55ae827402c8c14",
+    "preflight.py": "fbda64bea3e297e87111e8533009b863a72def264405ae9db6a5e67c83ed61b1",
+    "smoke_test_parity.py": "70a451d0eb2f4725732c97cbebca1b706a5b3320de8a9d37d9adf7ff5d2e9add",
+    "runners/arm_a_omp.py": "87c61c0e504d279c328dac7f7d54dc8f113588149b369f2e8a10a038b775f467",
+    "runners/arm_b_multicli.py": "7e08641c889d3c18c887b846b53e1cfc1758efb78752b4205e382b05bb4d1886",
+    "verifier/oracle_verifier.py": "a9d334f5ddc4da29561f08500d2c506fae63d3cf22e47f54552f92169d847315",
+    "analysis/calculate_stats.py": "58c27082287c3e1c01e23c09053415084b796d6495a579f3f57473ebdeabad9c",
+    "security/benchmark_guard.ts": "4e568b172fe517aa8836f11cd56e4d036f3a519f408883ba741bc97418deb583",
+    "security/benchmark_guard.test.ts": "2025974a8baf77c5b2e3b99c024f667b45348f022cfa5177a5f2e99577e08006",
+    "preflight_parity.py": "1a0141fa92f5d14f84059ecbcbf8f63e572bd1b2da0f0a8192ad65f28ca22398"
+  },
+  "binary_pins": {
+    "omp": {
+      "expected": "omp/18.1.13",
+      "actual": "omp/18.1.13",
+      "returncode": 0,
+      "matched": true
+    },
+    "grok": {
+      "expected": "grok 1.0.5 (5115b46bc909) [stable]",
+      "actual": "grok 1.0.5 (5115b46bc909) [stable]",
+      "returncode": 0,
+      "matched": true
+    },
+    "codex": {
+      "expected": "codex-cli 0.153.4",
+      "actual": "codex-cli 0.153.4",
+      "returncode": 0,
+      "matched": true
+    },
+    "agy": {
+      "expected": "1.1.27",
+      "actual": "1.1.27",
+      "returncode": 0,
+      "matched": true
+    }
+  },
+  "containment": {
+    "positive_control": {
+      "oracle_file": "$HOME/AgentWork/projects/harness-evals/benchmarks/aider-python/oracle/solutions/wordy.py",
+      "verified_readable": true
+    },
+    "negative_oracle_probe": {
+      "status": "quarantined",
+      "evidence": "ORACLE_QUARANTINED_EACCES"
+    },
+    "negative_network_probe": {
+      "status": "blocked",
+      "evidence": "CURL_EXEC_BLOCKED_EPERM"
+    }
+  },
+  "effort_matrix": {
+    "planner": {
+      "arm_a": "medium",
+      "arm_b": "medium"
+    },
+    "worker": {
+      "arm_a": "max",
+      "arm_b": "max"
+    },
+    "reviewer": {
+      "arm_a": "high",
+      "arm_b": "medium"
+    }
+  },
+  "model_pins": {
+    "planner": {
+      "arm_a": "xai-oauth/grok-4.6",
+      "arm_b": "grok-4.6"
+    },
+    "worker": {
+      "arm_a": "openai-codex/gpt-5.6-luna",
+      "arm_b": "gpt-5.6-luna"
+    },
+    "reviewer": {
+      "arm_a": "google-antigravity/gemini-3.8-flash",
+      "arm_b": "gemini-3.8-flash"
+    }
+  },
+  "pilot_power_basis": {
+    "pilot_tasks": [
+      "grep",
+      "list-ops"
+    ],
+    "pilot_repeats": 7,
+    "total_pairs": 14,
+    "pooled_band": [
+      0.8,
+      1.25
+    ],
+    "tost_band": [
+      0.5,
+      2.0
+    ],
+    "max_infra_retries": 2
+  },
+  "ceilings": {
+    "stage_seconds": 600,
+    "task_seconds": 1800
+  },
+  "verdict": "DRY_RUN_PASS"
+}

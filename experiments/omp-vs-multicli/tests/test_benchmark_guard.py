@@ -65,6 +65,12 @@ console.log(JSON.stringify(decision || {{ ok: true }}));
                 "man grep > /dev/null",
                 "python3 grep.py -l hello file.txt",
                 "cat << 'EOF' > scratch.py\nprint(1)\nEOF",
+                "python3 -c 'a = 5 // 2'",
+                "python3 -c \"print('foldl:', (5 // 2) // 5)\"",
+                "python3 -c \"assert foldl(...) == n * (n - 1) // 2\"",
+                "python3 -c 'x = 10 // 3 # test //: comment'",
+                "python3 -c 'y = (10 // 2)'",
+                "python3 -c 'z = foo(10 // 2, 3)'",
             ]
             for cmd in benign_cmds:
                 dec = self.run_guard_probe("bash", {"command": cmd}, env)
@@ -109,6 +115,8 @@ console.log(JSON.stringify(decision || {{ ok: true }}));
                 "cat ${HOME}/.gemini/oauth_creds.json",
                 "cat /tmp/leak.txt",
                 "cat /tmp/probe_leak_dir/session.jsonl",
+                "cat //tmp/leak.txt",
+                "ls /tmp",
             ]
             for cmd in blocked_paths:
                 dec = self.run_guard_probe("bash", {"command": cmd}, env)

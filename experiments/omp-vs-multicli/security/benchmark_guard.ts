@@ -49,6 +49,8 @@ const NETWORK_IMPORT =
 
 const BASH_PATH_TOKEN =
   /(?:^|[\s"'=])(~(?:\/[^\s"']*)?|\$(?:\{HOME\}|HOME)(?:\/[^\s"']*)?|\$(?:\{TMPDIR\}|TMPDIR)(?:\/[^\s"']*)?|(?:\.\.\/)+[^\s"']*|\/[^\s"']+|\.\/[^\s"']+|[^\s"']+\/[^\s"']+)/g;
+const SLASH_OPERATOR_TOKEN = /^\/{1,2}\d*[;,.)\]}!=<>+\-*%&|^~?:\/]*$/;
+const SINGLE_COMPONENT_ABSOLUTE = /^\/[^/]+$/;
 
 const SAFE_OS_READ_PREFIXES = [
   "/usr/",
@@ -386,6 +388,12 @@ export function inspectBash(input: Record<string, unknown> | undefined): GuardDe
       token.startsWith("${TMPDIR}") ||
       token.startsWith("../")
     ) {
+      if (SLASH_OPERATOR_TOKEN.test(token)) {
+        continue;
+      }
+      if (SINGLE_COMPONENT_ABSOLUTE.test(token) && !existsSync(token)) {
+        continue;
+      }
       const canonical = canonicalize(token, workspace);
       if (!isAllowedReadTarget(canonical, workspace, scratchDir)) {
         return block("bash", "path outside benchmark workspace", input);

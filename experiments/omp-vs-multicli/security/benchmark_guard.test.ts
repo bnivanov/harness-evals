@@ -167,3 +167,28 @@ test("blocks curl, git clone, pip, and Python socket", async () => {
   expect(lines.map((row) => row.reason)).toEqual(cases.map((c) => c.reason));
   expect(lines.every((row) => row.tool === "bash")).toBe(true);
 });
+
+test("allows python integer division and comments while blocking genuine escapes", async () => {
+  const allowedCommands = [
+    "python3 -c 'a = 5 // 2'",
+    'python3 -c "print(\'foldl:\', (5 // 2) // 5)"',
+    'python3 -c "assert foldl(...) == n * (n - 1) // 2"',
+    "python3 -c 'x = 10 // 3 # test //: comment'",
+    "python3 -c 'y = (10 // 2)'",
+    "python3 -c 'z = foo(10 // 2, 3)'",
+  ];
+  for (const cmd of allowedCommands) {
+    const res = await handler({ toolName: "bash", input: { command: cmd } });
+    expect(res).toBeUndefined();
+  }
+
+  const blockedCommands = [
+    { command: "cat //tmp/leak", reason: "path outside benchmark workspace" },
+    { command: "ls /tmp", reason: "path outside benchmark workspace" },
+    { command: "head /var/folders/other/foo", reason: "path outside benchmark workspace" },
+  ];
+  for (const c of blockedCommands) {
+    const res = await handler({ toolName: "bash", input: { command: c.command } });
+    expect(res).toEqual({ block: true, reason: c.reason });
+  }
+});
