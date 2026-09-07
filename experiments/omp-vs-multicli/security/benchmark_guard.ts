@@ -39,7 +39,7 @@ const PATH_KEYS = ["path", "file", "filename", "target", "dest", "destination"] 
 
 // Anchored network command pattern matching CLI execution including subshells, backticks, and pipes
 const NETWORK_COMMAND =
-  /(?:^|[;&|(`$\s{])(?:curl|wget|ssh|scp|rsync|nc|ncat|netcat|socat|telnet)\b/i;
+  /(?:^|[;&|(`$\s{])(?:curl|wget|ssh|scp|rsync|ncat|netcat|socat|telnet)\b|(?:^|[;&|(`$\s{])nc\s+-[a-zA-Z0-9]|(?:^|[;&|(`$\s{])nc\s+[0-9a-zA-Z.-]+\s+\d+/i;
 const GIT_NETWORK =
   /\bgit(?:\s+\S+)*\s+(?:clone|fetch|pull)\b|\bgit(?:\s+\S+)*\s+remote\s+add\b/i;
 const PACKAGE_FETCH =

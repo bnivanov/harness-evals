@@ -19,12 +19,20 @@ from experiment_config import PROJECT_ROOT, SANDBOX_EXEC
 NETWORK_EXECUTABLES = (
     "/usr/bin/curl",
     "/usr/bin/nc",
+    "/usr/bin/ncat",
+    "/usr/bin/netcat",
+    "/usr/bin/socat",
+    "/usr/bin/telnet",
     "/usr/bin/ssh",
     "/usr/bin/scp",
     "/usr/bin/rsync",
     "/opt/homebrew/bin/curl",
     "/opt/homebrew/bin/wget",
     "/opt/homebrew/bin/nc",
+    "/opt/homebrew/bin/ncat",
+    "/opt/homebrew/bin/netcat",
+    "/opt/homebrew/bin/socat",
+    "/opt/homebrew/bin/telnet",
     "/opt/homebrew/bin/ssh",
     "/opt/homebrew/bin/scp",
     "/opt/homebrew/bin/rsync",
@@ -34,7 +42,12 @@ TRACE_VIOLATION_PATTERNS = (
     # Literal-anchored: a lazy `[^\s"']*?` prefix made this quadratic on
     # multi-hundred-KB traces (~2.4 s/MB) without widening the match set.
     ("ORACLE_PATH", re.compile(r"/benchmarks/aider-python/(?:oracle|tasks)/", re.I)),
-    ("NETWORK_COMMAND", re.compile(r"(?:^|[;&|\s])(?:curl|wget|ssh|scp|rsync)\s|(?:^|[;&|\s])nc\s+-[a-zA-Z0-9]|(?:^|[;&|\s])nc\s+[0-9a-zA-Z.-]+\s+\d+", re.I)),
+    ("NETWORK_COMMAND", re.compile(
+        r"(?:^|[;&|(`$\s{])(?:curl|wget|ssh|scp|rsync|ncat|netcat|socat|telnet)\b|"
+        r"(?:^|[;&|(`$\s{])nc\s+-[a-zA-Z0-9]|"
+        r"(?:^|[;&|(`$\s{])nc\s+[0-9a-zA-Z.-]+\s+\d+",
+        re.I
+    )),
     ("GIT_NETWORK", re.compile(r"\bgit\s+(?:clone|fetch|pull|remote\s+add)\b", re.I)),
     ("PACKAGE_FETCH", re.compile(r"\b(?:pip(?:3)?\s+install|python3?\s+-m\s+pip\s+install|npm\s+install|gem\s+install)\b", re.I)),
     ("RAW_NETWORK_CODE", re.compile(r"(?:import\s+(?:urllib(?:\.\w+)*|requests|httpx|socket)|from\s+(?:urllib(?:\.\w+)*|requests|httpx|socket)\s+import|(?:requests|httpx)\.(?:get|post|put|delete|patch|request)|socket\.(?:socket|create_connection)|require\s*\(\s*['\"](?:node:)?(?:https?|net)['\"]\)|fetch\s*\(\s*['\"]https?:)", re.I)),
