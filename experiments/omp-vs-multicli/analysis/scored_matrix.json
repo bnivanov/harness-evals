@@ -611,7 +611,14 @@
       "stage": "4_WORKER_REFINE"
     }
   ],
-  "stale_flags": {},
+  "stale_flags": {
+    "connect_arm_a": [
+      "NETWORK_COMMAND"
+    ],
+    "connect_arm_b": [
+      "NETWORK_COMMAND"
+    ]
+  },
   "synthetic_arm_b": {
     "passed": 428,
     "resolved": 21,
