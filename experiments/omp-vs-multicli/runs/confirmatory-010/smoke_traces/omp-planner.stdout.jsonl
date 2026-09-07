@@ -1,4 +1,4 @@
-{"type":"session","version":3,"id":"01a07dff-e806-7238-aecc-71782eca13a8","timestamp":"2026-09-07T22:31:58.214Z","cwd":"/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_smoke_0d8z0gp_"}
+{"type":"session","version":3,"id":"01a07dff-e806-7238-aecc-71782eca13a8","timestamp":"2026-09-07T22:31:58.214Z","cwd":"$TMPDIR/harness_parity_smoke_0d8z0gp_"}
 {"type":"advisor_cost_changed"}
 {"type":"agent_start"}
 {"type":"turn_start"}
