@@ -23,3 +23,7 @@ node_modules/
 
 # Benchmark / Experiment archives
 experiments/omp-vs-multicli/results/archive*/
+
+# Local-only publication drafts (enforced by .git/hooks/pre-push)
+experiments/omp-vs-multicli/ARTICLE.md
+experiments/omp-vs-multicli/visuals/out/
