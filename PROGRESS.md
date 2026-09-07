@@ -261,19 +261,18 @@
    - Passed 38 Python unit tests and 5 Bun security tests.
    - Opened and merged **[PR #1](https://github.com/bnivanov/harness-evals/pull/1)** into `main`.
 
-4. **Option 2 Hardened Reruns & PR #2**:
-   - Froze immutable run manifest `runs/reruns-hardened-001/run_manifest.json` and passed live parity smoke test across all 4 stages.
-   - Verified `wordy` Arm A clean rerun: 25/25 unit tests passed, 0 `skill://` reads, 0 protocol violations.
-   - Attempted Option 2 task rerun batch (`robot-name`, `two-bucket`, `go-counting`, `list-ops`, `react`, `rest-api`); paused when OpenAI Codex API hit its quota ceiling (`code=usage_limit_reached`, reset scheduled for 5:19 AM local / 04:19 UTC).
-   - Script `run_rerun_tasks.py` is fully idempotent and ready to resume immediately upon quota reset.
+4. **Option 2 Hardened Reruns Completed & Audited ([PR #2](https://github.com/bnivanov/harness-evals/pull/2))**:
+   - Resumed execution at 07:07 BST following OpenAI Codex quota reset; all 6 remaining tasks finished with exit code 0 in 23m.
+   - **Comprehensive Tool Audit**: Forensically verified zero out-of-spec tool calls across all stages and tasks. Total tool types invoked: `['bash', 'edit', 'glob', 'read', 'write']`. Exactly **0 `skill://` reads** and **0 `artifact://` reads**.
+   - **Raw Oracle Outcomes**: **7 of 7 tasks (100%) passed 100% of their test suites** (96/96 unit tests passed: `go-counting` 11/11, `list-ops` 24/24, `react` 14/14, `rest-api` 9/9, `robot-name` 4/4, `wordy` 25/25, `two-bucket` 9/9).
+   - **Protocol Gate Outcomes**: **6 of 7 tasks (85.7%) protocol-valid**. `two-bucket` was disqualified under the protocol rules because its Stage 1 Planner omitted writing `01_PLAN.md` (`MISSING_HANDOFF`), demonstrating the enforcement of our strict protocol checker even when the downstream implementation passes unit tests.
 
 5. **Upstream PR #68 Merge Conflicts Resolved**:
    - Fetched `upstream/main` in `~/.git-backups/harnessrouter.git` and resolved 6 content conflicts across `Dockerfile`, `README.md`, `docker/entrypoint.sh`, `gateway/app.py`, `ui/src/components/HarnessLogo.tsx`, and `ui/src/lib/harness.ts`.
    - Preserved both `gemini` (upstream) and `omp` (our backend) across configurations, catalogs, and UI types.
    - Verified 13/13 tests in `runner/tests/test_omp_backend.py` and 6/6 tests in `gateway/tests/`.
-   - Pushed merge commit `575ccb4` to `origin/feat/omp-backend`; PR #68 is no longer `DIRTY`.
+   - Pushed merge commit `575ccb4` to `origin/feat/omp-backend`; GitHub confirms PR #68 is `mergeable: true` with 0 conflicts.
 
 ### Next Steps
-- Await completion of Option 2 task rerun batch and audit trace files for 0 skill/artifact reads.
-- Review and merge PR #2 once all rerun artifacts are committed.
-- Proceed with Wave 1 Track A 3-SUT evaluation (Grok Build × Pi × OMP) under HarnessRouter.
+1. Merge PR #2 (`feat/rerun-hardened-guard`) into `main`.
+2. Advance to the **Wave 1 Track A 3-SUT Benchmark** (Grok Build × Pi × OMP under HarnessRouter).
