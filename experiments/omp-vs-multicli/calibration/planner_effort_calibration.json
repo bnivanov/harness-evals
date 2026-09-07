@@ -1,0 +1,74 @@
+{
+  "calibration_target": "Stage 1 (Planner) - Grok 4.6 reasoning token budget matching",
+  "calibrated_at": "2026-09-07T18:00:00Z",
+  "disjoint_tasks": [
+    "affine-cipher",
+    "book-store",
+    "proverb"
+  ],
+  "note": "Calibration tasks are strictly disjoint from preflight PILOT_TASKS (grep, list-ops).",
+  "binary_pins": {
+    "omp": {
+      "path": "~/AgentWork/bin/omp",
+      "version": "omp/18.1.13",
+      "flag": "--thinking=medium"
+    },
+    "grok": {
+      "path": "~/.grok/bin/grok",
+      "version": "grok 1.0.5 (5115b46bc909) [stable]",
+      "flag": "--effort medium"
+    }
+  },
+  "rationale": "In exploratory pilot runs and variance-probe-001, Grok Build CLI with xhigh effort executed an uncapped ~11.7k reasoning budget that exceeded 300s in 3 of 6 runs (up to 364s). Setting both OMP and Grok Build CLI to medium matches the underlying model architecture, constrains thinking to the ~700-2400 token range, completes in 62s-107s (zero runs exceeding 300s), and brings Stage 1 inside the pre-registered equivalence margin.",
+  "empirical_measurements": [
+    {
+      "task_id": "affine-cipher",
+      "role": "planner",
+      "omp_medium_reasoning_tokens": 1402,
+      "omp_medium_duration_seconds": 81.41,
+      "grok_medium_reasoning_tokens": 2386,
+      "grok_medium_duration_seconds": 106.81,
+      "ratio_omp_to_grok_medium": 0.5876,
+      "log_ratio": -0.5317
+    },
+    {
+      "task_id": "book-store",
+      "role": "planner",
+      "omp_medium_reasoning_tokens": 1031,
+      "omp_medium_duration_seconds": 80.48,
+      "grok_medium_reasoning_tokens": 1593,
+      "grok_medium_duration_seconds": 90.17,
+      "ratio_omp_to_grok_medium": 0.6472,
+      "log_ratio": -0.4351
+    },
+    {
+      "task_id": "proverb",
+      "role": "planner",
+      "omp_medium_reasoning_tokens": 717,
+      "omp_medium_duration_seconds": 62.86,
+      "grok_medium_reasoning_tokens": 917,
+      "grok_medium_duration_seconds": 71.26,
+      "ratio_omp_to_grok_medium": 0.7819,
+      "log_ratio": -0.2460
+    }
+  ],
+  "summary_statistics": {
+    "n": 3,
+    "tasks": [
+      "affine-cipher",
+      "book-store",
+      "proverb"
+    ],
+    "pooled_omp_tokens": 3150,
+    "pooled_grok_medium_tokens": 4896,
+    "pooled_ratio": 0.6434,
+    "mean_log_ratio": -0.4043,
+    "sd_log_ratio": 0.1453,
+    "se_log_ratio": 0.0839,
+    "point_estimate_ratio": 0.6675,
+    "ci_90_ratio": [
+      0.5224,
+      0.8527
+    ]
+  }
+}

@@ -31,6 +31,7 @@ from runner_common import (  # noqa: E402
     prepare_isolated_omp_agent_dir,
     run_captured_process,
     sandbox_command,
+    scrub_workstation_paths,
     sha256_file,
 )
 from arm_a_omp import parse_omp_telemetry  # noqa: E402
@@ -225,6 +226,7 @@ def run_smoke(run_manifest_path: str) -> dict:
         "run_manifest_sha256": sha256_file(run_manifest_path),
         "results": results,
     }
+    report = scrub_workstation_paths(report)
     with open(report_path, "x", encoding="utf-8") as handle:
         json.dump(report, handle, indent=2, sort_keys=True)
         handle.write("\n")

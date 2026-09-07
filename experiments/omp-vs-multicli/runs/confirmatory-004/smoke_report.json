@@ -3,7 +3,7 @@
     "planner": {
       "arm_a": {
         "command": [
-          "/Users/agentlab/AgentWork/bin/omp",
+          "$HOME/AgentWork/bin/omp",
           "--mode",
           "json",
           "-p",
@@ -13,13 +13,13 @@
           "--auto-approve",
           "--no-extensions",
           "--no-skills",
-          "--hook=/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_runtime_9lymlztq/omp-planner/benchmark_guard.ts",
-          "--config=/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_runtime_9lymlztq/omp-planner/config_overlay.yml",
-          "--session-dir=/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_runtime_9lymlztq/omp-planner/sessions",
+          "--hook=$TMPDIR/harness_parity_runtime_87zxh55q/omp-planner/benchmark_guard.ts",
+          "--config=$TMPDIR/harness_parity_runtime_87zxh55q/omp-planner/config_overlay.yml",
+          "--session-dir=$TMPDIR/harness_parity_runtime_87zxh55q/omp-planner/sessions",
           "--max-time=120",
           "--tools=read,edit,write,bash,grep,glob",
           "--cwd",
-          "/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_smoke_7jwp0hgb"
+          "$TMPDIR/harness_parity_smoke_gosir646"
         ],
         "configured_effort": "medium",
         "configured_model": "xai-oauth/grok-4.6",
@@ -31,18 +31,18 @@
         "returncode": 0,
         "stderr_trace": {
           "bytes": 0,
-          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/omp-planner.stderr.log",
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/omp-planner.stderr.log",
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         },
         "stdout_trace": {
-          "bytes": 8692,
-          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/omp-planner.stdout.jsonl",
-          "sha256": "80f44630529c64f4be71230162176af8e562fb6f5fdac70d7693c481f79b7309"
+          "bytes": 8623,
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/omp-planner.stdout.jsonl",
+          "sha256": "206b4817b1831b9f9090434ac72408c80b605a861846d2b0912a73ffde0ade3e"
         }
       },
       "arm_b": {
         "command": [
-          "/Users/agentlab/.grok/bin/grok",
+          "$HOME/.grok/bin/grok",
           "-p",
           "Calculate 17 * 19. Do not call tools. Return only the final numeric answer.",
           "--model",
@@ -52,7 +52,7 @@
           "--always-approve",
           "--disable-web-search",
           "--session-id",
-          "4e03074c-b250-434f-9310-75870de123ee",
+          "fdf958fc-0038-4c72-9536-25b6ee168179",
           "--output-format",
           "json"
         ],
@@ -61,27 +61,27 @@
         "identity_proof": "resolved telemetry",
         "passed": true,
         "provider": "grok",
-        "reasoning_tokens": 60,
+        "reasoning_tokens": 58,
         "resolved_models": [
           "grok-4.6-build"
         ],
         "returncode": 0,
         "stderr_trace": {
           "bytes": 0,
-          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/grok.stderr.log",
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/grok.stderr.log",
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         },
         "stdout_trace": {
-          "bytes": 792,
-          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/grok.stdout.jsonl",
-          "sha256": "d5ed759fe2c6947702b76987c259489f72a8e52502b953e3a2bf4e08688755cd"
+          "bytes": 811,
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/grok.stdout.jsonl",
+          "sha256": "88c877e8f9c2ebad1b962cea94772490dfdea09064f4a2cbd34c2ce2e9712553"
         }
       }
     },
     "reviewer": {
       "arm_a": {
         "command": [
-          "/Users/agentlab/AgentWork/bin/omp",
+          "$HOME/AgentWork/bin/omp",
           "--mode",
           "json",
           "-p",
@@ -91,36 +91,36 @@
           "--auto-approve",
           "--no-extensions",
           "--no-skills",
-          "--hook=/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_runtime_9lymlztq/omp-reviewer/benchmark_guard.ts",
-          "--config=/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_runtime_9lymlztq/omp-reviewer/config_overlay.yml",
-          "--session-dir=/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_runtime_9lymlztq/omp-reviewer/sessions",
+          "--hook=$TMPDIR/harness_parity_runtime_87zxh55q/omp-reviewer/benchmark_guard.ts",
+          "--config=$TMPDIR/harness_parity_runtime_87zxh55q/omp-reviewer/config_overlay.yml",
+          "--session-dir=$TMPDIR/harness_parity_runtime_87zxh55q/omp-reviewer/sessions",
           "--max-time=120",
           "--tools=read,edit,write,bash,grep,glob",
           "--cwd",
-          "/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_smoke_7jwp0hgb"
+          "$TMPDIR/harness_parity_smoke_gosir646"
         ],
         "configured_effort": "high",
         "configured_model": "google-antigravity/gemini-3.8-flash",
         "passed": true,
-        "reasoning_tokens": 124,
+        "reasoning_tokens": 121,
         "resolved_models": [
           "gemini-3.8-flash"
         ],
         "returncode": 0,
         "stderr_trace": {
           "bytes": 0,
-          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/omp-reviewer.stderr.log",
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/omp-reviewer.stderr.log",
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         },
         "stdout_trace": {
-          "bytes": 5732,
-          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/omp-reviewer.stdout.jsonl",
-          "sha256": "c3590d24cc8cb56d2e109fe4029ded6b4cfc6ad30d376307e96886f20d41ce94"
+          "bytes": 5516,
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/omp-reviewer.stdout.jsonl",
+          "sha256": "5efd78811dfc27a83dd9ced156923b819da102a343bf5387dbbb0775c124de9e"
         }
       },
       "arm_b": {
         "command": [
-          "/Users/agentlab/.local/bin/agy",
+          "$HOME/.local/bin/agy",
           "-p",
           "Calculate 17 * 19. Do not call tools. Return only the final numeric answer.",
           "--model",
@@ -138,25 +138,25 @@
         "identity_proof": "explicit strict argv + pinned binary",
         "passed": true,
         "provider": "agy",
-        "reasoning_tokens": 73,
+        "reasoning_tokens": 76,
         "resolved_models": [],
         "returncode": 0,
         "stderr_trace": {
           "bytes": 0,
-          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/agy.stderr.log",
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/agy.stderr.log",
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         },
         "stdout_trace": {
-          "bytes": 253,
-          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/agy.stdout.jsonl",
-          "sha256": "44dd8753a5c935b8b05019e7ed5bdca9e4b87974108b873e7bffe661732b3c5a"
+          "bytes": 263,
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/agy.stdout.jsonl",
+          "sha256": "706a919e3d63d55587e0e642c123d991ffe06081ee4094cef2b3e355ca3e9689"
         }
       }
     },
     "worker": {
       "arm_a": {
         "command": [
-          "/Users/agentlab/AgentWork/bin/omp",
+          "$HOME/AgentWork/bin/omp",
           "--mode",
           "json",
           "-p",
@@ -166,36 +166,36 @@
           "--auto-approve",
           "--no-extensions",
           "--no-skills",
-          "--hook=/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_runtime_9lymlztq/omp-worker/benchmark_guard.ts",
-          "--config=/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_runtime_9lymlztq/omp-worker/config_overlay.yml",
-          "--session-dir=/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_runtime_9lymlztq/omp-worker/sessions",
+          "--hook=$TMPDIR/harness_parity_runtime_87zxh55q/omp-worker/benchmark_guard.ts",
+          "--config=$TMPDIR/harness_parity_runtime_87zxh55q/omp-worker/config_overlay.yml",
+          "--session-dir=$TMPDIR/harness_parity_runtime_87zxh55q/omp-worker/sessions",
           "--max-time=120",
           "--tools=read,edit,write,bash,grep,glob",
           "--cwd",
-          "/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/harness_parity_smoke_7jwp0hgb"
+          "$TMPDIR/harness_parity_smoke_gosir646"
         ],
         "configured_effort": "max",
         "configured_model": "openai-codex/gpt-5.6-luna",
         "passed": true,
-        "reasoning_tokens": 27,
+        "reasoning_tokens": 28,
         "resolved_models": [
           "gpt-5.6-luna"
         ],
         "returncode": 0,
         "stderr_trace": {
           "bytes": 0,
-          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/omp-worker.stderr.log",
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/omp-worker.stderr.log",
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         },
         "stdout_trace": {
-          "bytes": 9787,
-          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/omp-worker.stdout.jsonl",
-          "sha256": "b94a98a2501e6a4dbe1bd38774607a9c92980112871b53e0266217b65d70d733"
+          "bytes": 9670,
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/omp-worker.stdout.jsonl",
+          "sha256": "101c31df9c8c7bdc2fd0ef54c75eae021d812466eab957c2c3eb2d03f17be05a"
         }
       },
       "arm_b": {
         "command": [
-          "/Users/agentlab/.local/bin/codex",
+          "$HOME/.local/bin/codex",
           "-c",
           "model=\"gpt-5.6-luna\"",
           "-c",
@@ -214,25 +214,25 @@
         "identity_proof": "explicit strict argv + pinned binary",
         "passed": true,
         "provider": "codex",
-        "reasoning_tokens": 20,
+        "reasoning_tokens": 19,
         "resolved_models": [],
         "returncode": 0,
         "stderr_trace": {
           "bytes": 39,
-          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/codex.stderr.log",
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/codex.stderr.log",
           "sha256": "1aa26269eb1cc57f86b235a03cda53c004edb5b1e9fc99d4da4f00843293d721"
         },
         "stdout_trace": {
           "bytes": 347,
-          "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/codex.stdout.jsonl",
-          "sha256": "023c93c55f6bc039a09bea8f46477149945117e96f618733f680a1488884ee88"
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/smoke_traces/codex.stdout.jsonl",
+          "sha256": "49b0a567594348d08087a2d1f08fd49b27abd503b462a86607804049cb164e6d"
         }
       }
     }
   },
   "run_id": "confirmatory-004",
-  "run_manifest_path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/run_manifest.json",
-  "run_manifest_sha256": "eda9aee59c654c16991419999a452b45bdae8b6cf92fcf16f7f2749bd44b6bc4",
+  "run_manifest_path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/run_manifest.json",
+  "run_manifest_sha256": "03d3b90a846c9ae85ed0a64f20fb6088f683961f339bc9a5f03ed350c6c60f90",
   "schema_version": 2,
   "status": "pass"
 }

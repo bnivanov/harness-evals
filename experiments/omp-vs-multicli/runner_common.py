@@ -11,6 +11,7 @@ import shutil
 import signal
 import subprocess
 import time
+import tempfile
 from pathlib import Path
 
 from experiment_config import PROJECT_ROOT, SANDBOX_EXEC
@@ -46,6 +47,21 @@ def sha256_file(path: str) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+def scrub_workstation_paths(obj: Any) -> Any:
+    home = os.path.expanduser("~")
+    tmp = tempfile.gettempdir()
+    if isinstance(obj, str):
+        res = obj.replace(home, "$HOME")
+        if tmp and tmp in res:
+            res = res.replace(tmp, "$TMPDIR")
+        res = res.replace("/private/var/folders", "$TMPDIR")
+        return res
+    elif isinstance(obj, dict):
+        return {scrub_workstation_paths(k): scrub_workstation_paths(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [scrub_workstation_paths(v) for v in obj]
+    return obj
+
 
 
 def seatbelt_profile(workspace: str) -> str:

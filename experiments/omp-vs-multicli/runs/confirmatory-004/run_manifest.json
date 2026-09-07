@@ -1,23 +1,23 @@
 {
-  "benchmark_sha256": "a6593dce8f384e994c883899054c840341b2e2cab2f2b925109a381ef8eef6cf",
+  "benchmark_sha256": "08afd128e301fc120ba2d4bbbe3d47ae4e0c2265eefbd8dc0cebd38a3eda7f09",
   "binary_pins": {
     "agy": {
-      "path": "/Users/agentlab/.local/bin/agy",
+      "path": "$HOME/.local/bin/agy",
       "sha256": "d583be1344ea9cfa0c45cff2c1342af7837f4833c4edb65e69bee84776a45caa",
       "version": "1.1.27"
     },
     "codex": {
-      "path": "/Users/agentlab/.local/bin/codex",
+      "path": "$HOME/.local/bin/codex",
       "sha256": "a30ec314bbd0e3721632234d07db7c99855db3b9f1e32dbe8c791947f07e7629",
       "version": "codex-cli 0.153.4"
     },
     "grok": {
-      "path": "/Users/agentlab/.grok/bin/grok",
+      "path": "$HOME/.grok/bin/grok",
       "sha256": "3dfa7f04fbb5427a8fbead286591543aaecb478b3a0ab222c4329eca1a3b2f86",
       "version": "grok 1.0.5 (5115b46bc909) [stable]"
     },
     "omp": {
-      "path": "/Users/agentlab/AgentWork/bin/omp",
+      "path": "$HOME/AgentWork/bin/omp",
       "sha256": "a4c5c9cc5b8222184d0d7429b0bb6ac2a92bbe45dd11bf68e4b1360050791909",
       "version": "omp/18.1.13"
     }
@@ -25,22 +25,22 @@
   "checks": {
     "binaries": {
       "agy": {
-        "path": "/Users/agentlab/.local/bin/agy",
+        "path": "$HOME/.local/bin/agy",
         "sha256": "d583be1344ea9cfa0c45cff2c1342af7837f4833c4edb65e69bee84776a45caa",
         "version": "1.1.27"
       },
       "codex": {
-        "path": "/Users/agentlab/.local/bin/codex",
+        "path": "$HOME/.local/bin/codex",
         "sha256": "a30ec314bbd0e3721632234d07db7c99855db3b9f1e32dbe8c791947f07e7629",
         "version": "codex-cli 0.153.4"
       },
       "grok": {
-        "path": "/Users/agentlab/.grok/bin/grok",
+        "path": "$HOME/.grok/bin/grok",
         "sha256": "3dfa7f04fbb5427a8fbead286591543aaecb478b3a0ab222c4329eca1a3b2f86",
         "version": "grok 1.0.5 (5115b46bc909) [stable]"
       },
       "omp": {
-        "path": "/Users/agentlab/AgentWork/bin/omp",
+        "path": "$HOME/AgentWork/bin/omp",
         "sha256": "a4c5c9cc5b8222184d0d7429b0bb6ac2a92bbe45dd11bf68e4b1360050791909",
         "version": "omp/18.1.13"
       }
@@ -91,10 +91,10 @@
       "workspace_read": "allowed"
     }
   },
-  "created_at": "2026-09-07T17:52:48.216898Z",
+  "created_at": "2026-09-07T18:10:41.495535Z",
   "legacy_pilot_results": {
     "included": false,
-    "path": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/results",
+    "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/results",
     "reason": "Exploratory pilot failed final protocol audit; confirmatory run starts clean."
   },
   "model_pins": {
@@ -111,25 +111,25 @@
       "arm_b": "gpt-5.6-luna"
     }
   },
-  "project_root": "/Users/agentlab/AgentWork/projects/harness-evals",
-  "results_dir": "/Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/results",
+  "project_root": "$HOME/AgentWork/projects/harness-evals",
+  "results_dir": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-004/results",
   "run_id": "confirmatory-004",
   "schema_version": 2,
   "source_hashes": {
     "ANTI_CHEATING.md": "a5ad9de45f1e1bf5fdec695e516182d7994eae5036146606f558a3b984a9d3f8",
-    "PROTOCOL.md": "412bfcf2a989c0263a5800c3ed0c5a322626bfd8c9286888f2d24d188be08c35",
+    "PROTOCOL.md": "d94ea4832eb6d2978b4c0aec46529ba328c06cfb7ab9e3a50c24a484e9c8fb5d",
     "analysis/calculate_stats.py": "58c27082287c3e1c01e23c09053415084b796d6495a579f3f57473ebdeabad9c",
     "config_overlay.yml": "0da00e8cfe5b40cf0079bbaaa43c8d62efe54cacfeeedf2691d418703d0a64a4",
     "experiment_config.py": "4530cc5c2965ee7d7b15e0096356c05758894b694be3fdc8a1a2f1166e356474",
-    "preflight.py": "de37265bb4fef35625b8b26ca8050473f52762df26a64c42e7e1b86e881e4cc3",
-    "preflight_parity.py": "300df4e8a7aa508de5fe0ab215bb80546846641c8e856af838294c6c21a8c39e",
+    "preflight.py": "e403f5fda0ebaf1cd1f12f64f49163a4b3f587abf571594c3acb2966683f9678",
+    "preflight_parity.py": "27ccdd39a1122d2c457adf3338d7723edc041ac44092d8a02435d66fca5b0ed7",
     "run_matrix.py": "6ff9c3b4aaf848765e358e499c4f05834e78b075964443a5a55ae827402c8c14",
     "run_task.py": "00d415265f71932bb2d2a76fe1a273029d30a599ba11555236edc1d6896e3a81",
-    "runner_common.py": "352a57c5d153691973b5471b1948738b1944b5069832d1ad761d9e60fad3455b",
+    "runner_common.py": "6bb66eff6a9dcaf8f011880b0116736a7ca85d70029511dc7ded42c43766d873",
     "runners/arm_a_omp.py": "6bad06276624183fa7efaedf2f5e6752613feb7f7148a8eded6795645c91ca25",
     "runners/arm_b_multicli.py": "2c0cc8d64be39037d4f17f0cb1491a20b0dd2885c8b695e10a6f02bc5f3f1951",
     "security/benchmark_guard.ts": "cf6d02741ffa5267ef701ace7ecb6eb7906f3d78a3f37a43e03d4089bd017890",
-    "smoke_test_parity.py": "734f9f7bce758db0a4a8b2d672b1c38a734d92c01076f051a9d814025d89f2f6",
+    "smoke_test_parity.py": "648200d9095bc4de365a7aee9b758422a4817cc5ad6369d1f2c9e6bcd1e463f3",
     "verifier/oracle_verifier.py": "a9d334f5ddc4da29561f08500d2c506fae63d3cf22e47f54552f92169d847315"
   },
   "status": "ready"

@@ -58,7 +58,7 @@ Where:
 ### Pre-Registered Matched-Compute Design & Effort Calibration
 
 To ensure that differences in pass rate, latency, and cost reflect harness coordination rather than divergent vendor reasoning budgets, model configurations follow a strictly pre-registered **matched-compute** design:
-1. **Planner (Grok 4.6)**: Both arms use `medium` effort, matching reasoning depth (~1.0k–3.0k tokens) and eliminating the >300s timeout pathology observed under uncapped `high`.
+1. **Planner (Grok 4.6)**: Both arms use `medium` effort, matching model architecture and reasoning depth (~700–2,400 tokens; pooled ratio 0.643, 90% CI [0.522, 0.853] recorded in `calibration/planner_effort_calibration.json`) and completing in 62s–107s, eliminating the >300s runs observed under `xhigh` in `runs/variance-probe-001/summary.json`.
 2. **Worker (Codex GPT-5.6 Luna)**: Both arms use `max` effort, producing matched ~2.9k reasoning tokens (<0.5% disparity).
 3. **Reviewer (Gemini 3.8 Flash)**: OMP at `high` matches AGY CLI at `medium`. In vendor adapters, AGY's `--effort high` defaults to an uncapped ~32k budget (averaging 26,539 tokens in confirmatory-003), whereas OMP's `high` budgets ~13k tokens. Empirical measurements across 3 strictly disjoint calibration tasks (`affine-cipher`, `book-store`, `proverb` recorded in `calibration/reviewer_effort_calibration.json`) demonstrate a 3-task pooled ratio of 1.067 (17,207 OMP tokens vs. 16,124 AGY medium tokens; mean log-ratio -0.1383, $s=0.8883$, point ratio 0.871, 90% CI [0.195, 3.882]), avoiding the massive 26.5k token compute blowup of AGY `high` (ratio 0.51).
 4. **Pilot Parity Power Basis (Option A)**: For the preflight pilot calibration on tasks disjoint from the calibration set (`grep` and `list-ops` with $k=7$ repeats, $N=14$ paired observations, $df=13, t_{0.90}=1.771$):
@@ -94,24 +94,17 @@ To ensure that differences in pass rate, latency, and cost reflect harness coord
 
 ---
 
-## 4. Execution Budget & Circuit Breakers
+## 4. Execution Budget & Containment Controls
 
-To avoid infinite loops (such as the 599-turn `wasmi` failure from model bench):
+To prevent runaway execution and enforce strict isolation:
 
-1. **Strict Stage Turn Caps**:
-   * Stage 1 (Recon): Max 3 turns.
-   * Stage 2 (Plan): Max 2 turns.
-   * Stage 3 (Implement): Max 6 turns.
-   * Stage 4 (Verify): Max 3 turns.
-   * **Hard Task Cap**: 14 turns total per arm.
-2. **Identical Tool Call Circuit Breaker**:
-   * If any tool is invoked with identical parameters 3 times consecutively, the stage is aborted and state is handed off.
-3. **Wall-Clock Timeout**:
-   * 5 minutes per stage; 15 minutes max per task.
-4. **Offline Isolation**:
-   * Web search tools disabled.
-   * Network commands in bash (`curl`, `wget`, `git clone`) blocked and audited.
-
+1. **Wall-Clock Timeouts**:
+   * **Stage Ceiling**: 10 minutes (600 seconds) per stage (`STAGE_TIMEOUT_SECONDS = 600`), enforced via `--max-time` in OMP and subprocess deadlines in Multi-CLI.
+   * **Task Ceiling**: 30 minutes (1800 seconds) total per task (`TASK_TIMEOUT_SECONDS = 1800`).
+2. **Offline Isolation & Sandboxing**:
+   * Built-in web search and web fetch tools disabled (`--disable-web-search`, `--no-skills`, `--no-extensions`).
+   * `sandbox-exec` kernel seatbelt profile denies read access to the external oracle directory (`EACCES`) and blocks network execution binaries (`EPERM`).
+   * In-process guard extension (`benchmark_guard.ts`) audits all tool calls and blocks trace violations.
 ---
 
 ## 5. Normalized Pricing Reference Card

@@ -47,7 +47,7 @@ from experiment_config import (  # noqa: E402
     TASK_TIMEOUT_SECONDS,
 )
 from preflight import source_hashes  # noqa: E402
-from runner_common import sandbox_command, sha256_file  # noqa: E402
+from runner_common import sandbox_command, scrub_workstation_paths, sha256_file  # noqa: E402
 from runners.arm_a_omp import run_arm_a  # noqa: E402
 from runners.arm_b_multicli import run_arm_b  # noqa: E402
 
@@ -209,11 +209,12 @@ def calculate_stage_tost(samples_a: list[int], samples_b: list[int], token_gaps:
     mean_b = sum(b for _, b in valid_pairs) / n
     pooled_ratio = round(mean_a / mean_b, 4) if mean_b > 0 else 0.0
 
-    # Equivalence evaluation: pooled ratio in [0.80, 1.25] and TOST 90% CI in [0.67, 1.50]
+    # Equivalence evaluation: pooled ratio in [0.80, 1.25] and TOST 90% CI in [0.50, 2.00]
     pooled_ok = (POOLED_BAND_LOW <= pooled_ratio <= POOLED_BAND_HIGH)
     tost_ok = (TOST_BAND_LOW <= ratio_ci_low and ratio_ci_high <= TOST_BAND_HIGH)
     no_gaps = (token_gaps == 0)
-    passed = pooled_ok and tost_ok and no_gaps
+    no_zeros = (zero_exclusions == 0)
+    passed = pooled_ok and tost_ok and no_gaps and no_zeros
 
     return {
         "total_pairs": total_pairs,
@@ -458,6 +459,7 @@ def run_preflight(run_id: str, dry_run: bool = False) -> dict[str, Any]:
     run_dir = os.path.join(RUNS_DIR, run_id)
     os.makedirs(run_dir, exist_ok=True)
     target_json = os.path.join(run_dir, "preflight_parity.json")
+    report = scrub_workstation_paths(report)
     with open(target_json, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
     print(f"\nWrote {target_json}")

@@ -34,6 +34,7 @@ from runner_common import (  # noqa: E402
     prepare_isolated_grok_home,
     prepare_isolated_omp_agent_dir,
     sandbox_command,
+    scrub_workstation_paths,
     sha256_file,
 )
 
@@ -265,6 +266,7 @@ def preflight(run_id: str, prepare: bool = False) -> dict:
         os.makedirs(run_dir, exist_ok=False)
         os.makedirs(results_dir)
         os.makedirs(os.path.join(run_dir, "traces"))
+        payload = scrub_workstation_paths(payload)
         with open(manifest_path, "x", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2, sort_keys=True)
             handle.write("\n")
@@ -283,13 +285,13 @@ def validate_frozen_manifest(manifest_path: str) -> dict:
         raise RuntimeError("Frozen experiment source changed after preflight")
     if frozen.get("benchmark_sha256") != hash_tree(BENCHMARK_DIR):
         raise RuntimeError("Frozen benchmark changed after preflight")
-    current_binaries = verify_binary_pins()
+    current_binaries = scrub_workstation_paths(verify_binary_pins())
     if frozen.get("binary_pins") != current_binaries:
         raise RuntimeError("Pinned binary path/version/hash changed after preflight")
     with tempfile.TemporaryDirectory(prefix="harness_revalidate_") as runtime_dir:
         verify_model_catalogs(runtime_dir)
     verify_seatbelt()
-    results_dir = frozen.get("results_dir")
+    results_dir = os.path.expanduser(os.path.expandvars(frozen.get("results_dir") or ""))
     if not results_dir or os.path.realpath(results_dir) != os.path.realpath(
         os.path.join(os.path.dirname(manifest_path), "results")
     ):
