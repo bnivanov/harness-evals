@@ -1,0 +1,21 @@
+{
+  "task_id": "grep",
+  "arm": "arm_a",
+  "repeat": 2,
+  "duration": 87.72,
+  "success": true,
+  "completed_under_300s": true,
+  "plan_created": true,
+  "plan_bytes": 6983,
+  "returncode": 0,
+  "error": null,
+  "input_tokens": 29644,
+  "cache_read_tokens": 25344,
+  "output_tokens": 4691,
+  "reasoning_tokens": 2515,
+  "cost_usd": 0.1669,
+  "tool_calls_count": 6,
+  "num_turns": 4,
+  "violations": [],
+  "completed_at": "2026-09-07T10:16:15Z"
+}

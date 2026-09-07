@@ -1,0 +1,21 @@
+{
+  "task_id": "list-ops",
+  "arm": "arm_b",
+  "repeat": 3,
+  "duration": 337.39,
+  "success": true,
+  "completed_under_300s": false,
+  "plan_created": true,
+  "plan_bytes": 18896,
+  "returncode": 0,
+  "error": null,
+  "input_tokens": 36636,
+  "cache_read_tokens": 86784,
+  "output_tokens": 19873,
+  "reasoning_tokens": 13709,
+  "cost_usd": 0.434038,
+  "tool_calls_count": 0,
+  "num_turns": 6,
+  "violations": [],
+  "completed_at": "2026-09-07T10:46:32Z"
+}

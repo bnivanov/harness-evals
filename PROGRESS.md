@@ -292,8 +292,25 @@
      c. *Security & containment breakage*: T3 Code background server runs outside macOS seatbelt (`sandbox_command`), breaking Ring 1 oracle quarantine, Ring 4 network isolation, and telemetry verification.
      d. *Statistical power saturation*: Accuracy endpoints are saturated (Arm A: 6/8, Arm B: 7/8); exact McNemar on $N=8$ requires an 8-0 clean sweep ($p=0.0078$) for significance.
    - **Agreed Direction**: Proceed with Opus 5 High's recommended **2-task variance probe** first (`grep` and `list-ops`, $k=3$ repeats contemporaneously across arms) to quantify Stage 1 planner latency spread before committing resources to any large benchmark run.
+8. **Stage 1 Planner Variance Probe Execution ($k=3$ Contemporaneous Repeats)**:
+   - Executed 12-run contemporaneous variance probe on `grep` and `list-ops` across Arm A (OMP) and Arm B (Multi-CLI) under a 600s ceiling (`runs/variance-probe-001/`).
+   - **Empirical Results**:
+     - `grep`: Arm A mean 129.5s (±37.5s, spread 72.4s, 3/3 <300s); Arm B mean 296.0s (±93.8s, spread 175.1s, 1/3 <300s).
+     - `list-ops`: Arm A mean 132.1s (±36.3s, spread 72.2s, 3/3 <300s); Arm B mean 271.0s (±65.3s, spread 130.6s, 2/3 <300s).
+   - **Key Finding**: Confirmed Opus 5 High's sampling variance critique: Grok CLI swings by 175s on `grep` (189s to 364s) and 131s on `list-ops` (207s to 337s), making a single-shot 300s threshold test a 50% coin-flip.
+   - **OMP Separation**: Across all 6 runs, OMP never exceeded 170.4s (mean 130.8s, 100% <300s compliance). OMP produced 2.1x smaller plans (8.8 KB vs 18.8 KB) and required 2.5x fewer reasoning tokens (mean 4,756 vs 11,691).
+
+9. **Opus 5 High Follow-up Review & T3 Code Evaluation Pause**:
+   - Submitted variance probe telemetry and updated T3 Code plan to **Claude Opus 5 (Thinking: High)** for formal review.
+   - **Opus 5 High Verdict: NO SIGN-OFF on Arm C probe**. Identified baseline defect in the comparison:
+     - *Model Divergence*: Arm A resolved to `grok-4.6` via `xai-oauth`; Arm B resolved to `grok-4.6-build` via Grok CLI. Grok CLI accepted `--model grok-4.6` but served an agent-mode build that OMP cannot address (`Model not found`).
+     - *Validator Asymmetry*: Arm A enforced exact string membership; Arm B used `startswith("grok-4.6")`.
+     - *Telemetry Default*: Arm B recorded `tool_calls_count: 0` because Grok JSON does not emit tool-event telemetry.
+     - *Containment Barrier*: T3 Code desktop daemon on `127.0.0.1:3774` operates outside macOS seatbelt (`sandbox-exec`) with full oracle access.
+   - **User Decision**: Paused T3 Code evaluation indefinitely. Directed full focus toward verifying that all Experiment 2 outputs, figures, metrics, and claims for the article are mathematically sound, fully disclosed, and audited by Opus 5 High before publication.
+
 ### Current Standing & Next Steps
-- **Experiment 2 (Workflow Bench: OMP vs Multi-CLI Swarm)**: PUBLISH-READY. Every article number and figure was independently recomputed from raw run artifacts; scorer and figure renderer reproduce byte-identically; `connect` archive provenance defect repaired; rerun block and planner-handoff failure mode fully disclosed.
-- **T3 Code / Multi-CLI Extension**: Variance probe approved and staged; design re-scoped to avoid sampling variance and containment confounds identified in Opus 5 High peer review.
-- **Upstream PR #68 (`HarnessRouter/harnessrouter`)**: Merged `upstream/main` with zero conflicts (`mergeable: true`); all OMP backend and gateway tests passing.
-- **Wave 1 Track A Evaluation**: Paused for now per user instruction. All baseline environments and harness integrations remain staged and ready for future reactivation.
+- **Experiment 2 (Workflow Bench: OMP vs Multi-CLI Swarm)**: Final publication review underway. Auditing all figures, tables, and disclosures against the model-variant finding and variance probe data.
+- **T3 Code Evaluation**: PAUSED indefinitely.
+- **Upstream PR #68 (`HarnessRouter/harnessrouter`)**: Merged `upstream/main` with zero conflicts (`mergeable: true`).
+- **Wave 1 Track A Evaluation**: PAUSED per user instruction.
