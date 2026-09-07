@@ -95,7 +95,7 @@
       "unit_tests": "pass"
     }
   },
-  "created_at": "2026-09-07T20:19:12.135109Z",
+  "created_at": "2026-09-07T20:31:34.163940Z",
   "legacy_pilot_results": {
     "included": false,
     "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/results",
@@ -126,7 +126,7 @@
     "config_overlay.yml": "0da00e8cfe5b40cf0079bbaaa43c8d62efe54cacfeeedf2691d418703d0a64a4",
     "experiment_config.py": "4530cc5c2965ee7d7b15e0096356c05758894b694be3fdc8a1a2f1166e356474",
     "preflight.py": "fbda64bea3e297e87111e8533009b863a72def264405ae9db6a5e67c83ed61b1",
-    "preflight_parity.py": "f34142adaa3d20dabf3cec05556f306ad728e79da59a69c68bc1aef00d9fbfc5",
+    "preflight_parity.py": "1a0141fa92f5d14f84059ecbcbf8f63e572bd1b2da0f0a8192ad65f28ca22398",
     "run_matrix.py": "6ff9c3b4aaf848765e358e499c4f05834e78b075964443a5a55ae827402c8c14",
     "run_task.py": "68eadb4b3f9941682cd8bbed8d7f1ac0d5f4a090ece03ff6511033e8e12cb354",
     "runner_common.py": "b9fbcf83ecfcc6c82a225ec86c1976073aebfe772aa2af8d7502d21c8eb57964",

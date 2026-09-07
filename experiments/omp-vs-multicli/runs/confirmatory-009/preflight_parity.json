@@ -1,8 +1,8 @@
 {
   "run_id": "confirmatory-009",
-  "timestamp": "2026-09-07T20:20:00Z",
-  "composite_source_sha256": "bdc0759ac8d14a076245238d5553663c5a19266c6cf2a4b3f6e2ab16c33faa31",
-  "run_manifest_sha256": "00c2ba07a6c815ca9ec4511ad90dab0e51792aeeebfee11227422d3e83370dbc",
+  "timestamp": "2026-09-07T20:32:29Z",
+  "composite_source_sha256": "0bc15ac4b51ca528ae83bb625017eb04acc97189bcc3e825231ab6732ddd63e3",
+  "run_manifest_sha256": "6615e8978a26e980cf8510385d873752e7ca2cee6a6002c711cb42baca5b8fdd",
   "source_hashes": {
     "PROTOCOL.md": "5ec346b1d3d09c8ab5f00ed08a33fc296d61f4531324f02ac58bd609b359fe71",
     "ANTI_CHEATING.md": "a5ad9de45f1e1bf5fdec695e516182d7994eae5036146606f558a3b984a9d3f8",
@@ -19,7 +19,7 @@
     "analysis/calculate_stats.py": "58c27082287c3e1c01e23c09053415084b796d6495a579f3f57473ebdeabad9c",
     "security/benchmark_guard.ts": "6b5b7e9a779bf4b583d016e0f0d41d8fbf31436739130ab60bbe1b484520e890",
     "security/benchmark_guard.test.ts": "adcf2d7dcb57df195c3e6dd2ae7c5d27c4fdbe11ec4cb7177d920b4d427dc9f1",
-    "preflight_parity.py": "f34142adaa3d20dabf3cec05556f306ad728e79da59a69c68bc1aef00d9fbfc5"
+    "preflight_parity.py": "1a0141fa92f5d14f84059ecbcbf8f63e572bd1b2da0f0a8192ad65f28ca22398"
   },
   "binary_pins": {
     "omp": {

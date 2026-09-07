@@ -238,6 +238,7 @@ def calculate_stage_tost(samples_a: list[int], samples_b: list[int], token_gaps:
 
 def execute_arm_with_retries(runner: Any, meta: dict, src_task: str, arm_name: str, task_id: str, rep: int) -> dict[str, Any]:
     last_exc = None
+    dur = 0.0
     for attempt in range(1, MAX_INFRA_RETRIES + 2):
         with tempfile.TemporaryDirectory(prefix=f"pilot_{task_id}_{arm_name}_{rep}_att{attempt}_") as workdir:
             scratch_dir = tempfile.mkdtemp(prefix=f"pilot_scratch_{task_id}_{arm_name}_{rep}_att{attempt}_")
@@ -246,12 +247,12 @@ def execute_arm_with_retries(runner: Any, meta: dict, src_task: str, arm_name: s
             try:
                 subprocess.run(["cp", "-R", f"{src_task}/.", workdir], check=True)
                 result = runner(meta, workdir, art_dir, scratch_dir=scratch_dir)
+                dur = round(time.monotonic() - t0, 2)
                 stage_tokens = {}
                 for s in result.get("stages", []):
                     s_name = s["stage"]
                     r_tokens = s.get("telemetry", {}).get("reasoning_tokens", 0)
                     stage_tokens[s_name] = r_tokens
-
                 return {
                     "duration": dur,
                     "protocol_valid": result.get("protocol_valid", False),

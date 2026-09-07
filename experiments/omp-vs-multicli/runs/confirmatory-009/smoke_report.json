@@ -13,18 +13,18 @@
           "--auto-approve",
           "--no-extensions",
           "--no-skills",
-          "--hook=$TMPDIR/harness_parity_runtime_zm26k1pb/omp-planner/benchmark_guard.ts",
-          "--config=$TMPDIR/harness_parity_runtime_zm26k1pb/omp-planner/config_overlay.yml",
-          "--session-dir=$TMPDIR/harness_parity_runtime_zm26k1pb/omp-planner/sessions",
+          "--hook=$TMPDIR/harness_parity_runtime_99run92i/omp-planner/benchmark_guard.ts",
+          "--config=$TMPDIR/harness_parity_runtime_99run92i/omp-planner/config_overlay.yml",
+          "--session-dir=$TMPDIR/harness_parity_runtime_99run92i/omp-planner/sessions",
           "--max-time=120",
           "--tools=read,edit,write,bash,grep,glob",
           "--cwd",
-          "$TMPDIR/harness_parity_smoke_reerfvna"
+          "$TMPDIR/harness_parity_smoke_klszshxn"
         ],
         "configured_effort": "medium",
         "configured_model": "xai-oauth/grok-4.6",
         "passed": true,
-        "reasoning_tokens": 53,
+        "reasoning_tokens": 57,
         "resolved_models": [
           "grok-4.6"
         ],
@@ -35,9 +35,9 @@
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         },
         "stdout_trace": {
-          "bytes": 8776,
+          "bytes": 9265,
           "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-009/smoke_traces/omp-planner.stdout.jsonl",
-          "sha256": "8afe49e7e1d0864ce7d2a6c8a9248626adcdba7312f21acf7aed2bd54e351109"
+          "sha256": "685f872749a331aac78bb0318cdbf18b2b4e1394fde1099dd4c45c77d1dbee97"
         }
       },
       "arm_b": {
@@ -52,7 +52,7 @@
           "--always-approve",
           "--disable-web-search",
           "--session-id",
-          "277913b1-722d-4759-bdb0-cd318965ca4f",
+          "bfa335cb-e705-4940-a90c-29bf649fce56",
           "--output-format",
           "json"
         ],
@@ -74,7 +74,7 @@
         "stdout_trace": {
           "bytes": 792,
           "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-009/smoke_traces/grok.stdout.jsonl",
-          "sha256": "a2d17199b20755c487b020208071fb4eff78ca4a92a5fd97cc32b9bc4efa5cc6"
+          "sha256": "da640b522fb35d535fd6b5abdc1cd2eda57c1d1f9d867e5edd6564d038254ea0"
         }
       }
     },
@@ -91,18 +91,18 @@
           "--auto-approve",
           "--no-extensions",
           "--no-skills",
-          "--hook=$TMPDIR/harness_parity_runtime_zm26k1pb/omp-reviewer/benchmark_guard.ts",
-          "--config=$TMPDIR/harness_parity_runtime_zm26k1pb/omp-reviewer/config_overlay.yml",
-          "--session-dir=$TMPDIR/harness_parity_runtime_zm26k1pb/omp-reviewer/sessions",
+          "--hook=$TMPDIR/harness_parity_runtime_99run92i/omp-reviewer/benchmark_guard.ts",
+          "--config=$TMPDIR/harness_parity_runtime_99run92i/omp-reviewer/config_overlay.yml",
+          "--session-dir=$TMPDIR/harness_parity_runtime_99run92i/omp-reviewer/sessions",
           "--max-time=120",
           "--tools=read,edit,write,bash,grep,glob",
           "--cwd",
-          "$TMPDIR/harness_parity_smoke_reerfvna"
+          "$TMPDIR/harness_parity_smoke_klszshxn"
         ],
         "configured_effort": "high",
         "configured_model": "google-antigravity/gemini-3.8-flash",
         "passed": true,
-        "reasoning_tokens": 116,
+        "reasoning_tokens": 114,
         "resolved_models": [
           "gemini-3.8-flash"
         ],
@@ -113,9 +113,9 @@
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         },
         "stdout_trace": {
-          "bytes": 5430,
+          "bytes": 5363,
           "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-009/smoke_traces/omp-reviewer.stdout.jsonl",
-          "sha256": "10e07c8f03efd8efb7413c9bddf3d9ba3bfac05ff2c0fb5d0507d385bc7a8c29"
+          "sha256": "85d3f4cc65d8b4776c1d7949b502a55276190f82f66b2167b14390628b5d1109"
         }
       },
       "arm_b": {
@@ -138,7 +138,7 @@
         "identity_proof": "explicit strict argv + pinned binary",
         "passed": true,
         "provider": "agy",
-        "reasoning_tokens": 72,
+        "reasoning_tokens": 82,
         "resolved_models": [],
         "returncode": 0,
         "stderr_trace": {
@@ -149,7 +149,7 @@
         "stdout_trace": {
           "bytes": 253,
           "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-009/smoke_traces/agy.stdout.jsonl",
-          "sha256": "644348e7888832ad6e3b5abd4f005f9f8e733d5a93cd56afbc91dc6d57e7b93e"
+          "sha256": "2ebc304f6fa0931ce745143554240a3edbc2623d50199bf5c362638488316737"
         }
       }
     },
@@ -166,13 +166,13 @@
           "--auto-approve",
           "--no-extensions",
           "--no-skills",
-          "--hook=$TMPDIR/harness_parity_runtime_zm26k1pb/omp-worker/benchmark_guard.ts",
-          "--config=$TMPDIR/harness_parity_runtime_zm26k1pb/omp-worker/config_overlay.yml",
-          "--session-dir=$TMPDIR/harness_parity_runtime_zm26k1pb/omp-worker/sessions",
+          "--hook=$TMPDIR/harness_parity_runtime_99run92i/omp-worker/benchmark_guard.ts",
+          "--config=$TMPDIR/harness_parity_runtime_99run92i/omp-worker/config_overlay.yml",
+          "--session-dir=$TMPDIR/harness_parity_runtime_99run92i/omp-worker/sessions",
           "--max-time=120",
           "--tools=read,edit,write,bash,grep,glob",
           "--cwd",
-          "$TMPDIR/harness_parity_smoke_reerfvna"
+          "$TMPDIR/harness_parity_smoke_klszshxn"
         ],
         "configured_effort": "max",
         "configured_model": "openai-codex/gpt-5.6-luna",
@@ -188,9 +188,9 @@
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         },
         "stdout_trace": {
-          "bytes": 9712,
+          "bytes": 9700,
           "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-009/smoke_traces/omp-worker.stdout.jsonl",
-          "sha256": "4f98f4ee545db8c77bed05e3bbe9eb21f5a0e446b5e48d6e350f7977bbcf78c5"
+          "sha256": "8ebd3fa670c7eeec8ff08417aaeef3871f40874b056491928c0166109753372d"
         }
       },
       "arm_b": {
@@ -214,25 +214,25 @@
         "identity_proof": "explicit strict argv + pinned binary",
         "passed": true,
         "provider": "codex",
-        "reasoning_tokens": 17,
+        "reasoning_tokens": 18,
         "resolved_models": [],
         "returncode": 0,
         "stderr_trace": {
-          "bytes": 39,
+          "bytes": 330,
           "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-009/smoke_traces/codex.stderr.log",
-          "sha256": "1aa26269eb1cc57f86b235a03cda53c004edb5b1e9fc99d4da4f00843293d721"
+          "sha256": "43ef1858c96cf9b6d861ed60494753f79a1be364324c590edfd160e56f3c5fc4"
         },
         "stdout_trace": {
           "bytes": 347,
           "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-009/smoke_traces/codex.stdout.jsonl",
-          "sha256": "58853ba68d3d0a66ffca215618142c07426cb8ce0f2c087d916830798d5398d7"
+          "sha256": "ce9d1b7be4e901c43877f23a8ac552de9a4d40c53981c41d453e48909735cb14"
         }
       }
     }
   },
   "run_id": "confirmatory-009",
   "run_manifest_path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-009/run_manifest.json",
-  "run_manifest_sha256": "00c2ba07a6c815ca9ec4511ad90dab0e51792aeeebfee11227422d3e83370dbc",
+  "run_manifest_sha256": "6615e8978a26e980cf8510385d873752e7ca2cee6a6002c711cb42baca5b8fdd",
   "schema_version": 2,
   "status": "pass"
 }
