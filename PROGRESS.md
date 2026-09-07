@@ -273,6 +273,7 @@
    - Verified 13/13 tests in `runner/tests/test_omp_backend.py` and 6/6 tests in `gateway/tests/`.
    - Pushed merge commit `575ccb4` to `origin/feat/omp-backend`; GitHub confirms PR #68 is `mergeable: true` with 0 conflicts.
 
-### Next Steps
-1. Merge PR #2 (`feat/rerun-hardened-guard`) into `main`.
-2. Advance to the **Wave 1 Track A 3-SUT Benchmark** (Grok Build × Pi × OMP under HarnessRouter).
+### Current Standing & Next Steps
+- **Experiment 2 (Workflow Bench: OMP vs Multi-CLI Swarm)**: 100% COMPLETE. Primary 25-task paired matrix (58 total runs), Tier 3 extended ablation, and Option 2 hardened reruns (7/7 oracle pass, 0 skill reads) are fully recorded, scored, and audited with publication-grade visuals. All changes merged into `main` (PR #1: `b97f089`, PR #2: `17e1537`).
+- **Upstream PR #68 (`HarnessRouter/harnessrouter`)**: Merged `upstream/main` with zero conflicts (`mergeable: true`); all OMP backend and gateway tests passing.
+- **Wave 1 Track A Evaluation**: Paused for now per user instruction. All baseline environments and harness integrations remain staged and ready for future reactivation.
