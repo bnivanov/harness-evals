@@ -3,7 +3,8 @@
  * Intercepts tool_call and fail-closes on foreign URI schemes,
  * access to quarantined benchmark directories/solutions,
  * access to the project repository outside the workspace/scratch,
- * agent configuration homes, and network/package fetch.
+ * agent configuration homes, sibling benchmark attempt directories,
+ * and network/package fetch.
  */
 import { appendFileSync, existsSync, mkdirSync, realpathSync } from "node:fs";
 import { basename, dirname, isAbsolute, resolve, sep } from "node:path";
@@ -36,17 +37,18 @@ const PATH_TOOLS: Record<string, true> = {
 
 const PATH_KEYS = ["path", "file", "filename", "target", "dest", "destination"] as const;
 
+// Anchored network command pattern matching CLI execution rather than arbitrary paths containing 'ssh'
 const NETWORK_COMMAND =
-  /\b(?:curl|wget|nc|ncat|netcat|ssh|scp|rsync)\b/i;
+  /(?:^|[;&|\s])(?:curl|wget|ssh|scp|rsync)\s|(?:^|[;&|\s])nc\s+-[a-zA-Z0-9]|(?:^|[;&|\s])nc\s+[0-9a-zA-Z.-]+\s+\d+/i;
 const GIT_NETWORK =
   /\bgit(?:\s+\S+)*\s+(?:clone|fetch|pull)\b|\bgit(?:\s+\S+)*\s+remote\s+add\b/i;
 const PACKAGE_FETCH =
   /\b(?:pip3?|python3?\s+-m\s+pip)\s+(?:install|download)\b|\bnpm\s+(?:install|i|ci|add)\b|\bgem\s+install\b/i;
 const NETWORK_IMPORT =
-  /\b(?:import|from)\s+(?:urllib|requests|httpx|socket|http|https|net)\b|\brequire\s*\(\s*['"](?:http|https|net|urllib|socket)['"]|\brequire\s+['"](?:net\/http|socket|open-uri|net\/https)['"]|\bfrom\s+['"](?:http|https|net|socket)(?:\/|['"])|\bfetch\s*\(/i;
+  /\b(?:import|from)\s+(?:urllib|requests|httpx|socket|http|https|net)\b|\brequire\s*\(\s*['"](?:http|https|net|urllib|socket)['"]|\brequire\s+['"](?:net\/http|socket|open-uri|net\/https)['"]|\bfrom\s+['"](?:http|https|net|socket)(?:\/|['"])/i;
 
 const BASH_PATH_TOKEN =
-  /(?:^|[\s"'=])(~(?:\/[^\s"']*)?|\$(?:\{HOME\}|HOME)(?:\/[^\s"']*)?|(?:\.\.\/)+[^\s"']*|\/[^\s"']+|\.\/[^\s"']+|[^\s"']+\/[^\s"']+)/g;
+  /(?:^|[\s"'=])(~(?:\/[^\s"']*)?|\$(?:\{HOME\}|HOME)(?:\/[^\s"']*)?|\$(?:\{TMPDIR\}|TMPDIR)(?:\/[^\s"']*)?|(?:\.\.\/)+[^\s"']*|\/[^\s"']+|\.\/[^\s"']+|[^\s"']+\/[^\s"']+)/g;
 
 const SAFE_OS_READ_PREFIXES = [
   "/usr/",
@@ -57,7 +59,11 @@ const SAFE_OS_READ_PREFIXES = [
   "/Library/",
   "/opt/homebrew/",
   "/etc/",
+  "/private/etc/",
   "/dev/",
+  "/private/dev/",
+  "/tmp/",
+  "/private/tmp/",
 ];
 
 function workspaceFromEnv(): string {
@@ -95,7 +101,7 @@ export function isOrdinaryNonPath(value: string): boolean {
   const v = value.trim();
   if (!v || isLocalUri(v)) return true;
   if (v.includes("://")) return false;
-  if (isAbsolute(v) || v.startsWith("~") || v.startsWith("$HOME") || v.startsWith("${HOME}")) return false;
+  if (isAbsolute(v) || v.startsWith("~") || v.startsWith("$HOME") || v.startsWith("${HOME}") || v.startsWith("$TMPDIR") || v.startsWith("${TMPDIR}")) return false;
   if (v === ".." || v.startsWith("../") || v.startsWith("..\\") || v.startsWith(`..${sep}`)) {
     return false;
   }
@@ -119,6 +125,14 @@ export function canonicalize(raw: string, workspace: string): string {
       value = resolve(home, value.slice(6));
     } else if (value === "${HOME}" || value.startsWith("${HOME}/")) {
       value = resolve(home, value.slice(8));
+    }
+  }
+  const scratch = process.env.BENCHMARK_SCRATCH_DIR || process.env.TMPDIR || "";
+  if (scratch) {
+    if (value === "$TMPDIR" || value.startsWith("$TMPDIR/")) {
+      value = resolve(scratch, value.slice(8));
+    } else if (value === "${TMPDIR}" || value.startsWith("${TMPDIR}/")) {
+      value = resolve(scratch, value.slice(10));
     }
   }
   const abs = resolve(workspace || ".", value);
@@ -171,6 +185,7 @@ export function isAllowedReadTarget(canonical: string, workspace: string, scratc
  * - Quarantined benchmark directories (oracle solutions, held-out tests, other tasks)
  * - Project repository files outside the active workspace and private scratch directory
  * - Agent configuration and history homes (~/.omp, ~/.codex, ~/.gemini, etc.)
+ * - Sibling benchmark attempt directories (harness_runtime_*, harness_eval_*, pilot_*)
  */
 export function forbiddenTargetReason(
   raw: string,
@@ -220,6 +235,13 @@ export function forbiddenTargetReason(
         return "access to agent configuration directory";
       }
     }
+  }
+
+  // 4. Sibling attempt / runtime / workspace directories
+  if (/(?:harness_runtime_|harness_eval_|harness_scratch_|pilot_)/i.test(canonical) || /(?:harness_runtime_|harness_eval_|harness_scratch_|pilot_)/i.test(value)) {
+    if (workspace && isSubpath(canonical, workspace)) return undefined;
+    if (scratchDir && isSubpath(canonical, scratchDir)) return undefined;
+    return "path outside benchmark workspace";
   }
 
   return undefined;
@@ -343,6 +365,22 @@ export function inspectBash(input: Record<string, unknown> | undefined): GuardDe
     if (!token || token.startsWith("-")) continue;
     const err = forbiddenTargetReason(token, workspace, scratchDir, projectRoot);
     if (err) return block("bash", err, input);
+
+    // B2: Positive confinement on bash path tokens pointing to files
+    if (
+      token.startsWith("/") ||
+      token.startsWith("~") ||
+      token.startsWith("$HOME") ||
+      token.startsWith("${HOME}") ||
+      token.startsWith("$TMPDIR") ||
+      token.startsWith("${TMPDIR}") ||
+      token.startsWith("../")
+    ) {
+      const canonical = canonicalize(token, workspace);
+      if (!isAllowedReadTarget(canonical, workspace, scratchDir)) {
+        return block("bash", "path outside benchmark workspace", input);
+      }
+    }
   }
 }
 

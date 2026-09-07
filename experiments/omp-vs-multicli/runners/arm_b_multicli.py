@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 import tempfile
 import time
@@ -242,100 +243,102 @@ def run_cli_stage(
 
 def run_arm_b(task_meta: dict, workspace_dir: str, artifact_dir: str, scratch_dir: str | None = None) -> dict:
     runtime_dir = tempfile.mkdtemp(prefix=f"harness_runtime_{task_meta['task_id']}_arm_b_")
-    grok_home = prepare_isolated_grok_home(runtime_dir)
-    codex_home = prepare_isolated_codex_home(runtime_dir)
-    agy_home = prepare_isolated_agy_home(runtime_dir)
-    deadline = time.monotonic() + TASK_TIMEOUT_SECONDS
-    started = time.monotonic()
-    stages = []
-    violations = []
+    try:
+        grok_home = prepare_isolated_grok_home(runtime_dir)
+        codex_home = prepare_isolated_codex_home(runtime_dir)
+        agy_home = prepare_isolated_agy_home(runtime_dir)
+        deadline = time.monotonic() + TASK_TIMEOUT_SECONDS
+        started = time.monotonic()
+        stages = []
+        violations = []
 
-    for stage_name, role, required_artifact in STAGES:
-        prompt = PROMPTS[stage_name].format(impl_file=task_meta["impl_file"])
-        env = os.environ.copy()
-        if scratch_dir:
-            env["BENCHMARK_SCRATCH_DIR"] = os.path.realpath(scratch_dir)
-            env["TMPDIR"] = os.path.realpath(scratch_dir)
-        if role == "planner":
-            provider = "grok"
-            env["HOME"] = grok_home
-            # Single containment layer (outer sandbox-exec): grok's internal
-            # --sandbox strict cannot initialize nested (see smoke evidence).
-            command = [
-                GROK_BIN,
-                "-p", prompt,
-                "--model", MODEL_PINS[role]["arm_b"],
-                "--effort", EFFORT_MATRIX[role]["arm_b"],
-                "--always-approve",
-                "--disable-web-search",
-                "--session-id", str(uuid.uuid4()),
-                "--output-format", "json",
-            ]
-        elif role == "reviewer":
-            provider = "agy"
-            # agy_home is the real HOME: AGY auth is machine-bound, so the
-            # reviewer runs with real auth under --new-project + sandbox.
-            env["HOME"] = agy_home
+        for stage_name, role, required_artifact in STAGES:
+            prompt = PROMPTS[stage_name].format(impl_file=task_meta["impl_file"])
+            env = os.environ.copy()
+            if scratch_dir:
+                env["BENCHMARK_SCRATCH_DIR"] = os.path.realpath(scratch_dir)
+                env["TMPDIR"] = os.path.realpath(scratch_dir)
+            if role == "planner":
+                provider = "grok"
+                env["HOME"] = grok_home
+                # Single containment layer (outer sandbox-exec): grok's internal
+                # --sandbox strict cannot initialize nested (see smoke evidence).
+                command = [
+                    GROK_BIN,
+                    "-p", prompt,
+                    "--model", MODEL_PINS[role]["arm_b"],
+                    "--effort", EFFORT_MATRIX[role]["arm_b"],
+                    "--always-approve",
+                    "--disable-web-search",
+                    "--session-id", str(uuid.uuid4()),
+                    "--output-format", "json",
+                ]
+            elif role == "reviewer":
+                provider = "agy"
+                # agy_home is the real HOME: AGY auth is machine-bound, so the
+                # reviewer runs with real auth under --new-project + sandbox.
+                env["HOME"] = agy_home
 
-            command = [
-                AGY_BIN,
-                "-p", prompt,
-                "--model", MODEL_PINS[role]["arm_b"],
-                "--effort", EFFORT_MATRIX[role]["arm_b"],
-                "--sandbox",
-                "--new-project",
-                "--dangerously-skip-permissions",
-                "--output-format", "json",
-            ]
-        else:
-            provider = "codex"
-            env["CODEX_HOME"] = codex_home
-            command = [
-                CODEX_BIN,
-                "-c", f'model="{MODEL_PINS[role]["arm_b"]}"',
-                "-c", f'model_reasoning_effort="{EFFORT_MATRIX[role]["arm_b"]}"',
-                "exec",
-                "--dangerously-bypass-approvals-and-sandbox",
-                "--skip-git-repo-check",
-                "--ignore-user-config",
-                "--ephemeral",
-                "--strict-config",
-                "--json",
-                prompt,
-            ]
+                command = [
+                    AGY_BIN,
+                    "-p", prompt,
+                    "--model", MODEL_PINS[role]["arm_b"],
+                    "--effort", EFFORT_MATRIX[role]["arm_b"],
+                    "--sandbox",
+                    "--new-project",
+                    "--dangerously-skip-permissions",
+                    "--output-format", "json",
+                ]
+            else:
+                provider = "codex"
+                env["CODEX_HOME"] = codex_home
+                command = [
+                    CODEX_BIN,
+                    "-c", f'model="{MODEL_PINS[role]["arm_b"]}"',
+                    "-c", f'model_reasoning_effort="{EFFORT_MATRIX[role]["arm_b"]}"',
+                    "exec",
+                    "--dangerously-bypass-approvals-and-sandbox",
+                    "--skip-git-repo-check",
+                    "--ignore-user-config",
+                    "--ephemeral",
+                    "--strict-config",
+                    "--json",
+                    prompt,
+                ]
 
-        stage = run_cli_stage(
-            stage_name, role, provider, command, workspace_dir, artifact_dir, deadline, env, scratch_dir=scratch_dir
-        )
-        stages.append(stage)
-        violations.extend({"stage": stage_name, **item} for item in stage["protocol_violations"])
-        if not stage["success"]:
-            violations.append({"stage": stage_name, "code": "STAGE_FAILED"})
-        if required_artifact and not os.path.isfile(os.path.join(workspace_dir, required_artifact)):
-            violations.append({
-                "stage": stage_name,
-                "code": "MISSING_HANDOFF",
-                "path": required_artifact,
-            })
+            stage = run_cli_stage(
+                stage_name, role, provider, command, workspace_dir, artifact_dir, deadline, env, scratch_dir=scratch_dir
+            )
+            stages.append(stage)
+            violations.extend({"stage": stage_name, **item} for item in stage["protocol_violations"])
+            if not stage["success"]:
+                violations.append({"stage": stage_name, "code": "STAGE_FAILED"})
+            if required_artifact and not os.path.isfile(os.path.join(workspace_dir, required_artifact)):
+                violations.append({
+                    "stage": stage_name,
+                    "code": "MISSING_HANDOFF",
+                    "path": required_artifact,
+                })
 
-    duration = round(time.monotonic() - started, 2)
-    if duration > TASK_TIMEOUT_SECONDS + 2:
-        violations.append({"stage": "task", "code": "TASK_TIMEOUT"})
-    return {
-        "arm": "arm_b_multicli",
-        "task_id": task_meta["task_id"],
-        "duration": duration,
-        "normalized_total_tokens": sum(
-            stage["telemetry"]["normalized_total_tokens"] for stage in stages
-        ),
-        "total_cost_usd": round(sum(stage["telemetry"]["cost_usd"] for stage in stages), 6),
-        "total_turns": sum(stage["telemetry"]["num_turns"] for stage in stages),
-        "total_tool_calls": sum(stage["telemetry"].get("tool_calls_count", 0) for stage in stages),
-        "protocol_valid": not violations,
-        "protocol_violations": violations,
-        "stages": stages,
-    }
-
+        duration = round(time.monotonic() - started, 2)
+        if duration > TASK_TIMEOUT_SECONDS + 2:
+            violations.append({"stage": "task", "code": "TASK_TIMEOUT"})
+        return {
+            "arm": "arm_b_multicli",
+            "task_id": task_meta["task_id"],
+            "duration": duration,
+            "normalized_total_tokens": sum(
+                stage["telemetry"]["normalized_total_tokens"] for stage in stages
+            ),
+            "total_cost_usd": round(sum(stage["telemetry"]["cost_usd"] for stage in stages), 6),
+            "total_turns": sum(stage["telemetry"]["num_turns"] for stage in stages),
+            "total_tool_calls": sum(stage["telemetry"].get("tool_calls_count", 0) for stage in stages),
+            "protocol_valid": not violations,
+            "protocol_violations": violations,
+            "stages": stages,
+        }
+    finally:
+        shutil.rmtree(runtime_dir, ignore_errors=True)
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 import tempfile
 import time
@@ -251,63 +252,66 @@ def run_omp_stage(
 
 def run_arm_a(task_meta: dict, workspace_dir: str, artifact_dir: str, scratch_dir: str | None = None) -> dict:
     runtime_dir = tempfile.mkdtemp(prefix=f"harness_runtime_{task_meta['task_id']}_arm_a_")
-    omp_agent_dir = prepare_isolated_omp_agent_dir(runtime_dir)
-    config_path = copy_runtime_file(CONFIG_OVERLAY, runtime_dir)
-    guard_path = copy_runtime_file(GUARD_EXTENSION, runtime_dir)
-    guard_log = os.path.join(artifact_dir, "benchmark_guard.ndjson")
-    deadline = time.monotonic() + TASK_TIMEOUT_SECONDS
-    started = time.monotonic()
-    stages = []
-    violations = []
+    try:
+        omp_agent_dir = prepare_isolated_omp_agent_dir(runtime_dir)
+        config_path = copy_runtime_file(CONFIG_OVERLAY, runtime_dir)
+        guard_path = copy_runtime_file(GUARD_EXTENSION, runtime_dir)
+        guard_log = os.path.join(artifact_dir, "benchmark_guard.ndjson")
+        deadline = time.monotonic() + TASK_TIMEOUT_SECONDS
+        started = time.monotonic()
+        stages = []
+        violations = []
 
-    for index, (stage_name, role, required_artifact) in enumerate(STAGES):
-        stage = run_omp_stage(
-            stage_name,
-            role,
-            PROMPTS[stage_name].format(impl_file=task_meta["impl_file"]),
-            workspace_dir,
-            artifact_dir,
-            runtime_dir,
-            omp_agent_dir,
-            config_path,
-            guard_path,
-            guard_log,
-            deadline,
-            continue_session=index > 0,
-            scratch_dir=scratch_dir,
-        )
-        stages.append(stage)
-        violations.extend({"stage": stage_name, **item} for item in stage["protocol_violations"])
-        if not stage["success"]:
-            violations.append({"stage": stage_name, "code": "STAGE_FAILED"})
-        if required_artifact and not os.path.isfile(os.path.join(workspace_dir, required_artifact)):
-            violations.append({
-                "stage": stage_name,
-                "code": "MISSING_HANDOFF",
-                "path": required_artifact,
-            })
+        for index, (stage_name, role, required_artifact) in enumerate(STAGES):
+            stage = run_omp_stage(
+                stage_name,
+                role,
+                PROMPTS[stage_name].format(impl_file=task_meta["impl_file"]),
+                workspace_dir,
+                artifact_dir,
+                runtime_dir,
+                omp_agent_dir,
+                config_path,
+                guard_path,
+                guard_log,
+                deadline,
+                continue_session=index > 0,
+                scratch_dir=scratch_dir,
+            )
+            stages.append(stage)
+            violations.extend({"stage": stage_name, **item} for item in stage["protocol_violations"])
+            if not stage["success"]:
+                violations.append({"stage": stage_name, "code": "STAGE_FAILED"})
+            if required_artifact and not os.path.isfile(os.path.join(workspace_dir, required_artifact)):
+                violations.append({
+                    "stage": stage_name,
+                    "code": "MISSING_HANDOFF",
+                    "path": required_artifact,
+                })
 
-    guard_events = read_guard_events(guard_log)
-    violations.extend({"stage": "guard", **event} for event in guard_events)
-    total_duration = round(time.monotonic() - started, 2)
-    if total_duration > TASK_TIMEOUT_SECONDS + 2:
-        violations.append({"stage": "task", "code": "TASK_TIMEOUT"})
+        guard_events = read_guard_events(guard_log)
+        violations.extend({"stage": "guard", **event} for event in guard_events)
+        total_duration = round(time.monotonic() - started, 2)
+        if total_duration > TASK_TIMEOUT_SECONDS + 2:
+            violations.append({"stage": "task", "code": "TASK_TIMEOUT"})
 
-    return {
-        "arm": "arm_a_omp",
-        "task_id": task_meta["task_id"],
-        "duration": total_duration,
-        "normalized_total_tokens": sum(
-            stage["telemetry"]["normalized_total_tokens"] for stage in stages
-        ),
-        "total_cost_usd": round(sum(stage["telemetry"]["cost_usd"] for stage in stages), 6),
-        "total_turns": sum(stage["telemetry"]["num_turns"] for stage in stages),
-        "total_tool_calls": sum(stage["telemetry"]["tool_calls_count"] for stage in stages),
-        "protocol_valid": not violations,
-        "protocol_violations": violations,
-        "guard_log": guard_log,
-        "stages": stages,
-    }
+        return {
+            "arm": "arm_a_omp",
+            "task_id": task_meta["task_id"],
+            "duration": total_duration,
+            "normalized_total_tokens": sum(
+                stage["telemetry"]["normalized_total_tokens"] for stage in stages
+            ),
+            "total_cost_usd": round(sum(stage["telemetry"]["cost_usd"] for stage in stages), 6),
+            "total_turns": sum(stage["telemetry"]["num_turns"] for stage in stages),
+            "total_tool_calls": sum(stage["telemetry"]["tool_calls_count"] for stage in stages),
+            "protocol_valid": not violations,
+            "protocol_violations": violations,
+            "guard_log": guard_log,
+            "stages": stages,
+        }
+    finally:
+        shutil.rmtree(runtime_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":

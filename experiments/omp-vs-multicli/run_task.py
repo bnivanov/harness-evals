@@ -108,101 +108,100 @@ def run_evaluation(
 
     workspace = setup_workspace(task_meta, arm)
     scratch_dir = tempfile.mkdtemp(prefix=f"harness_scratch_{task_id}_{arm}_")
-    artifact_dir = os.path.join(os.path.dirname(results_dir), "traces", task_id, arm)
-    print(f"Initialized isolated workspace: {workspace}")
-
-    if dry_run:
-        oracle = verify_task(task_id, workspace)
-        return {
-            "task_id": task_id,
-            "arm": arm,
-            "dry_run": True,
-            "workspace": workspace,
-            "oracle_verification": oracle,
-        }
-
-    with open(run_manifest_path, "rb") as handle:
-        run_manifest_sha256 = sha256_file(run_manifest_path)
-    attempt = {
-        "status": "running",
-        "task_id": task_id,
-        "arm": arm,
-        "started_at": utc_now(),
-        "workspace": workspace,
-        "artifact_dir": artifact_dir,
-        "run_manifest_path": run_manifest_path,
-        "run_manifest_sha256": run_manifest_sha256,
-    }
-    atomic_json_write(attempt_path, attempt)
-
     try:
-        execution = (
-            run_arm_a(task_meta, workspace, artifact_dir, scratch_dir=scratch_dir)
-            if arm == "arm_a"
-            else run_arm_b(task_meta, workspace, artifact_dir, scratch_dir=scratch_dir)
-        )
-        oracle = verify_task(task_id, workspace)
-        protocol_valid = bool(execution.get("protocol_valid")) and not oracle.get("tampered", False)
-        if protocol_valid:
-            scored = dict(oracle)
-        else:
-            reasons = execution.get("protocol_violations", [])
-            if oracle.get("tampered"):
-                reasons = [*reasons, {"code": "TAMPERED", "detail": oracle.get("tamper_reason")}]
-            scored = failure_verification(task_id, json.dumps(reasons, sort_keys=True), oracle)
-
-        combined = {
-            "status": "complete",
-            "task_id": task_id,
-            "arm": arm,
-            "started_at": attempt["started_at"],
-            "completed_at": utc_now(),
-            "workspace": workspace,
-            "run_manifest_path": run_manifest_path,
-            "run_manifest_sha256": run_manifest_sha256,
-            "execution": execution,
-            "oracle_verification": oracle,
-            "verification": scored,
-        }
-    except BaseException as error:
-        combined = {
-            "status": "failed",
-            "task_id": task_id,
-            "arm": arm,
-            "started_at": attempt["started_at"],
-            "completed_at": utc_now(),
-            "workspace": workspace,
-            "run_manifest_path": run_manifest_path,
-            "run_manifest_sha256": run_manifest_sha256,
-            "execution": {
-                "arm": arm,
+        artifact_dir = os.path.join(os.path.dirname(results_dir), "traces", task_id, arm)
+        print(f"Initialized isolated workspace: {workspace}")
+        if dry_run:
+            oracle = verify_task(task_id, workspace)
+            return {
                 "task_id": task_id,
-                "duration": 0.0,
-                "normalized_total_tokens": 0,
-                "total_cost_usd": 0.0,
-                "protocol_valid": False,
-                "protocol_violations": [{"code": "RUNNER_EXCEPTION", "detail": str(error)}],
-                "stages": [],
-            },
-            "oracle_verification": {},
-            "verification": failure_verification(task_id, f"RUNNER_EXCEPTION: {error}"),
-            "error": {
-                "type": type(error).__name__,
-                "message": str(error),
-                "traceback": traceback.format_exc(),
-            },
-        }
-    atomic_json_write(result_path, combined)
-    os.unlink(attempt_path)
-    shutil.rmtree(scratch_dir, ignore_errors=True)
-    shutil.rmtree(workspace, ignore_errors=True)
-    print(
-        f"Saved immutable result: {result_path}\n"
-        f"Score: {combined['verification']['passed_tests']}/{combined['verification']['total_tests']} "
-        f"ratio={combined['verification']['ratio']} protocol_valid={combined['execution']['protocol_valid']}"
-    )
-    return combined
+                "arm": arm,
+                "dry_run": True,
+                "workspace": workspace,
+                "oracle_verification": oracle,
+            }
 
+        with open(run_manifest_path, "rb") as handle:
+            run_manifest_sha256 = sha256_file(run_manifest_path)
+        attempt = {
+            "status": "running",
+            "task_id": task_id,
+            "arm": arm,
+            "started_at": utc_now(),
+            "workspace": workspace,
+            "artifact_dir": artifact_dir,
+            "run_manifest_path": run_manifest_path,
+            "run_manifest_sha256": run_manifest_sha256,
+        }
+        atomic_json_write(attempt_path, attempt)
+        try:
+            execution = (
+                run_arm_a(task_meta, workspace, artifact_dir, scratch_dir=scratch_dir)
+                if arm == "arm_a"
+                else run_arm_b(task_meta, workspace, artifact_dir, scratch_dir=scratch_dir)
+            )
+            oracle = verify_task(task_id, workspace)
+            protocol_valid = bool(execution.get("protocol_valid")) and not oracle.get("tampered", False)
+            if protocol_valid:
+                scored = dict(oracle)
+            else:
+                reasons = execution.get("protocol_violations", [])
+                if oracle.get("tampered"):
+                    reasons = [*reasons, {"code": "TAMPERED", "detail": oracle.get("tamper_reason")}]
+                scored = failure_verification(task_id, json.dumps(reasons, sort_keys=True), oracle)
+
+            combined = {
+                "status": "complete",
+                "task_id": task_id,
+                "arm": arm,
+                "started_at": attempt["started_at"],
+                "completed_at": utc_now(),
+                "workspace": workspace,
+                "run_manifest_path": run_manifest_path,
+                "run_manifest_sha256": run_manifest_sha256,
+                "execution": execution,
+                "oracle_verification": oracle,
+                "verification": scored,
+            }
+        except BaseException as error:
+            combined = {
+                "status": "failed",
+                "task_id": task_id,
+                "arm": arm,
+                "started_at": attempt["started_at"],
+                "completed_at": utc_now(),
+                "workspace": workspace,
+                "run_manifest_path": run_manifest_path,
+                "run_manifest_sha256": run_manifest_sha256,
+                "execution": {
+                    "arm": arm,
+                    "task_id": task_id,
+                    "duration": 0.0,
+                    "normalized_total_tokens": 0,
+                    "total_cost_usd": 0.0,
+                    "protocol_valid": False,
+                    "protocol_violations": [{"code": "RUNNER_EXCEPTION", "detail": str(error)}],
+                    "stages": [],
+                },
+                "oracle_verification": {},
+                "verification": failure_verification(task_id, f"RUNNER_EXCEPTION: {error}"),
+                "error": {
+                    "type": type(error).__name__,
+                    "message": str(error),
+                    "traceback": traceback.format_exc(),
+                },
+            }
+        atomic_json_write(result_path, combined)
+        os.unlink(attempt_path)
+        print(
+            f"Saved immutable result: {result_path}\n"
+            f"Score: {combined['verification']['passed_tests']}/{combined['verification']['total_tests']} "
+            f"ratio={combined['verification']['ratio']} protocol_valid={combined['execution']['protocol_valid']}"
+        )
+        return combined
+    finally:
+        shutil.rmtree(scratch_dir, ignore_errors=True)
+        shutil.rmtree(workspace, ignore_errors=True)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run one immutable experiment attempt")

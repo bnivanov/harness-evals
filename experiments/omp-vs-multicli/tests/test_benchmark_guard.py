@@ -9,8 +9,8 @@ import tempfile
 import unittest
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, BASE_DIR)
 GUARD_TS = os.path.join(BASE_DIR, "security", "benchmark_guard.ts")
-
 
 class BenchmarkGuardTests(unittest.TestCase):
     @classmethod
@@ -171,5 +171,43 @@ console.log(JSON.stringify(decision || {{ ok: true }}));
             # B2: Safe OS system prefix read is allowed
             dec = self.run_guard_probe("read", {"path": "/usr/bin/python3"}, env)
             self.assertTrue(dec.get("ok"), "Failed to allow reading /usr/bin/python3")
+
+    def test_bash_positive_confinement_blocks_sibling_runtime_dirs(self):
+        with tempfile.TemporaryDirectory() as ws, tempfile.TemporaryDirectory() as scratch:
+            env = {
+                "BENCHMARK_WORKSPACE": ws,
+                "BENCHMARK_SCRATCH_DIR": scratch,
+                "PROJECT_ROOT": BASE_DIR,
+                "TMPDIR": scratch,
+            }
+            with tempfile.TemporaryDirectory(prefix="harness_runtime_wordy_arm_a_") as sibling_rt:
+                session_file = os.path.join(sibling_rt, "session.jsonl")
+                with open(session_file, "w") as f:
+                    f.write('{"solution": "wordy"}')
+
+                dec = self.run_guard_probe("bash", {"command": f"cat {session_file}"}, env)
+                self.assertTrue(dec.get("block"), "Failed to block bash reading sibling harness_runtime transcript")
+                self.assertIn("path outside benchmark workspace", dec.get("reason", ""))
+
+            scratch_file = os.path.join(scratch, "scratch.txt")
+            with open(scratch_file, "w") as f:
+                f.write("scratch")
+            dec = self.run_guard_probe("bash", {"command": f"cat $TMPDIR/scratch.txt"}, env)
+            self.assertTrue(dec.get("ok"), "Failed to allow bash reading $TMPDIR scratch file")
+
+    def test_run_evaluation_dry_run_leaves_zero_temp_dirs(self):
+        from run_task import run_evaluation
+        manifest_path = os.path.join(BASE_DIR, "runs", "confirmatory-006", "run_manifest.json")
+        results_dir = os.path.join(BASE_DIR, "runs", "confirmatory-006", "results")
+
+        tmp = tempfile.gettempdir()
+        before_eval = set(os.listdir(tmp))
+        res = run_evaluation("wordy", "arm_a", results_dir, manifest_path, dry_run=True)
+        self.assertTrue(res.get("dry_run"))
+        after_eval = set(os.listdir(tmp))
+        new_dirs = [d for d in after_eval - before_eval if d.startswith("harness_")]
+        self.assertEqual(len(new_dirs), 0, f"run_evaluation dry-run leaked temp directories: {new_dirs}")
+
+
 if __name__ == "__main__":
     unittest.main()
