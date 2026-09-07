@@ -101,11 +101,12 @@ To prevent runaway execution and enforce strict isolation:
 1. **Wall-Clock Timeouts**:
    * **Stage Ceiling**: 10 minutes (600 seconds) per stage (`STAGE_TIMEOUT_SECONDS = 600`), enforced via `--max-time` in OMP and subprocess deadlines in Multi-CLI.
    * **Task Ceiling**: 30 minutes (1800 seconds) total per task (`TASK_TIMEOUT_SECONDS = 1800`).
-2. **Offline Isolation & Sandboxing**:
-   * Built-in web search and web fetch tools disabled (`--disable-web-search`, `--no-skills`, `--no-extensions`).
-   * `sandbox-exec` kernel seatbelt profile denies read access to the external oracle directory (`EACCES`) and blocks network execution binaries (`EPERM`).
-   * In-process guard extension (`benchmark_guard.ts`) audits all tool calls and blocks trace violations.
----
+2. **Offline Isolation & Defense Architecture**:
+   * **Kernel Seatbelt (Both Arms)**: macOS `sandbox-exec` enforces OS-level isolation. Denies read/write access to the repository root `PROJECT_ROOT` (`EACCES`), allows access strictly to the active `workspace` and attempt-scoped private `scratch_dir`, and denies process-exec of network executables (`curl`, `wget`, `nc`, `ssh`, `rsync`, etc.).
+   * **Arm A In-Process Guard (`benchmark_guard.ts`)**: Loaded in OMP via `--hook`. Intercepts all tool calls in-process. Fail-closes on foreign URI schemes (`skill://`, `artifact://`, `history://`), access to quarantined benchmark directories (`/benchmarks/aider-python/(oracle|tasks)/`), out-of-workspace writes/edits, out-of-workspace reads, and network/package commands. Emits audit trail to `benchmark_guard.ndjson`.
+   * **Arm B Multi-CLI Containment**: Isolated runtime homes (`grok-home`, `codex-home`, `agy`), kernel seatbelt, and post-hoc regex verification (`trace_violations`) across all stdout/stderr traces.
+   * **Private Attempt Scratch (`TMPDIR`)**: Both arms allocate an attempt-scoped private scratch directory exported to `TMPDIR` and `BENCHMARK_SCRATCH_DIR`, cleanly wiped on attempt conclusion to prevent cross-attempt or cross-arm scratch file leakage.
+   * **Workspace Lifecycle**: Workspaces are initialized with single-commit git stubs and purged after scoring.
 
 ## 5. Normalized Pricing Reference Card
 

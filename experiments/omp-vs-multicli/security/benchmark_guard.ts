@@ -46,14 +46,27 @@ const NETWORK_IMPORT =
   /\b(?:import|from)\s+(?:urllib|requests|httpx|socket|http|https|net)\b|\brequire\s*\(\s*['"](?:http|https|net|urllib|socket)['"]|\brequire\s+['"](?:net\/http|socket|open-uri|net\/https)['"]|\bfrom\s+['"](?:http|https|net|socket)(?:\/|['"])|\bfetch\s*\(/i;
 
 const BASH_PATH_TOKEN =
-  /(?:^|[\s"'=])(~(?:\/[^\s"']*)?|(?:\.\.\/)+[^\s"']*|\/[^\s"']+|\.\/[^\s"']+|[^\s"']+\/[^\s"']+)/g;
+  /(?:^|[\s"'=])(~(?:\/[^\s"']*)?|\$(?:\{HOME\}|HOME)(?:\/[^\s"']*)?|(?:\.\.\/)+[^\s"']*|\/[^\s"']+|\.\/[^\s"']+|[^\s"']+\/[^\s"']+)/g;
+
+const SAFE_OS_READ_PREFIXES = [
+  "/usr/",
+  "/bin/",
+  "/sbin/",
+  "/lib/",
+  "/System/",
+  "/Library/",
+  "/opt/homebrew/",
+  "/etc/",
+  "/dev/",
+];
 
 function workspaceFromEnv(): string {
   return (process.env.BENCHMARK_WORKSPACE ?? "").trim();
 }
 
 function scratchDirFromEnv(): string {
-  return (process.env.BENCHMARK_SCRATCH_DIR ?? process.env.TMPDIR ?? "").trim();
+  // Fail-closed: only return an explicitly provisioned private scratch directory.
+  return (process.env.BENCHMARK_SCRATCH_DIR ?? "").trim();
 }
 
 function projectRootFromEnv(): string {
@@ -82,7 +95,7 @@ export function isOrdinaryNonPath(value: string): boolean {
   const v = value.trim();
   if (!v || isLocalUri(v)) return true;
   if (v.includes("://")) return false;
-  if (isAbsolute(v) || v.startsWith("~")) return false;
+  if (isAbsolute(v) || v.startsWith("~") || v.startsWith("$HOME") || v.startsWith("${HOME}")) return false;
   if (v === ".." || v.startsWith("../") || v.startsWith("..\\") || v.startsWith(`..${sep}`)) {
     return false;
   }
@@ -98,9 +111,15 @@ export function canonicalize(raw: string, workspace: string): string {
       value = value.slice("file://".length);
     }
   }
-  if (value.startsWith("~/") || value === "~") {
-    const home = process.env.HOME || "";
-    value = resolve(home, value.slice(2));
+  const home = process.env.HOME || "";
+  if (home) {
+    if (value === "~" || value.startsWith("~/")) {
+      value = resolve(home, value.slice(2));
+    } else if (value === "$HOME" || value.startsWith("$HOME/")) {
+      value = resolve(home, value.slice(6));
+    } else if (value === "${HOME}" || value.startsWith("${HOME}/")) {
+      value = resolve(home, value.slice(8));
+    }
   }
   const abs = resolve(workspace || ".", value);
   const missing: string[] = [];
@@ -137,6 +156,15 @@ export function isSubpath(target: string, parentDir: string): boolean {
   return child.startsWith(prefix);
 }
 
+export function isAllowedReadTarget(canonical: string, workspace: string, scratchDir: string): boolean {
+  if (workspace && isSubpath(canonical, workspace)) return true;
+  if (scratchDir && isSubpath(canonical, scratchDir)) return true;
+  for (const prefix of SAFE_OS_READ_PREFIXES) {
+    if (canonical.startsWith(prefix)) return true;
+  }
+  return false;
+}
+
 /**
  * Returns a rejection reason if the candidate path violates benchmark quarantine:
  * - Foreign URI schemes (skill://, artifact://, history://, etc.)
@@ -154,7 +182,7 @@ export function forbiddenTargetReason(
   if (!value || isLocalUri(value)) return undefined;
 
   const scheme = foreignUriScheme(value);
-  if (scheme) return `blocked ${scheme}:// resource`;
+  if (scheme) return `blocked ${scheme}:// resource outside benchmark workspace`;
 
   if (isOrdinaryNonPath(value)) return undefined;
 
@@ -197,7 +225,7 @@ export function forbiddenTargetReason(
   return undefined;
 }
 
-function collectPathFields(input: Record<string, unknown> | undefined): string[] {
+export function collectPathFields(tool: string, input: Record<string, unknown> | undefined): string[] {
   if (!input) return [];
   const out: string[] = [];
   for (const key of PATH_KEYS) {
@@ -216,6 +244,25 @@ function collectPathFields(input: Record<string, unknown> | undefined): string[]
       }
     }
   }
+
+  // B1: Support OMP hashline edit tool input ([PATH#TAG] headers and MV DEST)
+  if (tool === "edit") {
+    const rawInput = input.input ?? input.patch ?? input.script;
+    if (typeof rawInput === "string") {
+      const headerRegex = /^\s*\[([^\n#\]]+)(?:#[0-9a-fA-F]+)?\]/mg;
+      let m: RegExpExecArray | null;
+      while ((m = headerRegex.exec(rawInput))) {
+        const path = m[1].trim();
+        if (path) out.push(path);
+      }
+      const mvRegex = /^\s*MV\s+([^\n]+)/mg;
+      while ((m = mvRegex.exec(rawInput))) {
+        const path = m[1].trim().replace(/^["']|["']$/g, "");
+        if (path) out.push(path);
+      }
+    }
+  }
+
   return out;
 }
 
@@ -251,17 +298,26 @@ export function inspectPathTool(
   const scratchDir = scratchDirFromEnv();
   const projectRoot = projectRootFromEnv();
 
-  for (const candidate of collectPathFields(input)) {
+  const candidates = collectPathFields(tool, input);
+  for (const candidate of candidates) {
     const err = forbiddenTargetReason(candidate, workspace, scratchDir, projectRoot);
     if (err) return block(tool, err, input);
 
-    // For file modification tools (write, edit): strictly require workspace or scratchDir
+    const canonical = canonicalize(candidate, workspace);
+
+    // Write / edit tools: strictly positive confinement to workspace or scratchDir
     if (tool === "write" || tool === "edit") {
-      const canonical = canonicalize(candidate, workspace);
       const inWorkspace = workspace && isSubpath(canonical, workspace);
       const inScratch = scratchDir && isSubpath(canonical, scratchDir);
       if (!inWorkspace && !inScratch) {
-        return block(tool, "write/edit target outside workspace", input);
+        return block(tool, "path outside benchmark workspace", input);
+      }
+    }
+
+    // Read / glob / grep tools: positive confinement to workspace, scratchDir, or safe system OS prefixes
+    if (tool === "read" || tool === "glob" || tool === "grep") {
+      if (!isAllowedReadTarget(canonical, workspace, scratchDir)) {
+        return block(tool, "path outside benchmark workspace", input);
       }
     }
   }

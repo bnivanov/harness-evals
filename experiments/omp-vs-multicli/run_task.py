@@ -195,6 +195,7 @@ def run_evaluation(
     atomic_json_write(result_path, combined)
     os.unlink(attempt_path)
     shutil.rmtree(scratch_dir, ignore_errors=True)
+    shutil.rmtree(workspace, ignore_errors=True)
     print(
         f"Saved immutable result: {result_path}\n"
         f"Score: {combined['verification']['passed_tests']}/{combined['verification']['total_tests']} "

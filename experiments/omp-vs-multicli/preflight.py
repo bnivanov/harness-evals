@@ -53,6 +53,7 @@ FROZEN_SOURCE_FILES = (
     "verifier/oracle_verifier.py",
     "analysis/calculate_stats.py",
     "security/benchmark_guard.ts",
+    "security/benchmark_guard.test.ts",
     "preflight_parity.py",
 )
 
@@ -205,6 +206,18 @@ def verify_seatbelt() -> dict:
         if denied.returncode == 0 or "Operation not permitted" not in denied.stderr:
             raise RuntimeError("Seatbelt did not deny benchmark source-tree access")
     return {"workspace_read": "allowed", "benchmark_source_read": "denied"}
+def verify_test_suite() -> dict[str, str]:
+    """Ensure guard bun tests and full python unit test suites pass."""
+    guard_test = os.path.join(BASE_DIR, "security", "benchmark_guard.test.ts")
+    if os.path.isfile(guard_test):
+        res = subprocess.run(["bun", "test", guard_test], cwd=BASE_DIR, capture_output=True, text=True)
+        if res.returncode != 0:
+            raise RuntimeError(f"Guard bun test failed before preflight freeze:\n{res.stderr}\n{res.stdout}")
+    test_dir = os.path.join(BASE_DIR, "tests")
+    res = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", test_dir, "-p", "test_*.py"], cwd=BASE_DIR, capture_output=True, text=True)
+    if res.returncode != 0:
+        raise RuntimeError(f"Python unit test suite failed before preflight freeze:\n{res.stderr}\n{res.stdout}")
+    return {"benchmark_guard_bun": "pass", "unit_tests": "pass"}
 
 
 def source_hashes() -> dict:
@@ -235,6 +248,7 @@ def preflight(run_id: str, prepare: bool = False) -> dict:
             "model_catalogs": verify_model_catalogs(runtime_dir),
             "oracle": verify_manifest_and_oracles(),
             "seatbelt": verify_seatbelt(),
+            "test_suite": verify_test_suite(),
             "isolated_omp_profile": {
                 "auth_present": os.path.isfile(os.path.join(omp_dir, "auth.json")),
                 "skills_present": os.path.exists(os.path.join(omp_dir, "skills")),
@@ -291,6 +305,7 @@ def validate_frozen_manifest(manifest_path: str) -> dict:
     with tempfile.TemporaryDirectory(prefix="harness_revalidate_") as runtime_dir:
         verify_model_catalogs(runtime_dir)
     verify_seatbelt()
+    verify_test_suite()
     results_dir = os.path.expanduser(os.path.expandvars(frozen.get("results_dir") or ""))
     if not results_dir or os.path.realpath(results_dir) != os.path.realpath(
         os.path.join(os.path.dirname(manifest_path), "results")

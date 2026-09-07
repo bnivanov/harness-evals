@@ -1,0 +1,28 @@
+{
+  "text": "323",
+  "stopReason": "end_turn",
+  "sessionId": "a11650aa-cf70-46fe-bf1c-e179fe32d769",
+  "requestId": "6ad75318-07bd-4cc3-af1d-24b9b22852fc",
+  "thought": "The user wants me to calculate 17 * 19 without calling tools, and return only the final numeric answer.\n",
+  "usage": {
+    "input_tokens": 9007,
+    "cache_read_input_tokens": 2432,
+    "cache_creation_input_tokens": 0,
+    "output_tokens": 61,
+    "reasoning_tokens": 56,
+    "total_tokens": 11500
+  },
+  "num_turns": 1,
+  "total_cost_usd": 0.00333132,
+  "total_cost_usd_ticks": 33313200,
+  "modelUsage": {
+    "grok-4.6-build": {
+      "inputTokens": 9007,
+      "outputTokens": 61,
+      "cacheReadInputTokens": 2432,
+      "cacheCreationInputTokens": 0,
+      "modelCalls": 1,
+      "costUSD": 0.00333132
+    }
+  }
+}

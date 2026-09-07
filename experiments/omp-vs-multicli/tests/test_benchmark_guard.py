@@ -103,6 +103,8 @@ console.log(JSON.stringify(decision || {{ ok: true }}));
                 "cat ~/.omp/config.json",
                 "cat ~/.codex/auth.json",
                 "cat ~/.gemini/oauth_creds.json",
+                "cat $HOME/.codex/auth.json",
+                "cat ${HOME}/.gemini/oauth_creds.json",
             ]
             for cmd in blocked_paths:
                 dec = self.run_guard_probe("bash", {"command": cmd}, env)
@@ -142,6 +144,32 @@ console.log(JSON.stringify(decision || {{ ok: true }}));
             dec = self.run_guard_probe("write", {"path": "/etc/test_escape.txt", "content": "bad"}, env)
             self.assertTrue(dec.get("block"))
 
+            # B1: Edit tool hashline headers out of workspace are blocked
+            bad_edit_input = "[/etc/passwd#1234]\nPUT 1.=1:\n+bad"
+            dec = self.run_guard_probe("edit", {"input": bad_edit_input}, env)
+            self.assertTrue(dec.get("block"), "Failed to block edit targeting /etc/passwd")
 
+            # B1: Edit tool hashline headers inside workspace are allowed
+            good_edit_input = "[grep.py#1234]\nPUT 1.=1:\n+# good"
+            dec = self.run_guard_probe("edit", {"input": good_edit_input}, env)
+            self.assertTrue(dec.get("ok"), "Failed to allow edit targeting grep.py inside workspace")
+
+            # B1: Edit tool MV out of workspace is blocked
+            bad_mv_input = "[grep.py#1234]\nMV /tmp/escape.py"
+            dec = self.run_guard_probe("edit", {"input": bad_mv_input}, env)
+            self.assertTrue(dec.get("block"), "Failed to block edit with MV out of workspace")
+
+            # B2: Positive read confinement blocks reading sibling temporary workspaces
+            with tempfile.TemporaryDirectory(prefix="sibling_workspace_") as sibling_ws:
+                secret_file = os.path.join(sibling_ws, "solution.py")
+                with open(secret_file, "w") as f:
+                    f.write("secret")
+                dec = self.run_guard_probe("read", {"path": secret_file}, env)
+                self.assertTrue(dec.get("block"), "Failed to block reading sibling temporary workspace")
+                self.assertIn("path outside benchmark workspace", dec.get("reason", ""))
+
+            # B2: Safe OS system prefix read is allowed
+            dec = self.run_guard_probe("read", {"path": "/usr/bin/python3"}, env)
+            self.assertTrue(dec.get("ok"), "Failed to allow reading /usr/bin/python3")
 if __name__ == "__main__":
     unittest.main()

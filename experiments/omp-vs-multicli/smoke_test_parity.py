@@ -21,6 +21,7 @@ from experiment_config import (  # noqa: E402
     GROK_BIN,
     MODEL_PINS,
     OMP_BIN,
+    PROJECT_ROOT,
 )
 from preflight import validate_frozen_manifest  # noqa: E402
 from runner_common import (  # noqa: E402
@@ -49,9 +50,9 @@ CONFIG_OVERLAY = os.path.join(BASE_DIR, "config_overlay.yml")
 GUARD_EXTENSION = os.path.join(BASE_DIR, "security", "benchmark_guard.ts")
 
 
-def run_probe(command, workspace, artifact_prefix, env):
+def run_probe(command, workspace, artifact_prefix, env, scratch_dir=None):
     return run_captured_process(
-        sandbox_command(command, workspace),
+        sandbox_command(command, workspace, scratch_dir),
         workspace,
         120,
         f"{artifact_prefix}.stdout.jsonl",
@@ -84,13 +85,18 @@ def omp_probe(role, workspace, artifact_dir, runtime_root):
         "--tools=read,edit,write,bash,grep,glob",
         "--cwd", workspace,
     ]
+    scratch_dir = os.path.join(runtime, "scratch")
+    os.makedirs(scratch_dir, exist_ok=True)
     env = os.environ.copy()
     env.update({
         "PI_CODING_AGENT_DIR": agent_dir,
         "BENCHMARK_WORKSPACE": os.path.realpath(workspace),
         "BENCHMARK_GUARD_LOG": guard_log,
+        "BENCHMARK_SCRATCH_DIR": os.path.realpath(scratch_dir),
+        "PROJECT_ROOT": os.path.realpath(PROJECT_ROOT),
+        "TMPDIR": os.path.realpath(scratch_dir),
     })
-    process = run_probe(command, workspace, os.path.join(artifact_dir, f"omp-{role}"), env)
+    process = run_probe(command, workspace, os.path.join(artifact_dir, f"omp-{role}"), env, scratch_dir)
     telemetry = parse_omp_telemetry(process["stdout"], role)
     expected = model.split("/", 1)[-1]
     passed = (
@@ -168,8 +174,11 @@ def vendor_probe(role, workspace, artifact_dir, runtime_root):
             PROMPT,
         ]
         parser = parse_codex_telemetry
-
-    process = run_probe(command, workspace, os.path.join(artifact_dir, provider), env)
+    scratch_dir = os.path.join(runtime_root, f"scratch-{role}")
+    os.makedirs(scratch_dir, exist_ok=True)
+    env["BENCHMARK_SCRATCH_DIR"] = os.path.realpath(scratch_dir)
+    env["TMPDIR"] = os.path.realpath(scratch_dir)
+    process = run_probe(command, workspace, os.path.join(artifact_dir, provider), env, scratch_dir)
     telemetry = parser(process["stdout"], role)
     resolved = telemetry.get("resolved_models", [])
     if provider == "grok":

@@ -1,0 +1,238 @@
+{
+  "results": {
+    "planner": {
+      "arm_a": {
+        "command": [
+          "$HOME/AgentWork/bin/omp",
+          "--mode",
+          "json",
+          "-p",
+          "Calculate 17 * 19. Do not call tools. Return only the final numeric answer.",
+          "--model=xai-oauth/grok-4.6",
+          "--thinking=medium",
+          "--auto-approve",
+          "--no-extensions",
+          "--no-skills",
+          "--hook=$TMPDIR/harness_parity_runtime_l_idar9k/omp-planner/benchmark_guard.ts",
+          "--config=$TMPDIR/harness_parity_runtime_l_idar9k/omp-planner/config_overlay.yml",
+          "--session-dir=$TMPDIR/harness_parity_runtime_l_idar9k/omp-planner/sessions",
+          "--max-time=120",
+          "--tools=read,edit,write,bash,grep,glob",
+          "--cwd",
+          "$TMPDIR/harness_parity_smoke_9vp_paql"
+        ],
+        "configured_effort": "medium",
+        "configured_model": "xai-oauth/grok-4.6",
+        "passed": true,
+        "reasoning_tokens": 57,
+        "resolved_models": [
+          "grok-4.6"
+        ],
+        "returncode": 0,
+        "stderr_trace": {
+          "bytes": 0,
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-006/smoke_traces/omp-planner.stderr.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "stdout_trace": {
+          "bytes": 9220,
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-006/smoke_traces/omp-planner.stdout.jsonl",
+          "sha256": "f70c79cea29deadc610fe0b21d93c25569bc2ef87537925df2aabce2dda5c4a7"
+        }
+      },
+      "arm_b": {
+        "command": [
+          "$HOME/.grok/bin/grok",
+          "-p",
+          "Calculate 17 * 19. Do not call tools. Return only the final numeric answer.",
+          "--model",
+          "grok-4.6",
+          "--effort",
+          "medium",
+          "--always-approve",
+          "--disable-web-search",
+          "--session-id",
+          "a11650aa-cf70-46fe-bf1c-e179fe32d769",
+          "--output-format",
+          "json"
+        ],
+        "configured_effort": "medium",
+        "configured_model": "grok-4.6",
+        "identity_proof": "resolved telemetry",
+        "passed": true,
+        "provider": "grok",
+        "reasoning_tokens": 56,
+        "resolved_models": [
+          "grok-4.6-build"
+        ],
+        "returncode": 0,
+        "stderr_trace": {
+          "bytes": 0,
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-006/smoke_traces/grok.stderr.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "stdout_trace": {
+          "bytes": 794,
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-006/smoke_traces/grok.stdout.jsonl",
+          "sha256": "1829e46fb8889cbb7a09d6346e556580c0c3441d3e09583243a0afa49105c826"
+        }
+      }
+    },
+    "reviewer": {
+      "arm_a": {
+        "command": [
+          "$HOME/AgentWork/bin/omp",
+          "--mode",
+          "json",
+          "-p",
+          "Calculate 17 * 19. Do not call tools. Return only the final numeric answer.",
+          "--model=google-antigravity/gemini-3.8-flash",
+          "--thinking=high",
+          "--auto-approve",
+          "--no-extensions",
+          "--no-skills",
+          "--hook=$TMPDIR/harness_parity_runtime_l_idar9k/omp-reviewer/benchmark_guard.ts",
+          "--config=$TMPDIR/harness_parity_runtime_l_idar9k/omp-reviewer/config_overlay.yml",
+          "--session-dir=$TMPDIR/harness_parity_runtime_l_idar9k/omp-reviewer/sessions",
+          "--max-time=120",
+          "--tools=read,edit,write,bash,grep,glob",
+          "--cwd",
+          "$TMPDIR/harness_parity_smoke_9vp_paql"
+        ],
+        "configured_effort": "high",
+        "configured_model": "google-antigravity/gemini-3.8-flash",
+        "passed": true,
+        "reasoning_tokens": 77,
+        "resolved_models": [
+          "gemini-3.8-flash"
+        ],
+        "returncode": 0,
+        "stderr_trace": {
+          "bytes": 0,
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-006/smoke_traces/omp-reviewer.stderr.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "stdout_trace": {
+          "bytes": 5052,
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-006/smoke_traces/omp-reviewer.stdout.jsonl",
+          "sha256": "b8b215e7958aa5117f42126082415ae0cf940ed861c71f2e2ed3c6590d180e93"
+        }
+      },
+      "arm_b": {
+        "command": [
+          "$HOME/.local/bin/agy",
+          "-p",
+          "Calculate 17 * 19. Do not call tools. Return only the final numeric answer.",
+          "--model",
+          "gemini-3.8-flash",
+          "--effort",
+          "medium",
+          "--sandbox",
+          "--new-project",
+          "--dangerously-skip-permissions",
+          "--output-format",
+          "json"
+        ],
+        "configured_effort": "medium",
+        "configured_model": "gemini-3.8-flash",
+        "identity_proof": "explicit strict argv + pinned binary",
+        "passed": true,
+        "provider": "agy",
+        "reasoning_tokens": 119,
+        "resolved_models": [],
+        "returncode": 0,
+        "stderr_trace": {
+          "bytes": 0,
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-006/smoke_traces/agy.stderr.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "stdout_trace": {
+          "bytes": 255,
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-006/smoke_traces/agy.stdout.jsonl",
+          "sha256": "882869310f8ead3bd587fdbde60900bb1c06de7f04da53a7d6d0fe570bbd0f7a"
+        }
+      }
+    },
+    "worker": {
+      "arm_a": {
+        "command": [
+          "$HOME/AgentWork/bin/omp",
+          "--mode",
+          "json",
+          "-p",
+          "Calculate 17 * 19. Do not call tools. Return only the final numeric answer.",
+          "--model=openai-codex/gpt-5.6-luna",
+          "--thinking=max",
+          "--auto-approve",
+          "--no-extensions",
+          "--no-skills",
+          "--hook=$TMPDIR/harness_parity_runtime_l_idar9k/omp-worker/benchmark_guard.ts",
+          "--config=$TMPDIR/harness_parity_runtime_l_idar9k/omp-worker/config_overlay.yml",
+          "--session-dir=$TMPDIR/harness_parity_runtime_l_idar9k/omp-worker/sessions",
+          "--max-time=120",
+          "--tools=read,edit,write,bash,grep,glob",
+          "--cwd",
+          "$TMPDIR/harness_parity_smoke_9vp_paql"
+        ],
+        "configured_effort": "max",
+        "configured_model": "openai-codex/gpt-5.6-luna",
+        "passed": true,
+        "reasoning_tokens": 21,
+        "resolved_models": [
+          "gpt-5.6-luna"
+        ],
+        "returncode": 0,
+        "stderr_trace": {
+          "bytes": 0,
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-006/smoke_traces/omp-worker.stderr.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "stdout_trace": {
+          "bytes": 9662,
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-006/smoke_traces/omp-worker.stdout.jsonl",
+          "sha256": "5f7e9797fee1d1376a0a970687feb5772a471e79d7092620804eb37bc038e4df"
+        }
+      },
+      "arm_b": {
+        "command": [
+          "$HOME/.local/bin/codex",
+          "-c",
+          "model=\"gpt-5.6-luna\"",
+          "-c",
+          "model_reasoning_effort=\"max\"",
+          "exec",
+          "--dangerously-bypass-approvals-and-sandbox",
+          "--skip-git-repo-check",
+          "--ignore-user-config",
+          "--ephemeral",
+          "--strict-config",
+          "--json",
+          "Calculate 17 * 19. Do not call tools. Return only the final numeric answer."
+        ],
+        "configured_effort": "max",
+        "configured_model": "gpt-5.6-luna",
+        "identity_proof": "explicit strict argv + pinned binary",
+        "passed": true,
+        "provider": "codex",
+        "reasoning_tokens": 20,
+        "resolved_models": [],
+        "returncode": 0,
+        "stderr_trace": {
+          "bytes": 39,
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-006/smoke_traces/codex.stderr.log",
+          "sha256": "1aa26269eb1cc57f86b235a03cda53c004edb5b1e9fc99d4da4f00843293d721"
+        },
+        "stdout_trace": {
+          "bytes": 347,
+          "path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-006/smoke_traces/codex.stdout.jsonl",
+          "sha256": "8ecfd52a2f1022ccf08223e2620ed91cff1ff4aa65eeea2cba3a44c020a28b54"
+        }
+      }
+    }
+  },
+  "run_id": "confirmatory-006",
+  "run_manifest_path": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-006/run_manifest.json",
+  "run_manifest_sha256": "168db92bbb9eb06c7abb431c45d6a3806f7317584f17ac2dafb298212ce8e4ff",
+  "schema_version": 2,
+  "status": "pass"
+}
