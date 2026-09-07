@@ -320,8 +320,19 @@
      5. *Deadline Awareness Verification*: Disclosed in Limitation 10 that binary inspection was conducted on `omp/18.1.13` (prior builds unrecoverable), confirming that `--max-time` is purely an internal `AbortController` / `setTimeout` timer never visible to the model.
      6. *Statistical Accuracy*: Corrected the non-tied count from 7 identical tasks to 6 coinciding with McNemar plus `sgf-parsing` (0.957 vs 0.0, concordant on binary resolution).
 
+11. **Retirement of confirmatory-003 Due to Asymmetric Reasoning Tiers**:
+   - **Root Cause Discovery**: Deep disassembly of OMP's internal bundle (`providers/xai-oauth.kdl`) and empirical token audit revealed that `--thinking=max` was clamped to `high` for `xai-oauth/grok-4.6`, whereas Arm B passed `--effort xhigh` directly to Grok CLI.
+   - **Quantified Reasoning Discrepancy**:
+     - *Stage 1 (Planner)*: Arm A generated mean 4,848 reasoning tokens; Arm B generated mean 8,665 to 11,691 reasoning tokens ($2.0\times$ to $2.4\times$ increase). This extra reasoning volume accounted for ~150s of generation time, directly driving the 8 timeouts.
+     - *Stage 3 (Reviewer)*: Arm B (AGY CLI with `--effort high`) ran an uncapped thinking budget averaging 26,539 reasoning tokens; Arm A (OMP) capped Gemini at 13,684 reasoning tokens ($1.94\times$ difference).
+     - *Stage 2 & 4 (Worker)*: The only stage with true parity was `gpt-5.6-luna`, generating identical reasoning tokens (2,915 vs 2,902, 0.4% diff).
+   - **User Decision**: Deemed `confirmatory-003` compromised. Halted publication of the current draft. Retired `confirmatory-003` to exploratory status. Commissioned Claude Opus 5 High to design a net-new, clean, perfectly symmetric protocol.
+   - **Architectural Evaluation: Herdr vs Python Script Runner**:
+     - Evaluated whether Herdr should manage the CLIs for the clean rerun.
+     - *Verdict: Python script runner is strictly superior for scientific validity*.
+     - *Reasons*: (1) macOS `sandbox-exec` containment profiles (Ring 1 anti-tamper) cannot be deterministically enforced per stage across interactive Herdr terminal panes; (2) Herdr's PTY/terminal layer introduces screen scraping, ANSI escaping, and polling latency, whereas headless JSON stdout pipes yield exact microsecond process lifetimes; (3) Stage boundary gates (asserting `01_PLAN.md` exists and hashing files) require deterministic programmatic execution; (4) Third-party researchers can clone and run `python3 run_matrix.py` with zero daemon or terminal multiplexer dependencies.
+
 ### Current Standing & Next Steps
-- **Experiment 2 (Workflow Bench: OMP vs Multi-CLI Swarm)**: PUBLICATION-READY. Every headline number, test statistic, and figure reproduces cleanly; all peer-reviewer critiques from Claude Opus 5 High are resolved and documented; trace resolution is fail-closed across any repository clone; full variance probe provenance is recorded.
-- **T3 Code Evaluation**: PAUSED indefinitely.
-- **Upstream PR #68 (`HarnessRouter/harnessrouter`)**: Merged `upstream/main` with zero conflicts (`mergeable: true`).
-- **Wave 1 Track A Evaluation**: PAUSED per user instruction.
+- **Experiment 2 (Workflow Bench: OMP vs Multi-CLI Swarm)**: `confirmatory-003` RETIRED / COMPROMISED due to asymmetric reasoning tiers (`xhigh` vs `high` on Grok, uncapped vs capped on Gemini). Designing a net-new clean protocol with verified symmetric reasoning tokens and equalized prompt preambles.
+- **Runner Architecture**: Retaining Python script runner with `sandbox-exec` containment and headless JSON telemetry (Herdr ruled out for scientific benchmark runner due to PTY jitter and containment boundaries).
+- **Next Action**: Instruct Claude Opus 5 High with the complete empirical findings and commission a net-new clean protocol specification.
