@@ -212,27 +212,68 @@
     - **Final In-Flight Run**: Run 50 / 50 (`affine-cipher_arm_b`).
 
 15. **Full Run Completed & Statistically Verified ($N=25$ Paired Tasks, 50/50 Runs Recorded - 100% COMPLETE)**:
-    - **Primary Significance Gate (Tier 1 Pre-Registered Study)**:
-      - **Binary Resolution ($P=1.0$)**: Arm A: **19/25 (76.0%)** vs. Arm B: **13/25 (52.0%)**.
-        - **Exact McNemar Test**: $p = 0.0312$ (**STATISTICALLY SIGNIFICANT** at $\alpha = 0.05$).
-      - **Mean Oracle Pass Ratio**: Arm A: **88.5%** vs. Arm B: **60.6%** (+27.9% advantage for OMP).
+    - **Primary Significance Gate (Tier 1 Pre-Registered Study, 300s SLA & Protocol Gate)**:
+      - **Binary Resolution ($P=1.0$)**: Arm A: **20/25 (80.0%)** vs. Arm B: **14/25 (56.0%)**.
+        - **Exact McNemar Test**: $p = 0.03125$ (**STATISTICALLY SIGNIFICANT** at $\alpha = 0.05$).
+      - **Mean Oracle Pass Ratio**: Arm A: **92.5%** (419/439 tests) vs. Arm B: **64.6%** (291/439 tests) (+27.9% advantage for OMP).
         - **Paired Wilcoxon Signed-Rank Test**: $W^+ = 28.0, p = 0.0156$ (**STATISTICALLY SIGNIFICANT**).
       - **Wall-Clock Duration**: Arm A: **452.0s** vs. Arm B: **609.7s** (OMP is **157.7s faster per task**).
-        - **Paired Wilcoxon Signed-Rank Test**: $W^+ = 5.0, p = 0.0000$ (**STATISTICALLY SIGNIFICANT**).
+        - **Paired Wilcoxon Signed-Rank Test**: $W^+ = 5.0, p = 6.0 \times 10^{-7}$ (**STATISTICALLY SIGNIFICANT**).
       - **Token Efficiency**: Arm A: **1,082,556 tokens** vs. Arm B: **1,300,513 tokens** (OMP saves **217,957 tokens per task**).
         - **Paired Wilcoxon Signed-Rank Test**: $W^+ = 46.0, p = 0.0010$ (**STATISTICALLY SIGNIFICANT**).
-      - **Standardized Spend**: Total study cost: **$32.89** across 58,000,981 tokens (Arm A: $16.92, Arm B: $15.96, mean per task: $0.6769 vs $0.6727, $p = 0.6338$).
+      - **Standardized Spend**: Total study cost: **$33.74** (Arm A: $16.92, Arm B: $16.82, mean per task: $0.6769 vs $0.6727, $p = 0.6338$).
+    - **Unconstrained Raw Oracle Shadow View (No SLA or Protocol Gate)**:
+      - Arm A: **21/25 (84.0%)** and **428/439 tests (96.5%)** vs Arm B: **20/25 (80.0%)** and **413/439 tests (92.1%)**.
     - **Tier 2: Stage-Level Isolation & Fairness Audit**:
-      - **Conditioned on Stage 1 Grok Success (17 tasks)**: Arm A Pass Ratio: **89.2%**, Arm B Pass Ratio: **89.2%**; Resolution: **13/17 (76.5%)** for both arms.
-      - Proves that downstream Codex and Gemini/Antigravity operate with **exact parity**; the entire gap in the full matrix stems from Grok CLI's unconstrained planning loop timeouts in Stage 1 on complex tasks.
+      - **Conditioned on Stage 1 Grok Success (17 tasks)**: Arm A Pass Ratio: **95.0%**, Arm B Pass Ratio: **95.0%**; Resolution: **14/17 (82.4%)** identically for both arms.
+      - Proves downstream Codex and Gemini operate with **exact parity**; the matrix gap stems entirely from Grok CLI's unconstrained planning loop timeouts in Stage 1 on complex tasks.
     - **Tier 3 Ablation Completed (Extended-Horizon Grok CLI on the 8 Timed-Out Tasks)**:
-      - Evaluated all 8 tasks where Grok CLI previously hit the 300s protocol ceiling under an expanded 600s ceiling.
-      - **Unit Pass Ratio Surge**: From 0 / 138 (0.0%) to **137 / 138 (99.3%)**.
-      - **Binary Resolution Surge**: From 0 / 8 (0.0%) to **7 / 8 (87.5%)**.
-      - Proved definitively that downstream Codex and Gemini were starved by Grok CLI's 300s ceiling; when given planning time, Multi-CLI solves the problems with high accuracy.
-      - **The Multi-CLI Tax**: To achieve this accuracy, Multi-CLI required **5,751.1s** ($7.88) vs. OMP's **4,462.7s** ($6.42)—an ongoing **28.9% latency penalty and 22.8% cost penalty**.
-      - Synthetic 25-Task Overall Matrix: OMP (76.0% resolution, 93.2% pass ratio, 188.3m total time, $16.92) vs. Extended Multi-CLI (80.0% resolution, 95.2% pass ratio, 238.8m total time, $20.46). OMP is **50.4 minutes faster and $3.54 cheaper**.
+      - Pre-ablation raw score was already **122/138 with 6/8 resolutions**; under 600s ceiling Multi-CLI produced plans on all 8 tasks and resolved **7/8 (137/138 tests, 99.3%)**, with genuine accuracy recoveries on `react` and `pov`.
+      - **The Multi-CLI Tax**: Multi-CLI required **5,751.1s** ($7.88) vs. OMP's **4,462.7s** ($6.42)—an ongoing **28.9% latency penalty and 22.8% cost penalty**.
+      - Synthetic 25-Task Overall Matrix: OMP (80.0% resolution, 92.5% pass ratio, 188.3m total time, $16.92) vs. Extended Multi-CLI (84.0% resolution, 97.5% pass ratio, 238.8m total time, $20.46). OMP is **50.4 minutes faster (21.1% latency reduction) and $3.54 cheaper (17.3% cost reduction)**.
+
+## Session: 2026-09-07
+
+### Objectives
+- Conduct rigorous publication audit of Experiment 2 article (`ARTICLE.md`) and visuals against frozen run artifacts.
+- Correct false-positive protocol violation pattern and rescore the primary matrix.
+- Replace all markdown tables with machine-derived, publication-grade visual figures.
+- Harden benchmark guard against internal URI schemes and suppress OMP system prompt skill injection.
+- Resolve upstream merge conflicts on HarnessRouter PR #68.
+- Execute Option 2 task reruns under hardened `--no-skills` runner to eliminate dataset asymmetry.
+
+### Key Decisions & Actions
+1. **Audit & Mathematical Reconciliation**:
+   - Discovered that `connect` was flagged as a protocol violation on both arms due to a false-positive regex match on `(nr, nc)` grid coordinate variables.
+   - Confirmed both arms passed 10/10 oracle unit tests cleanly for `connect`; rescored primary matrix to true verified standing: **20/25 (80.0%) vs 14/25 (56.0%)**.
+   - Built `analysis/score_matrix.py` outputting `analysis/scored_matrix.json` as the machine-verifiable source of truth.
+
+2. **Publication Figures & Article Polish**:
+   - Generated 7 publication-grade figures (`visuals/out/01-cover.png` through `07-full-25-task-ledger.png`) reading directly from `scored_matrix.json`.
+   - Reframed Tier 3 ablation recovery narrative to accurately distinguish protocol gate opening from genuine model accuracy improvements.
+   - Full dual-view disclosure: published 300s production SLA view alongside unconstrained raw oracle shadow view.
+   - Passed strict writing and cliché lint gates (`lint.sh`).
+
+3. **Benchmark Guard Hardening & PR #1**:
+   - Hardened `benchmark_guard.ts` to block internal URI schemes (`skill://`, `artifact://`).
+   - Added `--no-skills` to `arm_a_omp.py` and `smoke_test_parity.py` to prevent OMP from injecting system skills into prompts.
+   - Optimized `ORACLE_PATH` trace regex from $O(N^2)$ to linear execution.
+   - Passed 38 Python unit tests and 5 Bun security tests.
+   - Opened and merged **[PR #1](https://github.com/bnivanov/harness-evals/pull/1)** into `main`.
+
+4. **Option 2 Hardened Reruns & PR #2**:
+   - Froze immutable run manifest `runs/reruns-hardened-001/run_manifest.json` and passed live parity smoke test across all 4 stages.
+   - Verified `wordy` Arm A clean rerun: 25/25 unit tests passed, 0 `skill://` reads, 0 protocol violations.
+   - Attempted Option 2 task rerun batch (`robot-name`, `two-bucket`, `go-counting`, `list-ops`, `react`, `rest-api`); paused when OpenAI Codex API hit its quota ceiling (`code=usage_limit_reached`, reset scheduled for 5:19 AM local / 04:19 UTC).
+   - Script `run_rerun_tasks.py` is fully idempotent and ready to resume immediately upon quota reset.
+
+5. **Upstream PR #68 Merge Conflicts Resolved**:
+   - Fetched `upstream/main` in `~/.git-backups/harnessrouter.git` and resolved 6 content conflicts across `Dockerfile`, `README.md`, `docker/entrypoint.sh`, `gateway/app.py`, `ui/src/components/HarnessLogo.tsx`, and `ui/src/lib/harness.ts`.
+   - Preserved both `gemini` (upstream) and `omp` (our backend) across configurations, catalogs, and UI types.
+   - Verified 13/13 tests in `runner/tests/test_omp_backend.py` and 6/6 tests in `gateway/tests/`.
+   - Pushed merge commit `575ccb4` to `origin/feat/omp-backend`; PR #68 is no longer `DIRTY`.
 
 ### Next Steps
-- Proceed with Wave 1 Track A 3-SUT Headless Evaluation (Grok Build × Pi × OMP) under `harnessrouter`.
-- Continue monitoring upstream HarnessRouter PR #68.
+- Await completion of Option 2 task rerun batch and audit trace files for 0 skill/artifact reads.
+- Review and merge PR #2 once all rerun artifacts are committed.
+- Proceed with Wave 1 Track A 3-SUT evaluation (Grok Build × Pi × OMP) under HarnessRouter.
