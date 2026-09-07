@@ -3,7 +3,7 @@
  * Intercepts tool_call and fail-closes on foreign URI schemes,
  * access to quarantined benchmark directories/solutions,
  * access to the project repository outside the workspace/scratch,
- * agent configuration homes, sibling benchmark attempt directories,
+ * agent configuration homes, unquarantined temporary directories,
  * and network/package fetch.
  */
 import { appendFileSync, existsSync, mkdirSync, realpathSync } from "node:fs";
@@ -37,15 +37,15 @@ const PATH_TOOLS: Record<string, true> = {
 
 const PATH_KEYS = ["path", "file", "filename", "target", "dest", "destination"] as const;
 
-// Anchored network command pattern matching CLI execution rather than arbitrary paths containing 'ssh'
+// Anchored network command pattern matching CLI execution including subshells, backticks, and pipes
 const NETWORK_COMMAND =
-  /(?:^|[;&|\s])(?:curl|wget|ssh|scp|rsync)\s|(?:^|[;&|\s])nc\s+-[a-zA-Z0-9]|(?:^|[;&|\s])nc\s+[0-9a-zA-Z.-]+\s+\d+/i;
+  /(?:^|[;&|(`$\s{])(?:curl|wget|ssh|scp|rsync|nc|ncat|netcat|socat|telnet)\b/i;
 const GIT_NETWORK =
   /\bgit(?:\s+\S+)*\s+(?:clone|fetch|pull)\b|\bgit(?:\s+\S+)*\s+remote\s+add\b/i;
 const PACKAGE_FETCH =
   /\b(?:pip3?|python3?\s+-m\s+pip)\s+(?:install|download)\b|\bnpm\s+(?:install|i|ci|add)\b|\bgem\s+install\b/i;
 const NETWORK_IMPORT =
-  /\b(?:import|from)\s+(?:urllib|requests|httpx|socket|http|https|net)\b|\brequire\s*\(\s*['"](?:http|https|net|urllib|socket)['"]|\brequire\s+['"](?:net\/http|socket|open-uri|net\/https)['"]|\bfrom\s+['"](?:http|https|net|socket)(?:\/|['"])/i;
+  /\b(?:import|from)\s+(?:urllib|requests|httpx|socket|http|https|net)\b|\brequire\s*\(\s*['"](?:http|https|net|urllib|socket)['"]|\brequire\s+['"](?:net\/http|socket|open-uri|net\/https)['"]|\bfrom\s+['"](?:http|https|net|socket)(?:\/|['"])|\bfetch\s*\(/i;
 
 const BASH_PATH_TOKEN =
   /(?:^|[\s"'=])(~(?:\/[^\s"']*)?|\$(?:\{HOME\}|HOME)(?:\/[^\s"']*)?|\$(?:\{TMPDIR\}|TMPDIR)(?:\/[^\s"']*)?|(?:\.\.\/)+[^\s"']*|\/[^\s"']+|\.\/[^\s"']+|[^\s"']+\/[^\s"']+)/g;
@@ -62,8 +62,6 @@ const SAFE_OS_READ_PREFIXES = [
   "/private/etc/",
   "/dev/",
   "/private/dev/",
-  "/tmp/",
-  "/private/tmp/",
 ];
 
 function workspaceFromEnv(): string {
@@ -185,7 +183,8 @@ export function isAllowedReadTarget(canonical: string, workspace: string, scratc
  * - Quarantined benchmark directories (oracle solutions, held-out tests, other tasks)
  * - Project repository files outside the active workspace and private scratch directory
  * - Agent configuration and history homes (~/.omp, ~/.codex, ~/.gemini, etc.)
- * - Sibling benchmark attempt directories (harness_runtime_*, harness_eval_*, pilot_*)
+ * - Location rule: any file under temporary hierarchies (/tmp, /private/tmp, /var/folders, /private/var/folders)
+ *   that is NOT strictly inside the active workspace or private scratchDir.
  */
 export function forbiddenTargetReason(
   raw: string,
@@ -237,11 +236,22 @@ export function forbiddenTargetReason(
     }
   }
 
-  // 4. Sibling attempt / runtime / workspace directories
-  if (/(?:harness_runtime_|harness_eval_|harness_scratch_|pilot_)/i.test(canonical) || /(?:harness_runtime_|harness_eval_|harness_scratch_|pilot_)/i.test(value)) {
-    if (workspace && isSubpath(canonical, workspace)) return undefined;
-    if (scratchDir && isSubpath(canonical, scratchDir)) return undefined;
-    return "path outside benchmark workspace";
+  // 4. Location-based quarantine rule:
+  // Deny any path under temporary hierarchies (/tmp, /var/folders) unless strictly inside workspace or scratchDir
+  const tempRoots = [
+    "/tmp",
+    "/private/tmp",
+    "/var/folders",
+    "/private/var/folders",
+  ];
+  for (const root of tempRoots) {
+    if (isSubpath(canonical, root)) {
+      const inWs = workspace && isSubpath(canonical, workspace);
+      const inScratch = scratchDir && isSubpath(canonical, scratchDir);
+      if (!inWs && !inScratch) {
+        return "path outside benchmark workspace";
+      }
+    }
   }
 
   return undefined;

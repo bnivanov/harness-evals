@@ -106,9 +106,11 @@ def run_evaluation(
     if not dry_run and (os.path.exists(result_path) or os.path.exists(attempt_path)):
         raise FileExistsError(f"Immutable attempt already exists for {task_id}/{arm}")
 
-    workspace = setup_workspace(task_meta, arm)
-    scratch_dir = tempfile.mkdtemp(prefix=f"harness_scratch_{task_id}_{arm}_")
+    workspace = None
+    scratch_dir = None
     try:
+        workspace = setup_workspace(task_meta, arm)
+        scratch_dir = tempfile.mkdtemp(prefix=f"harness_scratch_{task_id}_{arm}_")
         artifact_dir = os.path.join(os.path.dirname(results_dir), "traces", task_id, arm)
         print(f"Initialized isolated workspace: {workspace}")
         if dry_run:
@@ -200,9 +202,10 @@ def run_evaluation(
         )
         return combined
     finally:
-        shutil.rmtree(scratch_dir, ignore_errors=True)
-        shutil.rmtree(workspace, ignore_errors=True)
-
+        if scratch_dir:
+            shutil.rmtree(scratch_dir, ignore_errors=True)
+        if workspace:
+            shutil.rmtree(workspace, ignore_errors=True)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run one immutable experiment attempt")
     parser.add_argument("--task", required=True)

