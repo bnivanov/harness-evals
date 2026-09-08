@@ -534,6 +534,101 @@ class ThrottleGuardTests(unittest.TestCase):
         self.assertNotIn("rate_limited", res)
         self.assertEqual(len(calls), MAX_INFRA_RETRIES + 1)
 
+    def test_attempt_evidence_retained_on_invalid_result(self):
+        # Doubt-stop verdict b (2026-09-08): raw attempt evidence must survive
+        # temp cleanup under the run dir, keyed by task/rep/arm/attempt.
+        with tempfile.TemporaryDirectory() as src, tempfile.TemporaryDirectory() as run:
+            open(os.path.join(src, "f.py"), "w").write("x = 1\n")
+
+            def runner(meta, workdir, art_dir, scratch_dir=None, pilot_early_stop=False):
+                os.makedirs(art_dir, exist_ok=True)
+                open(os.path.join(art_dir, "guard.ndjson"), "w").write("{}\n")
+                open(os.path.join(workdir, "01_PLAN.md"), "w").write("plan\n")
+                return {"protocol_valid": False,
+                        "protocol_violations": [{"stage": "3_REVIEWER", "code": "NO_REASONING_TOKENS"}],
+                        "stages": [{"stage": "3_REVIEWER", "telemetry": {"reasoning_tokens": 0}}]}
+
+            res = preflight_parity.execute_arm_with_retries(
+                runner, {}, src, "arm_a", "grep", 4, retain_root=run)
+            dirs = res.get("attempt_dirs", [])
+            self.assertEqual(len(dirs), 1)
+            attempt = os.path.join(run, dirs[0])
+            self.assertTrue(os.path.isfile(os.path.join(attempt, "arm_result.json")))
+            self.assertTrue(os.path.isfile(os.path.join(attempt, "attempt_meta.json")))
+            self.assertTrue(os.path.isfile(os.path.join(attempt, "artifacts", "guard.ndjson")))
+            self.assertTrue(os.path.isfile(os.path.join(attempt, "workspace", "01_PLAN.md")))
+            stored = json.load(open(os.path.join(attempt, "arm_result.json")))
+            self.assertEqual(stored["protocol_violations"][0]["code"], "NO_REASONING_TOKENS")
+
+    def test_failed_attempts_preserved_across_retry(self):
+        # Retried attempts must keep the FAILED attempts too, not just the last.
+        with tempfile.TemporaryDirectory() as src, tempfile.TemporaryDirectory() as run:
+            open(os.path.join(src, "f.py"), "w").write("x = 1\n")
+            calls = []
+
+            def runner(meta, workdir, art_dir, scratch_dir=None, pilot_early_stop=False):
+                calls.append(1)
+                raise ValueError("boom: subprocess segfault")
+
+            res = preflight_parity.execute_arm_with_retries(
+                runner, {}, src, "arm_a", "grep", 1, retain_root=run)
+            dirs = res.get("attempt_dirs", [])
+            self.assertEqual(len(dirs), len(calls))
+            self.assertGreater(len(dirs), 1)
+            for rel in dirs:
+                meta_path = os.path.join(run, rel, "attempt_meta.json")
+                self.assertTrue(os.path.isfile(meta_path))
+                meta = json.load(open(meta_path))
+                self.assertIn("ValueError", meta["error"])
+                self.assertFalse(os.path.exists(os.path.join(run, rel, "arm_result.json")))
+
+    def test_repeat_keys_do_not_overwrite_prior_attempts(self):
+        # Re-review: --continue-diagnostics re-executes identical keys;
+        # each attempt dir carries a unique suffix, nothing overwritten.
+        with tempfile.TemporaryDirectory() as src, tempfile.TemporaryDirectory() as run:
+            open(os.path.join(src, "f.py"), "w").write("x = 1\n")
+
+            def runner(meta, workdir, art_dir, scratch_dir=None, pilot_early_stop=False):
+                return {"protocol_valid": True, "protocol_violations": [], "stages": []}
+
+            first = preflight_parity.execute_arm_with_retries(
+                runner, {}, src, "arm_a", "grep", 1, retain_root=run)
+            second = preflight_parity.execute_arm_with_retries(
+                runner, {}, src, "arm_a", "grep", 1, retain_root=run)
+            self.assertEqual(len(first["attempt_dirs"]), 1)
+            self.assertEqual(len(second["attempt_dirs"]), 1)
+            self.assertNotEqual(first["attempt_dirs"][0], second["attempt_dirs"][0])
+            for res in (first, second):
+                self.assertTrue(os.path.isfile(
+                    os.path.join(run, res["attempt_dirs"][0], "arm_result.json")))
+
+    def test_retention_failure_is_loud_not_silent(self):
+        # Re-review: retention OSError must surface as a RETENTION_FAILED
+        # sentinel, never a silent pass — and the workspace must SURVIVE in
+        # place (cleanup disarmed), since scratch/art never hold the handoffs
+        # and any fallback allocation could itself fail under ENOSPC.
+        with tempfile.TemporaryDirectory() as src, tempfile.TemporaryDirectory() as tmp:
+            open(os.path.join(src, "f.py"), "w").write("x = 1\n")
+            blocker = os.path.join(tmp, "blocker")
+            open(blocker, "w").write("not a dir\n")
+            seen = []
+
+            def runner(meta, workdir, art_dir, scratch_dir=None, pilot_early_stop=False):
+                open(os.path.join(workdir, "01_PLAN.md"), "w").write("plan\n")
+                seen.append(workdir)
+                return {"protocol_valid": True, "protocol_violations": [], "stages": []}
+
+            res = preflight_parity.execute_arm_with_retries(
+                runner, {}, src, "arm_a", "grep", 1, retain_root=blocker)
+            try:
+                self.assertEqual(len(res.get("attempt_dirs", [])), 1)
+                self.assertTrue(res["attempt_dirs"][0].startswith("RETENTION_FAILED:"))
+                self.assertEqual(len(seen), 1)
+                self.assertTrue(os.path.isfile(os.path.join(seen[0], "01_PLAN.md")))
+            finally:
+                shutil.rmtree(seen[0], ignore_errors=True)
+            self.assertTrue(res["protocol_valid"])
+
 
 _USAGE_SAMPLE = """Usage · fetched 807ms ago
 Google Antigravity — 1 account

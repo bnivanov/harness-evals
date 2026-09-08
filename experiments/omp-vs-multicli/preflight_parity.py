@@ -51,6 +51,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import uuid
 import time
 from typing import Any
 
@@ -371,19 +372,80 @@ def _telemetry_only_retryable(violations: list[dict]) -> bool:
     return bool(codes) and "REASONING_TELEMETRY_MISSING" in codes and codes <= TELEMETRY_RETRY_CODES
 
 
-def execute_arm_with_retries(runner: Any, meta: dict, src_task: str, arm_name: str, task_id: str, rep: int, pilot_early_stop: bool = False) -> dict[str, Any]:
+class _RetainableTempDir:
+    """mkdtemp whose cleanup can be disarmed for one attempt.
+    (A wrapped TemporaryDirectory cannot serve: its weakref finalizer fires
+    on GC regardless of __exit__, deleting kept trees. Owning the lifetime
+    avoids the trap and any private-API detach.)"""
+    def __init__(self, prefix: str) -> None:
+        self.name = tempfile.mkdtemp(prefix=prefix)
+        self.keep = False
+    def __enter__(self) -> "_RetainableTempDir":
+        return self
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        if not self.keep:
+            shutil.rmtree(self.name, ignore_errors=True)
+        return False
+
+
+
+def _retain_attempt(retain_root: str | None, task_id: str, rep: int, arm_name: str,
+                    attempt: int, workdir: str, art_parent: str,
+                    arm_result: dict | None, error: str | None) -> str | None:
+    """Copy per-attempt evidence under the run dir before temp cleanup.
+    Reviewer 2026-09-08 (doubt-stop verdict b): the pilot deleted every
+    attempt's raw evidence, making telemetry-vs-parser adjudication
+    impossible post-hoc. Retain the full arm result, the workspace snapshot
+    (handoff artifacts), and the runner artifact dir (guard/stage traces),
+    for failed and retried attempts alike. Returns the run-relative dir."""
+    if not retain_root:
+        return None
+    # Unique suffix: --continue-diagnostics re-executes identical
+    # task/rep/arm/attempt keys; deterministic names would overwrite prior
+    # evidence and merge stale workspace files.
+    name = f"{task_id}_rep{rep}_{arm_name}_att{attempt}_{uuid.uuid4().hex[:8]}"
+    dest = os.path.join(retain_root, "attempts", name)
+    try:
+        os.makedirs(dest, exist_ok=False)
+        with open(os.path.join(dest, "attempt_meta.json"), "w", encoding="utf-8") as handle:
+            json.dump({"task_id": task_id, "rep": rep, "arm": arm_name,
+                       "attempt": attempt, "error": error}, handle, indent=2)
+        if arm_result is not None:
+            with open(os.path.join(dest, "arm_result.json"), "w", encoding="utf-8") as handle:
+                json.dump(arm_result, handle, indent=2, default=str)
+        if os.path.isdir(workdir):
+            # symlinks=True: preserve links without traversal. Dereferencing
+            # (default) would copy outside-tree bytes (auth, oracle paths)
+            # into retained runs and expand directory links off-tree.
+            shutil.copytree(workdir, os.path.join(dest, "workspace"), symlinks=True)
+        art_dir = os.path.join(art_parent, "artifacts")
+        if os.path.isdir(art_dir):
+            shutil.copytree(art_dir, os.path.join(dest, "artifacts"), symlinks=True)
+    except OSError as exc:
+        print(f"    [Attempt {attempt}] WARNING: attempt retention failed ({exc}); "
+              f"workspace cleanup disarmed, scratch/art left at {art_parent}")
+        return f"RETENTION_FAILED:{name}:{exc}"
+    return os.path.relpath(dest, retain_root)
+
+
+def execute_arm_with_retries(runner: Any, meta: dict, src_task: str, arm_name: str, task_id: str, rep: int, pilot_early_stop: bool = False, retain_root: str | None = None) -> dict[str, Any]:
+    attempt_dirs: list[str] = []
     last_exc = None
     dur = 0.0
     retries = 0
     retry_log: list[dict] = []
     for attempt in range(1, MAX_INFRA_RETRIES + 2):
-        with tempfile.TemporaryDirectory(prefix=f"pilot_{task_id}_{arm_name}_{rep}_att{attempt}_") as workdir:
+        with _RetainableTempDir(prefix=f"pilot_{task_id}_{arm_name}_{rep}_att{attempt}_") as _workdir_ctx:
+            workdir = _workdir_ctx.name
             scratch_dir = tempfile.mkdtemp(prefix=f"pilot_scratch_{task_id}_{arm_name}_{rep}_att{attempt}_")
             art_dir = os.path.join(tempfile.mkdtemp(prefix="pilot_art_"), "artifacts")
             t0 = time.monotonic()
+            payload_result = None
+            payload_error = None
             try:
                 subprocess.run(["cp", "-R", f"{src_task}/.", workdir], check=True)
                 result = runner(meta, workdir, art_dir, scratch_dir=scratch_dir, pilot_early_stop=pilot_early_stop)
+                payload_result = result
                 dur = round(time.monotonic() - t0, 2)
                 stage_tokens = {}
                 for s in result.get("stages", []):
@@ -407,6 +469,7 @@ def execute_arm_with_retries(runner: Any, meta: dict, src_task: str, arm_name: s
                         "stages": stage_tokens,
                         "retries": retries,
                         "retry_log": retry_log,
+                        "attempt_dirs": attempt_dirs,
                     }
                 if _telemetry_only_retryable(violations):
                     blip_stages = [
@@ -427,6 +490,7 @@ def execute_arm_with_retries(runner: Any, meta: dict, src_task: str, arm_name: s
                         "stages": stage_tokens,
                         "retries": retries,
                         "retry_log": retry_log,
+                        "attempt_dirs": attempt_dirs,
                     }
                 return {
                     "duration": dur,
@@ -435,8 +499,11 @@ def execute_arm_with_retries(runner: Any, meta: dict, src_task: str, arm_name: s
                     "stages": stage_tokens,
                     "retries": retries,
                     "retry_log": retry_log,
+                    "attempt_dirs": attempt_dirs,
                 }
             except Exception as exc:
+                payload_result = None
+                payload_error = f"{type(exc).__name__}: {exc}"
                 # Throttle guard (exception path): same no-retry abort. The
                 # run loop converts rate_limited into a whole-pilot abort.
                 throttle = find_rate_limit(str(exc))
@@ -450,20 +517,34 @@ def execute_arm_with_retries(runner: Any, meta: dict, src_task: str, arm_name: s
                         "infra_error": f"RATE_LIMITED ({throttle}): {exc}",
                         "retries": retries,
                         "retry_log": retry_log,
+                        "attempt_dirs": attempt_dirs,
                     }
                 last_exc = exc
                 dur = round(time.monotonic() - t0, 2)
                 print(f"    [Attempt {attempt}/{MAX_INFRA_RETRIES+1}] Infrastructure error on {arm_name} for {task_id}: {exc}")
                 time.sleep(1.0)
             finally:
-                shutil.rmtree(scratch_dir, ignore_errors=True)
-                shutil.rmtree(os.path.dirname(art_dir), ignore_errors=True)
+                retained = _retain_attempt(retain_root, task_id, rep, arm_name, attempt, workdir, os.path.dirname(art_dir), payload_result, payload_error)
+                if retained is not None:
+                    attempt_dirs.append(retained)
+                if retained is not None and retained.startswith("RETENTION_FAILED:"):
+                    # Fail-SAFE: disarm the workdir cleanup so the workspace
+                    # survives in place (no allocation that could fail), skip
+                    # scratch/art deletes, and leave the sentinel in the
+                    # record. In-flight return/exception/continue unchanged.
+                    _workdir_ctx.keep = True
+                    print(f"    [Attempt {attempt}] workspace preserved in place: {workdir}; "
+                          f"scratch/art left at {scratch_dir} {os.path.dirname(art_dir)}")
+                else:
+                    shutil.rmtree(scratch_dir, ignore_errors=True)
+                    shutil.rmtree(os.path.dirname(art_dir), ignore_errors=True)
     return {
         "duration": dur,
         "protocol_valid": False,
         "infra_error": str(last_exc),
         "retries": retries,
         "retry_log": retry_log,
+        "attempt_dirs": attempt_dirs,
     }
 
 
@@ -523,7 +604,6 @@ def run_pilot_parity_matrix(
                 except Exception:
                     pass
         print(f"Loaded {len(completed_pairs)} previously persisted pilot pairs from {records_ndjson}.")
-
     expected_pairs = len(PILOT_TASKS) * PILOT_REPEATS
     stage_samples: dict[str, dict[str, list[int]]] = {
         s: {"arm_a": [], "arm_b": []} for s in STAGES
@@ -567,13 +647,13 @@ def run_pilot_parity_matrix(
                 }
                 print(f"  Running {task_id} (rep {rep}) on arm_a...")
                 arm_a_res = execute_arm_with_retries(
-                    arm_runners["arm_a"], meta, src_task, "arm_a", task_id, rep, pilot_early_stop=True
+                    arm_runners["arm_a"], meta, src_task, "arm_a", task_id, rep, pilot_early_stop=True, retain_root=run_dir
                 )
                 pair_record["arms"]["arm_a"] = arm_a_res
                 if arm_a_res.get("protocol_valid", False) and not arm_a_res.get("infra_error"):
                     print(f"  Running {task_id} (rep {rep}) on arm_b...")
                     pair_record["arms"]["arm_b"] = execute_arm_with_retries(
-                        arm_runners["arm_b"], meta, src_task, "arm_b", task_id, rep, pilot_early_stop=True
+                        arm_runners["arm_b"], meta, src_task, "arm_b", task_id, rep, pilot_early_stop=True, retain_root=run_dir
                     )
                 else:
                     # Fail-fast: a dead pair cannot become valid; spare arm_b.

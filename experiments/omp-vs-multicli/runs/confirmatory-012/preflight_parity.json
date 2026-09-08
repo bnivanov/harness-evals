@@ -1,0 +1,352 @@
+{
+  "run_id": "confirmatory-012",
+  "timestamp": "2026-09-08T15:20:04Z",
+  "composite_source_sha256": "0bab44c3e9af0ccd5aad71ae60daaa74cf473876dbefe7d58d78a3c341ed0865",
+  "run_manifest_sha256": "a74d7034869eed467ab82228f331380e77fa3fc51731f49e9b23eee3f6dc6a19",
+  "source_hashes": {
+    "PROTOCOL.md": "d39156ebd7c5c98e32843dccac1697118197d719df6a652793b01aaa7c3add7a",
+    "ANTI_CHEATING.md": "a5ad9de45f1e1bf5fdec695e516182d7994eae5036146606f558a3b984a9d3f8",
+    "config_overlay.yml": "0da00e8cfe5b40cf0079bbaaa43c8d62efe54cacfeeedf2691d418703d0a64a4",
+    "experiment_config.py": "03847a83c4123cfe99ea24e48facf4fb2f6939bfef9f2463243e4267b27f1eee",
+    "runner_common.py": "b74fb4c0eb969c7bf9cc2b7e8e8463fb72974167de39c4c4173fbefe2331476b",
+    "run_task.py": "c32dcfa9748095c70819a835dede9ea93671457f6a67ad9b5677dc357c21c196",
+    "run_matrix.py": "87ba5fa2f774e5cde347833374bdd0f554f57106ece9a8b4e7b667769d18815a",
+    "preflight.py": "ec7ccaaad2aa8199c856dfe75d3360d347e9009e29dd56bfd06e9a7d5c4c2f0c",
+    "smoke_test_parity.py": "70a451d0eb2f4725732c97cbebca1b706a5b3320de8a9d37d9adf7ff5d2e9add",
+    "runners/arm_a_omp.py": "43356295438171570ff14109d9b46d7e0aa66c155894ac8dd8112735686e756c",
+    "runners/arm_b_multicli.py": "a5b11fee72e630eeabee6390b3f72e8e5648315c635ef46f5697e59a1d74f339",
+    "verifier/oracle_verifier.py": "a9d334f5ddc4da29561f08500d2c506fae63d3cf22e47f54552f92169d847315",
+    "analysis/calculate_stats.py": "58c27082287c3e1c01e23c09053415084b796d6495a579f3f57473ebdeabad9c",
+    "security/benchmark_guard.ts": "4e568b172fe517aa8836f11cd56e4d036f3a519f408883ba741bc97418deb583",
+    "security/benchmark_guard.test.ts": "f81cecb2b731724ddbf81753953964f01a5ac8f385b2bb6b762abec5a6a3a1ae",
+    "preflight_parity.py": "5016fe97e8a4be7af23023965d2f965c11dc1d884d6bd8fdd2777b246a885b6f",
+    "tests/test_amendment_a.py": "71c4910a46da5a9a099dd17c75687c71aedd4b6f6ee1236886b340e03f3cb63d",
+    "calibration/planner_effort_calibration.json": "db69df74f5a3b835498253bfaa142dadfdba2fe5afcff3aebe17e743e0ae4f55",
+    "calibration/reviewer_effort_calibration.json": "6d7d6adf8a103f3a51ab977a850fad8b55590535d4ad1f13448a01a3480b7bef"
+  },
+  "binary_pins": {
+    "omp": {
+      "expected": "omp/18.1.13",
+      "actual": "omp/18.1.13",
+      "returncode": 0,
+      "matched": true
+    },
+    "grok": {
+      "expected": "grok 1.0.5 (5115b46bc909) [stable]",
+      "actual": "grok 1.0.5 (5115b46bc909) [stable]",
+      "returncode": 0,
+      "matched": true
+    },
+    "codex": {
+      "expected": "codex-cli 0.153.4",
+      "actual": "codex-cli 0.153.4",
+      "returncode": 0,
+      "matched": true
+    },
+    "agy": {
+      "expected": "1.1.27",
+      "actual": "1.1.27",
+      "returncode": 0,
+      "matched": true
+    }
+  },
+  "containment": {
+    "positive_control": {
+      "oracle_file": "$HOME/AgentWork/projects/harness-evals/benchmarks/aider-python/oracle/solutions/wordy.py",
+      "verified_readable": true
+    },
+    "negative_oracle_probe": {
+      "status": "quarantined",
+      "evidence": "ORACLE_QUARANTINED_EACCES"
+    },
+    "negative_network_probe": {
+      "status": "blocked",
+      "evidence": "CURL_EXEC_BLOCKED_EPERM"
+    }
+  },
+  "effort_matrix": {
+    "planner": {
+      "arm_a": "medium",
+      "arm_b": "medium"
+    },
+    "worker": {
+      "arm_a": "max",
+      "arm_b": "max"
+    },
+    "reviewer": {
+      "arm_a": "medium",
+      "arm_b": "medium"
+    }
+  },
+  "model_pins": {
+    "planner": {
+      "arm_a": "xai-oauth/grok-4.6",
+      "arm_b": "grok-4.6"
+    },
+    "worker": {
+      "arm_a": "openai-codex/gpt-5.6-luna",
+      "arm_b": "gpt-5.6-luna"
+    },
+    "reviewer": {
+      "arm_a": "google-antigravity/gemini-3.8-flash",
+      "arm_b": "gemini-3.8-flash"
+    }
+  },
+  "pilot_power_basis": {
+    "pilot_tasks": [
+      "grep",
+      "list-ops"
+    ],
+    "pilot_repeats": 7,
+    "total_pairs": 14,
+    "pooled_band": [
+      0.8,
+      1.25
+    ],
+    "tost_band": [
+      0.5,
+      2.0
+    ],
+    "max_infra_retries": 2,
+    "protocol_amendment": "A",
+    "stage_gates": {
+      "1_PLANNER": {
+        "pooled_required": false,
+        "tost_required": true
+      },
+      "2_WORKER_INITIAL": {
+        "pooled_required": false,
+        "tost_required": false
+      },
+      "3_REVIEWER": {
+        "pooled_required": true,
+        "tost_required": true
+      },
+      "4_WORKER_REFINE": {
+        "pooled_required": false,
+        "tost_required": false
+      }
+    },
+    "retry_rate_gate": 0.1,
+    "ratio_watch": {
+      "min_valid_pairs": 5,
+      "tost_band": [
+        0.5,
+        2.0
+      ]
+    }
+  },
+  "ceilings": {
+    "stage_seconds": 600,
+    "task_seconds": 1800
+  },
+  "verdict": "FAIL",
+  "total_pairs_evaluated": 4,
+  "expected_pairs": 14,
+  "dropped_pairs_count": 1,
+  "dropped_pairs": [
+    {
+      "task_id": "grep",
+      "repeat": 4,
+      "reason": "second arm skipped: arm_a valid=False, infra=None",
+      "arm_a_violations": [
+        {
+          "stage": "3_REVIEWER",
+          "code": "NO_REASONING_TOKENS"
+        }
+      ],
+      "arm_b_violations": []
+    }
+  ],
+  "total_token_gaps": 0,
+  "stage_token_gaps": {
+    "1_PLANNER": 0,
+    "2_WORKER_INITIAL": 0,
+    "3_REVIEWER": 0,
+    "4_WORKER_REFINE": 0
+  },
+  "stage_metrics": {
+    "1_PLANNER": {
+      "total_pairs": 3,
+      "zero_exclusions": 0,
+      "token_gaps": 0,
+      "n": 3,
+      "mean_arm_a": 3310.0,
+      "mean_arm_b": 5613.0,
+      "pooled_ratio": 0.5897,
+      "pooled_band": [
+        0.8,
+        1.25
+      ],
+      "pooled_ok": false,
+      "mean_log_diff": -0.5224,
+      "sd_log_diff": 0.4288,
+      "ratio_point": 0.5931,
+      "ratio_90_ci": [
+        0.2879,
+        1.2219
+      ],
+      "tost_band": [
+        0.5,
+        2.0
+      ],
+      "tost_ok": false,
+      "pooled_required": false,
+      "tost_required": true,
+      "passed": false
+    },
+    "2_WORKER_INITIAL": {
+      "total_pairs": 3,
+      "zero_exclusions": 0,
+      "token_gaps": 0,
+      "n": 3,
+      "mean_arm_a": 859.3,
+      "mean_arm_b": 2230.0,
+      "pooled_ratio": 0.3854,
+      "pooled_band": [
+        0.8,
+        1.25
+      ],
+      "pooled_ok": false,
+      "mean_log_diff": -1.0155,
+      "sd_log_diff": 0.9616,
+      "ratio_point": 0.3622,
+      "ratio_90_ci": [
+        0.0716,
+        1.8324
+      ],
+      "tost_band": [
+        0.5,
+        2.0
+      ],
+      "tost_ok": false,
+      "pooled_required": false,
+      "tost_required": false,
+      "passed": true
+    },
+    "3_REVIEWER": {
+      "total_pairs": 3,
+      "zero_exclusions": 0,
+      "token_gaps": 0,
+      "n": 3,
+      "mean_arm_a": 12921.0,
+      "mean_arm_b": 19067.7,
+      "pooled_ratio": 0.6776,
+      "pooled_band": [
+        0.8,
+        1.25
+      ],
+      "pooled_ok": false,
+      "mean_log_diff": -0.3807,
+      "sd_log_diff": 0.3688,
+      "ratio_point": 0.6834,
+      "ratio_90_ci": [
+        0.367,
+        1.2727
+      ],
+      "tost_band": [
+        0.5,
+        2.0
+      ],
+      "tost_ok": false,
+      "pooled_required": true,
+      "tost_required": true,
+      "passed": false
+    },
+    "4_WORKER_REFINE": {
+      "total_pairs": 3,
+      "zero_exclusions": 0,
+      "token_gaps": 0,
+      "n": 3,
+      "mean_arm_a": 1926.7,
+      "mean_arm_b": 1819.0,
+      "pooled_ratio": 1.0592,
+      "pooled_band": [
+        0.8,
+        1.25
+      ],
+      "pooled_ok": true,
+      "mean_log_diff": -0.1522,
+      "sd_log_diff": 1.1008,
+      "ratio_point": 0.8589,
+      "ratio_90_ci": [
+        0.1343,
+        5.4938
+      ],
+      "tost_band": [
+        0.5,
+        2.0
+      ],
+      "tost_ok": false,
+      "pooled_required": false,
+      "tost_required": false,
+      "passed": true
+    }
+  },
+  "stage_gates": {
+    "1_PLANNER": {
+      "pooled_required": false,
+      "tost_required": true
+    },
+    "2_WORKER_INITIAL": {
+      "pooled_required": false,
+      "tost_required": false
+    },
+    "3_REVIEWER": {
+      "pooled_required": true,
+      "tost_required": true
+    },
+    "4_WORKER_REFINE": {
+      "pooled_required": false,
+      "tost_required": false
+    }
+  },
+  "abort_reason": "FIRST_DROP:grep:rep4:protocol",
+  "diagnostic_only": true,
+  "continue_diagnostics": false,
+  "retry_gate": {
+    "threshold": 0.1,
+    "arm_runs": {
+      "arm_a": 4,
+      "arm_b": 3
+    },
+    "arm_retries": {
+      "arm_a": 0,
+      "arm_b": 0
+    },
+    "rates": {
+      "arm_a": 0.0,
+      "arm_b": 0.0
+    },
+    "ok": true
+  },
+  "records_file": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-012/pilot_records.ndjson",
+  "new_pairs": 1,
+  "quota_guard": true,
+  "quota_snapshots": [
+    {
+      "phase": "pre",
+      "task_id": "grep",
+      "repeat": 4,
+      "quotas": {
+        "google_weekly": 93.3,
+        "google_5h": null,
+        "xai_weekly": 43.0,
+        "codex_5h": 15.0,
+        "codex_7d": 18.0
+      }
+    },
+    {
+      "phase": "post",
+      "task_id": "grep",
+      "repeat": 4,
+      "quotas": {
+        "google_weekly": 93.3,
+        "google_5h": null,
+        "xai_weekly": 43.0,
+        "codex_5h": 15.0,
+        "codex_7d": 18.0
+      }
+    }
+  ]
+}
