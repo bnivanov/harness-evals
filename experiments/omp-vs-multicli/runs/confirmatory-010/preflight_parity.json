@@ -1,6 +1,6 @@
 {
   "run_id": "confirmatory-010",
-  "timestamp": "2026-09-07T22:32:33Z",
+  "timestamp": "2026-09-07T22:36:57Z",
   "composite_source_sha256": "feb499a00986d125089d16ef316eb4b949a14852cc888a498c6a209aaf66b174",
   "run_manifest_sha256": "00a93db846248c4ba0cde79bc91c572d190ebd475e4e2252f544fad02a02f5d1",
   "source_hashes": {
@@ -110,5 +110,174 @@
     "stage_seconds": 600,
     "task_seconds": 1800
   },
-  "verdict": "DRY_RUN_PASS"
+  "verdict": "FAIL",
+  "total_pairs_evaluated": 14,
+  "dropped_pairs_count": 3,
+  "dropped_pairs": [
+    {
+      "task_id": "grep",
+      "repeat": 2,
+      "reason": "protocol_valid failure: arm_a=False, arm_b=True",
+      "arm_a_violations": [
+        {
+          "stage": "guard",
+          "ts": "2026-09-07T22:50:05.518Z",
+          "tool": "bash",
+          "reason": "path outside benchmark workspace",
+          "input": {
+            "cwd": ".",
+            "command": "echo \"hello\" > /tmp/test_grep.txt\ngrep -l \"hello\" /tmp/test_grep.txt /tmp/test_grep.txt\nrm /tmp/test_grep.txt"
+          }
+        }
+      ],
+      "arm_b_violations": []
+    },
+    {
+      "task_id": "list-ops",
+      "repeat": 1,
+      "reason": "protocol_valid failure: arm_a=False, arm_b=True",
+      "arm_a_violations": [
+        {
+          "stage": "3_REVIEWER",
+          "code": "NO_REASONING_TOKENS"
+        },
+        {
+          "stage": "3_REVIEWER",
+          "code": "REASONING_TELEMETRY_MISSING"
+        }
+      ],
+      "arm_b_violations": []
+    },
+    {
+      "task_id": "list-ops",
+      "repeat": 6,
+      "reason": "protocol_valid failure: arm_a=False, arm_b=True",
+      "arm_a_violations": [
+        {
+          "stage": "1_PLANNER",
+          "code": "MISSING_HANDOFF",
+          "path": "01_PLAN.md"
+        }
+      ],
+      "arm_b_violations": []
+    }
+  ],
+  "total_token_gaps": 0,
+  "stage_token_gaps": {
+    "1_PLANNER": 0,
+    "2_WORKER_INITIAL": 0,
+    "3_REVIEWER": 0,
+    "4_WORKER_REFINE": 0
+  },
+  "stage_metrics": {
+    "1_PLANNER": {
+      "total_pairs": 11,
+      "zero_exclusions": 0,
+      "token_gaps": 0,
+      "n": 11,
+      "mean_arm_a": 3294.1,
+      "mean_arm_b": 7072.1,
+      "pooled_ratio": 0.4658,
+      "pooled_band": [
+        0.8,
+        1.25
+      ],
+      "pooled_ok": false,
+      "mean_log_diff": -0.6591,
+      "sd_log_diff": 0.6215,
+      "ratio_point": 0.5173,
+      "ratio_90_ci": [
+        0.3684,
+        0.7265
+      ],
+      "tost_band": [
+        0.5,
+        2.0
+      ],
+      "tost_ok": false,
+      "passed": false
+    },
+    "2_WORKER_INITIAL": {
+      "total_pairs": 11,
+      "zero_exclusions": 0,
+      "token_gaps": 0,
+      "n": 11,
+      "mean_arm_a": 1520.7,
+      "mean_arm_b": 1164.0,
+      "pooled_ratio": 1.3065,
+      "pooled_band": [
+        0.8,
+        1.25
+      ],
+      "pooled_ok": false,
+      "mean_log_diff": 0.258,
+      "sd_log_diff": 0.5708,
+      "ratio_point": 1.2943,
+      "ratio_90_ci": [
+        0.9476,
+        1.7679
+      ],
+      "tost_band": [
+        0.5,
+        2.0
+      ],
+      "tost_ok": true,
+      "passed": false
+    },
+    "3_REVIEWER": {
+      "total_pairs": 11,
+      "zero_exclusions": 0,
+      "token_gaps": 0,
+      "n": 11,
+      "mean_arm_a": 12096.3,
+      "mean_arm_b": 17448.8,
+      "pooled_ratio": 0.6932,
+      "pooled_band": [
+        0.8,
+        1.25
+      ],
+      "pooled_ok": false,
+      "mean_log_diff": -0.344,
+      "sd_log_diff": 0.3774,
+      "ratio_point": 0.7089,
+      "ratio_90_ci": [
+        0.5768,
+        0.8712
+      ],
+      "tost_band": [
+        0.5,
+        2.0
+      ],
+      "tost_ok": true,
+      "passed": false
+    },
+    "4_WORKER_REFINE": {
+      "total_pairs": 11,
+      "zero_exclusions": 0,
+      "token_gaps": 0,
+      "n": 11,
+      "mean_arm_a": 1411.3,
+      "mean_arm_b": 2822.3,
+      "pooled_ratio": 0.5,
+      "pooled_band": [
+        0.8,
+        1.25
+      ],
+      "pooled_ok": false,
+      "mean_log_diff": -0.6595,
+      "sd_log_diff": 0.7495,
+      "ratio_point": 0.5171,
+      "ratio_90_ci": [
+        0.3434,
+        0.7788
+      ],
+      "tost_band": [
+        0.5,
+        2.0
+      ],
+      "tost_ok": false,
+      "passed": false
+    }
+  },
+  "records_file": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-010/pilot_records.ndjson"
 }
