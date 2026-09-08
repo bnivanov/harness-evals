@@ -53,6 +53,18 @@ def parse_grok_telemetry(stdout: str, role: str) -> dict:
     # text present is vendor accounting (arm failure), never a telemetry blip.
     # Length is kept as output_text_chars for reporting only.
     output_text_chars = len(data.get("text", "") or "")
+    # Arm-A symmetry (verdict-b): a grok-side terminal error must surface even
+    # at exit 0, else a stall lands as bare MISSING_HANDOFF — no retry and
+    # mislabeled as a genuine model failure. Healthy traces carry
+    # stopReason "end_turn"; only "error" is terminal.
+    terminal_error = None
+    if data.get("stopReason") == "error":
+        terminal_error = {
+            "stop_reason": "error",
+            "error_message": data.get("errorMessage") or data.get("error"),
+            "error_id": data.get("errorId"),
+            "model": next(iter(sorted(data.get("modelUsage", {}).keys())), None),
+        }
     normalized = normalize_usage(
         role, "grok", input_tokens, cache_read_tokens, output_tokens, reasoning_tokens
     )
@@ -65,6 +77,7 @@ def parse_grok_telemetry(stdout: str, role: str) -> dict:
         "reasoning_tokens": reasoning_tokens,
         "output_text_chars": output_text_chars,
         "telemetry_missing": False,
+        "terminal_error": terminal_error,
         **normalized,
         "resolved_models": sorted(data.get("modelUsage", {}).keys()),
         "session_id": data.get("sessionId"),
@@ -127,6 +140,11 @@ def parse_codex_telemetry(stdout: str, role: str) -> dict:
         "tool_calls_count": len(tool_calls),
         "tool_calls": tool_calls,
         "parse_errors": parse_errors,
+        # Codex exposes no terminal stopReason/status field in any sampled
+        # trace (turn/item completion only); terminal-state detection is
+        # unavailable here — failures surface via returncode. Disclosed in
+        # PROTOCOL.md A.4.
+        "terminal_error": None,
         "final_text": "\n".join(messages[-2:])[-4000:],
     }
 
@@ -148,6 +166,17 @@ def parse_agy_telemetry(stdout: str, role: str) -> dict:
     response_text = data.get("response", data.get("text", "")) or ""
     # Sign-off change 2: agy exposes thinking *tokens* in usage but no reasoning
     # text stream; response length is reporting-only, never retryable.
+    # Arm-A symmetry (verdict-b): agy carries a top-level status ("SUCCESS" in
+    # healthy traces); anything else is a terminal failure even at exit 0.
+    agy_status = data.get("status")
+    agy_terminal = None
+    if agy_status is not None and agy_status != "SUCCESS":
+        agy_terminal = {
+            "stop_reason": agy_status,
+            "error_message": data.get("error") or data.get("errorMessage"),
+            "error_id": data.get("errorId"),
+            "model": resolved,
+        }
     output_text_chars = len(response_text)
     return {
         "num_turns": data.get("num_turns", 0),
@@ -158,6 +187,7 @@ def parse_agy_telemetry(stdout: str, role: str) -> dict:
         "reasoning_tokens": reasoning_tokens,
         "output_text_chars": output_text_chars,
         "telemetry_missing": False,
+        "terminal_error": agy_terminal,
         **normalized,
         "resolved_models": [resolved] if resolved else [],
         "parse_error": data.get("parse_error"),
@@ -175,6 +205,7 @@ def empty_telemetry(role: str, provider: str) -> dict:
         "reasoning_tokens": 0,
         "output_text_chars": 0,
         "telemetry_missing": False,
+        "terminal_error": None,
         **normalize_usage(role, provider, 0, 0, 0, 0),
         "resolved_models": [],
         "final_text": "",
@@ -241,15 +272,26 @@ def run_cli_stage(
         violations.append({"code": "NO_REASONING_TOKENS"})
     # Sign-off change 2: Arm B never emits REASONING_TELEMETRY_MISSING (no
     # reasoning-text stream in any vendor CLI). Zero reasoning tokens with text
-    # stays an arm failure via NO_REASONING_TOKENS above; retry is Arm-A-only.
+    # stays an arm failure via NO_REASONING_TOKENS above; telemetry-blip retry
+    # is Arm-A-only. Stall retry (TERMINAL_MODEL_ERROR) is both-arm.
     if process["timed_out"]:
         violations.append({"code": "STAGE_TIMEOUT"})
     if provider == "grok":
         actual = telemetry["resolved_models"]
         if not actual or not all(model.startswith("grok-4.6") for model in actual):
             violations.append({"code": "MODEL_MISMATCH", "expected": configured_model, "actual": actual})
+    terminal_error = telemetry.get("terminal_error")
+    if terminal_error is not None:
+        # Verdict-(b) symmetry: a terminal vendor error fails the stage even
+        # when the CLI exits 0; preflight retries it as infra, never as a
+        # mislabeled bare MISSING_HANDOFF.
+        violations.append({
+            "code": "TERMINAL_MODEL_ERROR",
+            "detail": str(terminal_error.get("error_message") or terminal_error.get("stop_reason") or "")[:300],
+            "error_id": terminal_error.get("error_id"),
+        })
 
-    success = process["returncode"] == 0 and not process["timed_out"]
+    success = process["returncode"] == 0 and not process["timed_out"] and terminal_error is None
     return {
         "stage": stage_name,
         "role": role,
@@ -259,7 +301,9 @@ def run_cli_stage(
         "success": success,
         "returncode": process["returncode"],
         "duration": process["duration"],
-        "error": "TIMEOUT" if process["timed_out"] else None,
+        "error": (f"TERMINAL_MODEL_ERROR: {str(terminal_error.get('error_message') or '')[:200]}"
+                  if terminal_error is not None
+                  else ("TIMEOUT" if process["timed_out"] else None)),
         "command": command,
         "telemetry": telemetry,
         "stdout_trace": process["stdout_trace"],

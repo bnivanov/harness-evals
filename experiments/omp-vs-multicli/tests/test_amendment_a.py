@@ -236,6 +236,51 @@ class ExecuteRetryTests(unittest.TestCase):
         self.assertEqual(out["retries"], 0)
         self.assertEqual(len(stub.calls), 1)
 
+    STALL = (
+        [{"code": "TERMINAL_MODEL_ERROR", "stage": "1_PLANNER"},
+         {"code": "STAGE_FAILED", "stage": "1_PLANNER"},
+         {"code": "MISSING_HANDOFF", "stage": "1_PLANNER", "path": "01_PLAN.md"}]
+    )
+
+    def test_stream_stall_retries_then_succeeds(self):
+        # confirmatory-013 pair 8 replay: unrecovered OMP stream stall must be
+        # retried as infra (OMP itself calls it recoverable), not drop the pair.
+        stall = (False, _tokens(), list(self.STALL), {"1_PLANNER": [{"code": "TERMINAL_MODEL_ERROR"}]})
+        good = (True, _tokens(), [], None)
+        stub = StubRunner([stall, good])
+        out = execute_arm_with_retries(stub, {"task_id": "t"}, self.tmp, "arm_a", "t", 1)
+        self.assertTrue(out["protocol_valid"])
+        self.assertEqual(out["retries"], 1)
+        self.assertEqual(len(stub.calls), 2)
+        self.assertEqual(out["retry_log"][0]["kind"], "stream_stall")
+        self.assertEqual(out["retry_log"][0]["stages"], ["1_PLANNER"])
+
+    def test_persistent_stall_becomes_infra_after_max_retries(self):
+        stall = (False, _tokens(), list(self.STALL), {"1_PLANNER": [{"code": "TERMINAL_MODEL_ERROR"}]})
+        stub = StubRunner([stall])
+        out = execute_arm_with_retries(stub, {"task_id": "t"}, self.tmp, "arm_a", "t", 1)
+        self.assertFalse(out["protocol_valid"])
+        self.assertIn("unrecovered TERMINAL_MODEL_ERROR", out.get("infra_error", ""))
+        self.assertEqual(out["retries"], 2)
+        self.assertEqual(len(stub.calls), 3)
+
+    def test_stall_with_foreign_code_never_retries(self):
+        # A guard trip or model mismatch riding alongside a stall is not noise.
+        tainted = list(self.STALL) + [{"code": "MODEL_MISMATCH"}]
+        stub = StubRunner([(False, _tokens(), tainted, None), (True, _tokens(), [], None)])
+        out = execute_arm_with_retries(stub, {"task_id": "t"}, self.tmp, "arm_a", "t", 1)
+        self.assertFalse(out["protocol_valid"])
+        self.assertNotIn("infra_error", out)
+        self.assertEqual(len(stub.calls), 1)
+
+    def test_bare_missing_handoff_still_never_retries(self):
+        # Planner ended cleanly without a plan (rest-api/two-bucket failure
+        # mode): a real model outcome, not vendor noise.
+        from preflight_parity import _stall_retryable
+        self.assertFalse(_stall_retryable([{"code": "MISSING_HANDOFF"}]))
+        self.assertFalse(_stall_retryable([]))
+
+
 
 class FailFastTests(unittest.TestCase):
     def test_first_drop_aborts_and_skips_second_arm(self):
@@ -302,6 +347,27 @@ class FailFastTests(unittest.TestCase):
             {s: {"pooled_required": STAGE_POOLED_REQUIRED[s], "tost_required": STAGE_TOST_REQUIRED[s]} for s in STAGES},
         )
         self.assertTrue(res["retry_gate"]["ok"])
+
+    def test_stall_pair_recovers_without_dropping(self):
+        # The pair-8 scenario end-to-end: arm_a stalls once, recovers on
+        # retry; the pair completes, no drop, no abort marker, pilot passes.
+        # Full-size harness: stage gates need n>=5 and one retry on 14 runs
+        # (7.1%) stays under the 10% retry-rate gate.
+        harness = MatrixHarness(self)
+        stall = (False, _tokens(), list(ExecuteRetryTests.STALL), {"1_PLANNER": [{"code": "TERMINAL_MODEL_ERROR"}]})
+        good = (True, _tokens(), [], None)
+        arm_a = StubRunner([stall, good])
+        arm_b = StubRunner([good])
+        res = harness.run({"arm_a": arm_a, "arm_b": arm_b})
+        self.assertEqual(res["verdict"], "PASS")
+        self.assertEqual(res["dropped_pairs_count"], 0)
+        self.assertIsNone(res["abort_reason"])
+        self.assertFalse(res["diagnostic_only"])
+        self.assertFalse(os.path.isfile(os.path.join(harness.run_dir(), "pilot_aborted.json")))
+        self.assertEqual(len(arm_a.calls), 15)
+        self.assertEqual(len(arm_b.calls), 14)
+        self.assertTrue(res["retry_gate"]["ok"])
+
 
 
 class SeatbeltPromptTests(unittest.TestCase):
@@ -680,6 +746,40 @@ class TerminalErrorTests(unittest.TestCase):
         err = tel.get("terminal_error")
         self.assertIsNotNone(err)
         self.assertEqual(err["error_id"], 462848)
+
+    def test_grok_arm_b_stopreason_error_captured(self):
+        # Arm-B symmetry (reviewer blocker 1): a grok CLI stall must not land
+        # as bare MISSING_HANDOFF — no retry, mislabeled as model failure.
+        from arm_b_multicli import parse_grok_telemetry
+        stall = json.dumps({"stopReason": "error", "errorMessage": "stream stall",
+                            "usage": {}, "modelUsage": {"grok-4.6": {}}, "text": ""})
+        tel = parse_grok_telemetry(stall, "planner")
+        self.assertIsNotNone(tel["terminal_error"])
+        self.assertEqual(tel["terminal_error"]["model"], "grok-4.6")
+        healthy = json.dumps({"stopReason": "end_turn",
+                              "usage": {"reasoning_tokens": 5}, "modelUsage": {"grok-4.6": {}}, "text": "plan"})
+        self.assertIsNone(parse_grok_telemetry(healthy, "planner")["terminal_error"])
+
+    def test_agy_status_failure_captured(self):
+        from arm_b_multicli import parse_agy_telemetry
+        bad = json.dumps({"status": "FAILED", "model": "gemini-3.8-flash-high",
+                          "usage": {}, "response": ""})
+        tel = parse_agy_telemetry(bad, "reviewer")
+        self.assertIsNotNone(tel["terminal_error"])
+        self.assertEqual(tel["terminal_error"]["stop_reason"], "FAILED")
+        good = json.dumps({"status": "SUCCESS", "model": "gemini-3.8-flash-high",
+                           "usage": {"thinking_tokens": 9}, "response": "ok"})
+        self.assertIsNone(parse_agy_telemetry(good, "reviewer")["terminal_error"])
+
+    def test_codex_terminal_field_absent_by_design(self):
+        # Disclosed scope limit: codex has no terminal stop/status field.
+        from arm_b_multicli import parse_codex_telemetry
+        line = json.dumps({"type": "turn.completed", "model": "gpt-5.6-luna",
+                           "usage": {"reasoning_output_tokens": 3}})
+        tel = parse_codex_telemetry(line, "worker")
+        self.assertIn("terminal_error", tel)
+        self.assertIsNone(tel["terminal_error"])
+
 
 class PriorQuotaSnapshotTests(unittest.TestCase):
     """Pairs-1-7 audit finding 2: resume invocations must inherit earlier

@@ -102,6 +102,17 @@ WATCH_MIN_VALID_PAIRS = 5
 # Codes whose SOLE presence (plus companion NO_REASONING_TOKENS) marks a vendor
 # telemetry blip eligible for infra retry. Any other code blocks retry (Q3).
 TELEMETRY_RETRY_CODES = frozenset({"REASONING_TELEMETRY_MISSING", "NO_REASONING_TOKENS"})
+# Unrecovered stream-stall signature: OMP marks a thinking-loop stall as
+# "Treating as a stream stall and retrying" — a recoverable vendor condition
+# — but one-shot mode never recovers, exiting 0 with stopReason=error
+# (confirmatory-013 pair 8; runner now records TERMINAL_MODEL_ERROR). Retry
+# it like the telemetry blip. Companion codes are pure consequences of the
+# dead stage; any other code (guard, model mismatch, timeout, trace pattern)
+# blocks retry.
+STALL_RETRY_CODES = frozenset({
+    "TERMINAL_MODEL_ERROR", "STAGE_FAILED", "MISSING_HANDOFF",
+    "MODEL_ID_UNRECORDED", "REASONING_TELEMETRY_MISSING", "NO_REASONING_TOKENS",
+})
 STAGES = ("1_PLANNER", "2_WORKER_INITIAL", "3_REVIEWER", "4_WORKER_REFINE")
 
 
@@ -372,6 +383,14 @@ def _telemetry_only_retryable(violations: list[dict]) -> bool:
     return bool(codes) and "REASONING_TELEMETRY_MISSING" in codes and codes <= TELEMETRY_RETRY_CODES
 
 
+def _stall_retryable(violations: list[dict]) -> bool:
+    """True iff the violation set is exactly the unrecovered-stall signature.
+    TERMINAL_MODEL_ERROR is required; a bare MISSING_HANDOFF (planner ended
+    cleanly without a plan — a real model failure) never retries."""
+    codes = {item.get("code") for item in violations}
+    return "TERMINAL_MODEL_ERROR" in codes and codes <= STALL_RETRY_CODES
+
+
 class _RetainableTempDir:
     """mkdtemp whose cleanup can be disarmed for one attempt.
     (A wrapped TemporaryDirectory cannot serve: its weakref finalizer fires
@@ -465,6 +484,27 @@ def execute_arm_with_retries(runner: Any, meta: dict, src_task: str, arm_name: s
                         "rate_limited": True,
                         "throttle_signal": throttle,
                         "infra_error": f"RATE_LIMITED ({throttle})",
+                        "violations": violations,
+                        "stages": stage_tokens,
+                        "retries": retries,
+                        "retry_log": retry_log,
+                        "attempt_dirs": attempt_dirs,
+                    }
+                if _stall_retryable(violations):
+                    stall_stages = [
+                        s["stage"] for s in result.get("stages", [])
+                        if any(v.get("code") == "TERMINAL_MODEL_ERROR" for v in s.get("protocol_violations", []))
+                    ]
+                    if retries < MAX_INFRA_RETRIES:
+                        retries += 1
+                        retry_log.append({"attempt": attempt, "stages": stall_stages, "kind": "stream_stall"})
+                        print(f"    [Attempt {attempt}/{MAX_INFRA_RETRIES+1}] Unrecovered stream stall on {arm_name} for {task_id} ({stall_stages}); retrying with fresh workdir.")
+                        time.sleep(1.0)
+                        continue
+                    return {
+                        "duration": dur,
+                        "protocol_valid": False,
+                        "infra_error": f"unrecovered TERMINAL_MODEL_ERROR after {retries} retries",
                         "violations": violations,
                         "stages": stage_tokens,
                         "retries": retries,

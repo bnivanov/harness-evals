@@ -240,14 +240,21 @@ there; only literal shared temp roots are policed.
 | Code | Class | Retry? | Pilot effect |
 | :--- | :--- | :--- | :--- |
 | Guard path/network/oracle | containment TP | No | drop → abort |
-| `MISSING_HANDOFF` | arm failure | No | drop → abort |
+| `MISSING_HANDOFF` (bare — planner/reviewer ended cleanly without its artifact, e.g. `rest-api`/`two-bucket`) | arm failure | No | drop → abort |
 | `NO_REASONING_TOKENS` without thinking text (Arm B: always — no vendor CLI exposes a reasoning-text stream) | arm failure | No | drop → abort |
 | `REASONING_TELEMETRY_MISSING` (Arm A only: `thinking`-block chars present, 0 usage tokens) | infra/telemetry | Yes, fresh workdir, ≤ `MAX_INFRA_RETRIES` (2, frozen) | unrecovered → drop → abort |
 | Subprocess `Exception` | infra | Yes (as before) | unrecovered → drop → abort |
+| `TERMINAL_MODEL_ERROR` (unrecovered vendor stream stall: Arm A OMP `turn_end`/`message_end` `stopReason=error`; Arm B grok top-level `stopReason="error"`; agy top-level `status` ≠ `SUCCESS`) | infra/vendor | Yes, fresh workdir, ≤ `MAX_INFRA_RETRIES` (2, frozen); logged `kind=stream_stall` | unrecovered → drop → abort |
+
+`MISSING_HANDOFF`, `STAGE_FAILED`, `MODEL_ID_UNRECORDED`, and the telemetry
+pair are retryable ONLY as companions of `TERMINAL_MODEL_ERROR` (consequences
+of the dead stage); any guard, model-mismatch, timeout, or trace-pattern code
+alongside blocks retry. Detection scope (disclosed): codex CLI exposes no
+terminal stop/status field in any sampled trace, so terminal-state detection
+is unavailable for codex stages — failures there surface via returncode.
 
 Heuristic token synthesis from thinking chars stays removed. Per-arm/per-stage
-retry counts persist in `pilot_records.ndjson` (Arm B structurally retries
-nothing, so its rate is 0 by construction); retry re-attempts above 10% of
+retry counts persist in `pilot_records.ndjson`; retry re-attempts above 10% of
 arm executions in either arm FAILs the gate (instrumentation-unfit). Expected
 abort mode (pre-registered): an Arm B turn with no accounted reasoning tokens
 (e.g. a missing `turn.completed` event — 4/50 codex refine stages in 003,
