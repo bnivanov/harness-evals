@@ -429,6 +429,78 @@ class SeatbeltTempRootTests(unittest.TestCase):
         self.assertIn("(deny file-write* (subpath \"/tmp\"))", profile)
 
 
+class ThrottleGuardTests(unittest.TestCase):
+    # 2026-09-08: ANY vendor throttle signal aborts with NO retry — retrying
+    # a 429 converts a brush with quota into a lockout.
+    def test_scanner_hits_vendor_signals(self):
+        for text in (
+            "Error 429: Too Many Requests",
+            json.dumps({"error": {"code": 429, "status": "RESOURCE_EXHAUSTED"}}),
+            "quota exceeded for gemini-3.8-flash, retry in 70s",
+            "Rate limit reached for xai-oauth",
+            "The server is overloaded, try again shortly",
+        ):
+            self.assertIsNotNone(
+                preflight_parity.find_rate_limit({"stderr": text}), text)
+
+    def test_scanner_misses_clean_text(self):
+        for text in (
+            "OK: 16 tests passed",
+            "retry rate 5% over 20 arm executions",
+            "model capacity is sufficient for separate stages",
+        ):
+            self.assertIsNone(
+                preflight_parity.find_rate_limit({"stderr": text}), text)
+
+    def _run_with(self, runner):
+        with tempfile.TemporaryDirectory() as src:
+            open(os.path.join(src, "f.py"), "w").write("x = 1\n")
+            return preflight_parity.execute_arm_with_retries(
+                runner, {}, src, "arm_b", "grep", 1)
+
+    def test_throttled_result_returns_without_retry(self):
+        calls = []
+
+        def runner(meta, workdir, art_dir, scratch_dir=None, pilot_early_stop=False):
+            calls.append(1)
+            return {
+                "protocol_valid": False,
+                "protocol_violations": [],
+                "stages": [{"stage": "3_REVIEWER",
+                            "telemetry": {"reasoning_tokens": 0}}],
+                "stderr": "agy: Error 429 RESOURCE_EXHAUSTED quota exceeded",
+            }
+
+        res = self._run_with(runner)
+        self.assertTrue(res.get("rate_limited"))
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(res.get("retries"), 0)
+
+    def test_throttled_exception_returns_without_retry(self):
+        calls = []
+
+        def runner(meta, workdir, art_dir, scratch_dir=None, pilot_early_stop=False):
+            calls.append(1)
+            raise RuntimeError("grok CLI failed: 429 Too Many Requests")
+
+        res = self._run_with(runner)
+        self.assertTrue(res.get("rate_limited"))
+        self.assertEqual(len(calls), 1)
+        self.assertIn("RATE_LIMITED", res.get("infra_error", ""))
+
+    def test_plain_infra_error_still_retries(self):
+        from preflight_parity import MAX_INFRA_RETRIES
+        calls = []
+
+        def runner(meta, workdir, art_dir, scratch_dir=None, pilot_early_stop=False):
+            calls.append(1)
+            raise ValueError("boom: subprocess segfault")
+
+        res = self._run_with(runner)
+        self.assertNotIn("rate_limited", res)
+        self.assertEqual(len(calls), MAX_INFRA_RETRIES + 1)
+
+
 if __name__ == "__main__":
     unittest.main()
 

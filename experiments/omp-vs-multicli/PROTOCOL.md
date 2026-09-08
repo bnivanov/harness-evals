@@ -259,9 +259,14 @@ Arm B capability result.
 
 First dropped pair aborts the pilot (FAIL, `abort_reason`, marker
 `pilot_aborted.json`; a fresh `run_id` is required — same-id resume is
-refused). The second arm of a dead pair is not launched. A missing plan handoff
-stops later stages within that pair (pilot-only flag; the matrix path still runs
-every stage so a README-only implementation can score). After each valid pair,
+refused). Any vendor throttle signal (429/529, `RESOURCE_EXHAUSTED`,
+rate-limit/quota/overloaded text) in an arm result or exception aborts the
+whole pilot immediately with NO retry (`RATE_LIMITED:<task>:rep<n>:<arm>`,
+2026-09-08 — retrying a throttled endpoint turns a brush with quota into a
+lockout; applies even under `--continue-diagnostics`). The second arm of a
+dead pair is not launched. A missing plan handoff stops later stages within
+that pair (pilot-only flag; the matrix path still runs every stage so a
+README-only implementation can score). After each valid pair,
 running pooled ratios print; at n ≥ 5 a pooled-gated stage whose running 90% CI
 lies entirely outside [0.50, 2.00] aborts unrecoverably. The watch is a
 rare-catastrophe backstop validated on synthetic pairs only: replaying 010's 11

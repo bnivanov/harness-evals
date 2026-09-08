@@ -20,6 +20,12 @@ Enforces:
    - Incrementally persists pair results to runs/<run_id>/pilot_records.ndjson with resume support.
    - Infra-error handling with bounded retries (MAX_INFRA_RETRIES = 2); pairs with unrecovered
      infrastructure errors are excluded from the cached completed set so they can be re-attempted.
+   - Throttle guard: ANY vendor rate-limit/quota signal (429/529,
+     RESOURCE_EXHAUSTED, rate-limit/quota/overloaded text) in an arm result or
+     exception aborts the WHOLE pilot immediately with NO retry — retrying a
+     throttled endpoint converts a brush with quota into a lockout. Abort
+     reason RATE_LIMITED:<task>:rep<n>:<arm>:<signal>; fresh run_id required
+     after quota recovers. Applies even under --continue-diagnostics.
    - Telemetry-only blips (Arm A REASONING_TELEMETRY_MISSING) retry as infra;
      any other violation code blocks retry; Arm B never retries (no vendor
      reasoning-text stream exists). Retry rate > 10% of arm executions fails the gate.
@@ -40,6 +46,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -95,6 +102,33 @@ WATCH_MIN_VALID_PAIRS = 5
 # telemetry blip eligible for infra retry. Any other code blocks retry (Q3).
 TELEMETRY_RETRY_CODES = frozenset({"REASONING_TELEMETRY_MISSING", "NO_REASONING_TOKENS"})
 STAGES = ("1_PLANNER", "2_WORKER_INITIAL", "3_REVIEWER", "4_WORKER_REFINE")
+# Fail-closed throttle guard (2026-09-08): ANY vendor rate-limit/quota signal
+# aborts the pilot with no retry. Retrying a 429 is how a brush with quota
+# becomes a lockout; the infra-retry path below MUST NOT touch throttled arms.
+RATE_LIMIT_PATTERNS = [
+    r"\b429\b",
+    r"\b529\b",
+    r"RESOURCE_EXHAUSTED",
+    r"rate.?limit",
+    r"too many requests",
+    r"quota.{0,30}(exceed|exhaust|deplet)",
+    r"(exceed|exhaust|deplet).{0,30}quota",
+    r"insufficient.?quota",
+    r"\boverloaded\b",
+]
+_RATE_LIMIT_RES = [re.compile(p, re.IGNORECASE) for p in RATE_LIMIT_PATTERNS]
+
+
+def find_rate_limit(payload: Any) -> str | None:
+    """First throttle pattern matching a JSON dump (else str()) of payload."""
+    try:
+        text = json.dumps(payload, default=str)
+    except Exception:  # noqa: BLE001 - non-serializable results still scan
+        text = str(payload)
+    for pattern, compiled in zip(RATE_LIMIT_PATTERNS, _RATE_LIMIT_RES):
+        if compiled.search(text):
+            return pattern
+    return None
 
 T_TABLE_90 = {
     1: 6.314, 2: 2.920, 3: 2.353, 4: 2.132, 5: 2.015,
@@ -311,6 +345,23 @@ def execute_arm_with_retries(runner: Any, meta: dict, src_task: str, arm_name: s
                     r_tokens = s.get("telemetry", {}).get("reasoning_tokens", 0)
                     stage_tokens[s_name] = r_tokens
                 violations = result.get("protocol_violations", [])
+                # Throttle guard: a 429/quota signal anywhere in the arm result
+                # returns immediately with NO retry and NO sleep — hammering a
+                # throttled endpoint converts a brush with quota into a lockout.
+                throttle = find_rate_limit(result)
+                if throttle is not None:
+                    print(f"    [Attempt {attempt}] RATE LIMITED on {arm_name} for {task_id} (signal {throttle!r}); aborting pilot, no retry.")
+                    return {
+                        "duration": round(time.monotonic() - t0, 2),
+                        "protocol_valid": False,
+                        "rate_limited": True,
+                        "throttle_signal": throttle,
+                        "infra_error": f"RATE_LIMITED ({throttle})",
+                        "violations": violations,
+                        "stages": stage_tokens,
+                        "retries": retries,
+                        "retry_log": retry_log,
+                    }
                 if _telemetry_only_retryable(violations):
                     blip_stages = [
                         s["stage"] for s in result.get("stages", [])
@@ -340,6 +391,20 @@ def execute_arm_with_retries(runner: Any, meta: dict, src_task: str, arm_name: s
                     "retry_log": retry_log,
                 }
             except Exception as exc:
+                # Throttle guard (exception path): same no-retry abort. The
+                # run loop converts rate_limited into a whole-pilot abort.
+                throttle = find_rate_limit(str(exc))
+                if throttle is not None:
+                    print(f"    [Attempt {attempt}] RATE LIMITED on {arm_name} for {task_id} (signal {throttle!r}); aborting pilot, no retry.")
+                    return {
+                        "duration": round(time.monotonic() - t0, 2),
+                        "protocol_valid": False,
+                        "rate_limited": True,
+                        "throttle_signal": throttle,
+                        "infra_error": f"RATE_LIMITED ({throttle}): {exc}",
+                        "retries": retries,
+                        "retry_log": retry_log,
+                    }
                 last_exc = exc
                 dur = round(time.monotonic() - t0, 2)
                 print(f"    [Attempt {attempt}/{MAX_INFRA_RETRIES+1}] Infrastructure error on {arm_name} for {task_id}: {exc}")
@@ -461,9 +526,26 @@ def run_pilot_parity_matrix(
                     f.write(json.dumps(pair_record) + "\n")
                 completed_pairs[(task_id, rep)] = pair_record
 
-            # Strict both-arms-valid alignment check
+            # Throttle guard (run level): a rate-limited arm aborts the WHOLE
+            # pilot immediately — no second arm, no further pairs, not even in
+            # --continue-diagnostics (diagnostic traffic hammers quota too).
             arm_a_info = pair_record["arms"].get("arm_a", {})
             arm_b_info = pair_record["arms"].get("arm_b", {})
+            throttled = (
+                "arm_a" if arm_a_info.get("rate_limited")
+                else ("arm_b" if arm_b_info.get("rate_limited") else None)
+            )
+            if throttled is not None:
+                if abort_reason is None:
+                    abort_reason = (
+                        f"RATE_LIMITED:{task_id}:rep{rep}:{throttled}:"
+                        f"{pair_record['arms'][throttled].get('throttle_signal', '?')}"
+                    )
+                    _write_abort_marker(abort_marker, run_id, abort_reason)
+                    print(f"  Throttle abort: {abort_reason} — pilot stops, fresh run_id required after quota recovers.")
+                stop = True
+
+            # Strict both-arms-valid alignment check (arm infos from throttle block above)
             a_valid = arm_a_info.get("protocol_valid", False)
             b_valid = arm_b_info.get("protocol_valid", False)
             a_infra = arm_a_info.get("infra_error")
