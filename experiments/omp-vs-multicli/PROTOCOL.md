@@ -181,8 +181,10 @@ The **only variable permitted to differ** between Arm A and Arm B is the **orche
 
 ## Amendment A (post-confirmatory-010, pre-011): parity-gate repair
 
-Status: PROPOSED — takes effect only after Opus 5 High sign-off and hashing
-before confirmatory-011. It supersedes §2.5 items 1–4 as noted below; §2.5 items
+Status: ADOPTED 2026-09-08 (Opus 5 High sign-off, resubmission PASS-WITH-CHANGES
+with both required protocol repairs applied verbatim). Frozen by the commit
+carrying this line; composite source hash bound in the confirmatory-011 run
+manifest at `preflight.py --prepare` time. It supersedes §2.5 items 1–4 as noted below; §2.5 items
 1 and 3 stand only as the superseded pre-010 record (marked inline) — A.1/A.2
 govern 011; all other sections stand. Rationale: confirmatory-010 FAILed with 3 dropped pairs (a
 `/tmp` guard TP, a zero-reasoning reviewer turn, a missing plan handoff) and
