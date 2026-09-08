@@ -46,6 +46,7 @@ def parse_omp_telemetry(stdout: str, role: str) -> dict:
     thinking_chars = 0
     resolved_models = set()
     providers = set()
+    terminal_error = None
     for line in stdout.splitlines():
         line = line.strip()
         if not line.startswith("{"):
@@ -61,6 +62,16 @@ def parse_omp_telemetry(stdout: str, role: str) -> dict:
             if usage:
                 target = turn_usages if event_type == "turn_end" else message_usages
                 target.append(usage)
+            # Terminal model errors (e.g. OMP stream-stall stopReason=error
+            # after a thinking loop): process exit 0 must not read as stage
+            # success. Last error wins; consumed into a violation at stage level.
+            if message.get("stopReason") == "error":
+                terminal_error = {
+                    "stop_reason": "error",
+                    "error_message": message.get("errorMessage"),
+                    "error_id": message.get("errorId"),
+                    "model": message.get("model"),
+                }
             if message.get("model"):
                 resolved_models.add(message["model"])
             if message.get("provider"):
@@ -113,6 +124,7 @@ def parse_omp_telemetry(stdout: str, role: str) -> dict:
         "output_tokens": output_tokens,
         "reasoning_tokens": reasoning_tokens,
         "telemetry_missing": telemetry_missing,
+        "terminal_error": terminal_error,
         **normalized,
         "tool_calls_count": len(tool_calls),
         "tool_calls": tool_calls,
@@ -231,8 +243,22 @@ def run_omp_stage(
         violations.append({"code": "REASONING_TELEMETRY_MISSING"})
     if process["timed_out"]:
         violations.append({"code": "STAGE_TIMEOUT"})
-
-    success = process["returncode"] == 0 and not process["timed_out"]
+    terminal_error = telemetry.get("terminal_error")
+    if terminal_error is not None:
+        # Verdict (b) fix: a terminal model error (e.g. OMP stream stall with
+        # stopReason=error) fails the stage even when the process exits 0.
+        # Recorded, not retried as infra, no tokens synthesized.
+        violations.append({
+            "code": "TERMINAL_MODEL_ERROR",
+            "detail": (terminal_error.get("error_message") or "")[:300],
+            "error_id": terminal_error.get("error_id"),
+        })
+    success = (process["returncode"] == 0 and not process["timed_out"]
+               and terminal_error is None)
+    if terminal_error is not None:
+        stage_error = f"TERMINAL_MODEL_ERROR: {(terminal_error.get('error_message') or '')[:200]}"
+    else:
+        stage_error = "TIMEOUT" if process["timed_out"] else None
     return {
         "stage": stage_name,
         "role": role,
@@ -241,7 +267,7 @@ def run_omp_stage(
         "success": success,
         "returncode": process["returncode"],
         "duration": process["duration"],
-        "error": "TIMEOUT" if process["timed_out"] else None,
+        "error": stage_error,
         "command": command,
         "telemetry": telemetry,
         "stdout_trace": process["stdout_trace"],

@@ -36,6 +36,8 @@ from typing import Iterable
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from runner_common import TRACE_VIOLATION_PATTERNS  # noqa: E402
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "runners"))
+from arm_a_omp import parse_omp_telemetry  # noqa: E402  (verdict-b terminal-state rule)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PRIMARY_RUN = os.path.join(BASE_DIR, "runs", "confirmatory-003")
@@ -126,7 +128,39 @@ def live_regex_codes(result: dict) -> set[str]:
     return confirmed
 
 
-def score_run(result: dict) -> dict:
+_STAGE_ROLES = {
+    "1_PLANNER": "planner",
+    "2_WORKER_INITIAL": "worker",
+    "3_REVIEWER": "reviewer",
+    "4_WORKER_REFINE": "worker",
+}
+_TERMINAL_CACHE: dict[tuple[str, str, str], bool] = {}
+
+
+def _stage_terminal_error(run_dir: str, task_id: str, arm: str, stage_name: str, telemetry: dict | None) -> bool:
+    """Verdict-(b) terminal-state rule for historical stage-ok counts.
+    New records carry the parser flag; legacy records predate it, so the same
+    rule is applied to the retained trace (arm_a OMP schema only). Source
+    records are never rewritten. Missing/unreadable traces preserve history.
+    """
+    telemetry = telemetry or {}
+    if telemetry.get("terminal_error") is not None:
+        return True
+    if "terminal_error" in telemetry or arm != "arm_a":
+        return False
+    key = (run_dir, task_id, stage_name)
+    if key not in _TERMINAL_CACHE:
+        trace = os.path.join(run_dir, "traces", task_id, arm, f"{stage_name}.stdout.jsonl")
+        try:
+            with open(trace, encoding="utf-8") as handle:
+                parsed = parse_omp_telemetry(handle.read(), _STAGE_ROLES[stage_name])
+            _TERMINAL_CACHE[key] = parsed.get("terminal_error") is not None
+        except (OSError, ValueError, KeyError):
+            _TERMINAL_CACHE[key] = False
+    return _TERMINAL_CACHE[key]
+
+
+def score_run(result: dict, run_dir: str = "") -> dict:
     execution = result["execution"]
     oracle = result["oracle_verification"]
     stored = execution.get("protocol_violations") or []
@@ -153,7 +187,8 @@ def score_run(result: dict) -> dict:
         "stages": {
             stage["stage"]: {
                 "duration": stage["duration"],
-                "ok": stage["returncode"] == 0 and not stage.get("error"),
+                "ok": stage["returncode"] == 0 and not stage.get("error") and not _stage_terminal_error(
+                    run_dir, result["task_id"], result["arm"], stage["stage"], stage.get("telemetry")),
                 "fresh_input": (stage.get("telemetry") or {}).get("input_tokens") or 0,
                 "cache_read": (stage.get("telemetry") or {}).get("cache_read_tokens") or 0,
             }
@@ -233,8 +268,8 @@ def summarize(rows: list[dict], key_ratio: str, key_pass: str, key_res: str) -> 
 # Report assembly
 # ---------------------------------------------------------------------------
 def build() -> dict:
-    primary = {name: score_run(res) for name, res in load_run(PRIMARY_RUN).items()}
-    ablation = {name: score_run(res) for name, res in load_run(ABLATION_RUN).items()}
+    primary = {name: score_run(res, PRIMARY_RUN) for name, res in load_run(PRIMARY_RUN).items()}
+    ablation = {name: score_run(res, ABLATION_RUN) for name, res in load_run(ABLATION_RUN).items()}
 
     tasks = sorted({name.rsplit("_arm_", 1)[0] for name in primary})
     arm_a = [primary[f"{t}_arm_a"] for t in tasks]

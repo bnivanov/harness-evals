@@ -557,6 +557,21 @@ def _write_abort_marker(abort_marker: str, run_id: str, abort_reason: str) -> No
         }, handle, indent=2)
 
 
+def _prior_quota_snapshots(run_dir: str) -> list[dict[str, Any]]:
+    """Seed for resume invocations: earlier pairs' quota snapshots live only
+    in the prior report file (pairs-1-7 audit finding 2). Missing or corrupt
+    prior report yields no seeds — never fail a guarded run on audit history."""
+    prior_report = os.path.join(run_dir, "preflight_parity.json")
+    if not os.path.isfile(prior_report):
+        return []
+    try:
+        with open(prior_report, encoding="utf-8") as handle:
+            prior_snaps = json.load(handle).get("quota_snapshots", [])
+    except (OSError, ValueError):
+        return []
+    return [snap for snap in prior_snaps if isinstance(snap, dict)]
+
+
 def run_pilot_parity_matrix(
     run_id: str,
     runners: dict[str, Any] | None = None,
@@ -613,7 +628,7 @@ def run_pilot_parity_matrix(
     abort_reason: str | None = None
     stop = False
     new_pairs = 0
-    quota_snapshots: list[dict[str, Any]] = []
+    quota_snapshots: list[dict[str, Any]] = _prior_quota_snapshots(run_dir)
 
     print(f"\nExecuting Pilot Parity Matrix: tasks={PILOT_TASKS}, k={PILOT_REPEATS} ({expected_pairs} pairs)...")
     for task_id in PILOT_TASKS:

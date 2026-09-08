@@ -558,7 +558,7 @@
       "arm_a": {
         "mean_duration": 147.4796,
         "n": 25,
-        "ok": 25
+        "ok": 24
       },
       "arm_b": {
         "mean_duration": 239.848,

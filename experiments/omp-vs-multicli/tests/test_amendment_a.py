@@ -12,6 +12,7 @@ from unittest import mock
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, BASE_DIR)
+sys.path.insert(0, os.path.join(BASE_DIR, "runners"))  # parse_omp_telemetry regression tests
 
 import preflight_parity  # noqa: E402
 from experiment_config import PROMPTS, SCRATCH_POLICY_SENTENCE  # noqa: E402
@@ -628,6 +629,79 @@ class ThrottleGuardTests(unittest.TestCase):
             finally:
                 shutil.rmtree(seen[0], ignore_errors=True)
             self.assertTrue(res["protocol_valid"])
+
+
+class TerminalErrorTests(unittest.TestCase):
+    """Verdict (b) offline replay: OMP stream-stall errors must surface from
+    retained event traces instead of reading as success with exit 0."""
+
+    STALL_LINE = json.dumps({
+        "type": "turn_end",
+        "message": {"role": "assistant", "content": [],
+                    "model": "grok-4.6", "stopReason": "error",
+                    "errorMessage": "Thinking loop detected: stall.",
+                    "errorId": 462848},
+    })
+    OK_LINE = json.dumps({
+        "type": "turn_end",
+        "message": {"role": "assistant",
+                    "content": [{"type": "text", "text": "plan here"}],
+                    "model": "grok-4.6", "stopReason": "complete",
+                    "usage": {"input": 10, "output": 5, "cacheRead": 0,
+                             "cacheWrite": 0, "reasoningTokens": 71}},
+    })
+
+    def test_stream_stall_captured_with_cause(self):
+        from arm_a_omp import parse_omp_telemetry
+        tel = parse_omp_telemetry(self.OK_LINE + "\n" + self.STALL_LINE, "planner")
+        err = tel.get("terminal_error")
+        self.assertIsNotNone(err)
+        self.assertEqual(err["error_id"], 462848)
+        self.assertEqual(err["model"], "grok-4.6")
+        self.assertIn("Thinking loop", err["error_message"])
+        # Earlier completed-turn accounting untouched, not synthesized.
+        self.assertEqual(tel["reasoning_tokens"], 71)
+
+    def test_clean_stream_has_no_terminal_error(self):
+        from arm_a_omp import parse_omp_telemetry
+        tel = parse_omp_telemetry(self.OK_LINE, "planner")
+        self.assertIsNone(tel.get("terminal_error"))
+
+    def test_replay_013_listops_planner_stall(self):
+        # Offline replay of the exact retained events behind doubt-stop #2.
+        from arm_a_omp import parse_omp_telemetry
+        trace = os.path.join(
+            BASE_DIR, "runs", "confirmatory-013", "attempts",
+            "list-ops_rep1_arm_a_att1_f5423605", "artifacts",
+            "1_PLANNER.stdout.jsonl")
+        if not os.path.isfile(trace):
+            self.skipTest("retained 013 evidence not present")
+        tel = parse_omp_telemetry(open(trace, encoding="utf-8").read(), "planner")
+        err = tel.get("terminal_error")
+        self.assertIsNotNone(err)
+        self.assertEqual(err["error_id"], 462848)
+
+class PriorQuotaSnapshotTests(unittest.TestCase):
+    """Pairs-1-7 audit finding 2: resume invocations must inherit earlier
+    pairs' quota snapshots instead of overwriting them with the latest."""
+
+    def test_missing_prior_report_yields_no_seeds(self):
+        with tempfile.TemporaryDirectory() as run:
+            self.assertEqual(preflight_parity._prior_quota_snapshots(run), [])
+
+    def test_prior_snapshots_survive_resume(self):
+        with tempfile.TemporaryDirectory() as run:
+            seeds = [{"phase": "pre", "task_id": "grep", "repeat": 1,
+                      "quotas": {"ok": True}}]
+            with open(os.path.join(run, "preflight_parity.json"), "w") as handle:
+                json.dump({"quota_snapshots": seeds}, handle)
+            self.assertEqual(preflight_parity._prior_quota_snapshots(run), seeds)
+
+    def test_corrupt_prior_report_never_blocks(self):
+        with tempfile.TemporaryDirectory() as run:
+            open(os.path.join(run, "preflight_parity.json"), "w").write("{nope")
+            self.assertEqual(preflight_parity._prior_quota_snapshots(run), [])
+
 
 
 _USAGE_SAMPLE = """Usage · fetched 807ms ago

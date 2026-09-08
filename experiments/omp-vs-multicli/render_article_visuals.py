@@ -327,7 +327,7 @@ def render_stage_parity():
         draw.text((1300, y + 12), verd, font=mono(14, True), fill=ARM_B_COLOR if "timeouts" in verd else SUCCESS_GREEN)
 
     draw.text((80, 720), "Why did Grok CLI timeout in Standalone mode?", font=sans(22, "bold"), fill=INK)
-    draw.text((80, 755), f"In OMP, Grok operated with direct in-process tool bindings, completing plans in {DATA['stages'][0]['arm_a']['mean_duration']:.1f}s on average.", font=sans(16), fill=MUTED)
+    draw.text((80, 755), f"In OMP, Grok operated with direct in-process tool bindings, at a mean planner-stage duration of {DATA['stages'][0]['arm_a']['mean_duration']:.1f}s across all 25 runs (24/25 plans delivered; one model-side stall).", font=sans(16), fill=MUTED)
     draw.text((80, 780), "In standalone CLI mode, Grok spawned subshells per tool turn, accumulating latency until it breached the 300s ceiling on 8 tasks.", font=sans(16), fill=MUTED)
     draw.text((80, 805), f"Plan-less downstream stages were resilient: they still passed {TIER3['arm_b_primary_shadow']['passed']}/{TIER3['arm_b_primary_shadow']['total_tests']} oracle tests on those 8 tasks, but every run scored 0 under the SLA.", font=sans(16), fill=MUTED)
 
