@@ -27,6 +27,7 @@ from experiment_config import (  # noqa: E402
     normalize_usage,
 )
 from runner_common import (  # noqa: E402
+    find_throttle_signal,
     prepare_isolated_agy_home,
     prepare_isolated_codex_home,
     prepare_isolated_grok_home,
@@ -339,6 +340,11 @@ def run_arm_b(task_meta: dict, workspace_dir: str, artifact_dir: str, scratch_di
             )
             stages.append(stage)
             violations.extend({"stage": stage_name, **item} for item in stage["protocol_violations"])
+            throttle = find_throttle_signal(stage)
+            if throttle is not None:
+                violations.append({"stage": stage_name, "code": "RATE_LIMITED", "signal": throttle})
+                # Unconditional (see arm_a_omp): never spend into a throttle.
+                break
             if not stage["success"]:
                 violations.append({"stage": stage_name, "code": "STAGE_FAILED"})
             handoff_missing = required_artifact and not os.path.isfile(os.path.join(workspace_dir, required_artifact))

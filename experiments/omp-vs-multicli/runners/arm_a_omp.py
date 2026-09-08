@@ -26,6 +26,7 @@ from experiment_config import (  # noqa: E402
 )
 from runner_common import (  # noqa: E402
     copy_runtime_file,
+    find_throttle_signal,
     prepare_isolated_omp_agent_dir,
     read_guard_events,
     run_captured_process,
@@ -281,6 +282,13 @@ def run_arm_a(task_meta: dict, workspace_dir: str, artifact_dir: str, scratch_di
             )
             stages.append(stage)
             violations.extend({"stage": stage_name, **item} for item in stage["protocol_violations"])
+            throttle = find_throttle_signal(stage)
+            if throttle is not None:
+                violations.append({"stage": stage_name, "code": "RATE_LIMITED", "signal": throttle})
+                # Throttle break is UNCONDITIONAL (pilot and matrix alike):
+                # later stages would spend quota against a throttled vendor.
+                # Unlike the C3 handoff break it needs no pilot_early_stop.
+                break
             if not stage["success"]:
                 violations.append({"stage": stage_name, "code": "STAGE_FAILED"})
             handoff_missing = required_artifact and not os.path.isfile(os.path.join(workspace_dir, required_artifact))

@@ -235,6 +235,49 @@ def trace_violations(*texts: str) -> list[dict]:
     return violations
 
 
+# Vendor throttle signals: TEXT-ONLY patterns, deliberately no bare numbers.
+# A whole-blob `\b429\b` false-fires on legitimate telemetry such as
+# reasoning_tokens=429 or duration=429.12 (reviewer 2026-09-08). Real vendor
+# throttle errors always wrap the code in error text, covered below.
+THROTTLE_PATTERNS = (
+    r"RESOURCE_EXHAUSTED",
+    r"rate.?limit",
+    r"too many requests",
+    r"quota.{0,30}(exceed|exhaust|deplet)",
+    r"(exceed|exhaust|deplet).{0,30}quota",
+    r"insufficient.?quota",
+    r"\boverloaded\b",
+    r"error.{0,40}(429|529)",
+    r"(429|529).{0,40}(error|fail|exceed|exhaust)",
+)
+_THROTTLE_RES = [re.compile(pattern, re.IGNORECASE) for pattern in THROTTLE_PATTERNS]
+# Telemetry subtrees hold numeric usage accounting (reasoning_tokens,
+# durations) that must never enter throttle text; agent prose survives via
+# the top-level stdout_summary/stderr_summary copies.
+_THROTTLE_SKIP_KEYS = frozenset({"telemetry"})
+
+
+def iter_throttle_texts(node, _skip=False):
+    """Yield string leaves of node, excluding telemetry subtrees."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            yield from iter_throttle_texts(value, _skip or key in _THROTTLE_SKIP_KEYS)
+    elif isinstance(node, (list, tuple)):
+        for value in node:
+            yield from iter_throttle_texts(value, _skip)
+    elif isinstance(node, str) and not _skip:
+        yield node
+
+
+def find_throttle_signal(payload) -> str | None:
+    """First throttle pattern over the payload's non-telemetry text."""
+    for text in iter_throttle_texts(payload):
+        for pattern, compiled in zip(THROTTLE_PATTERNS, _THROTTLE_RES):
+            if compiled.search(text):
+                return pattern
+    return None
+
+
 def prepare_isolated_omp_agent_dir(runtime_dir: str) -> str:
     """Create an OMP profile containing auth/model metadata but no memory, skills, or history."""
 

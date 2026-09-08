@@ -439,6 +439,7 @@ class ThrottleGuardTests(unittest.TestCase):
             "quota exceeded for gemini-3.8-flash, retry in 70s",
             "Rate limit reached for xai-oauth",
             "The server is overloaded, try again shortly",
+            "agy request failed with error 429, see docs",
         ):
             self.assertIsNotNone(
                 preflight_parity.find_rate_limit({"stderr": text}), text)
@@ -451,6 +452,39 @@ class ThrottleGuardTests(unittest.TestCase):
         ):
             self.assertIsNone(
                 preflight_parity.find_rate_limit({"stderr": text}), text)
+
+    def test_scanner_ignores_bare_telemetry_numbers(self):
+        # Reviewer 2026-09-08: reasoning_tokens=429 / duration=429.12 are
+        # legitimate telemetry, not throttles. A bare numeric 429 with zero
+        # surrounding error text is telemetry-shaped and correctly ignored —
+        # real vendor throttles always wrap the code in error text.
+        misses = [
+            {"telemetry": {"reasoning_tokens": 429}, "duration": 429.12},
+            {"error": {"code": 429}},
+            {"stderr_summary": "exit 0 in 429ms", "telemetry": {"reasoning_tokens": 429}},
+        ]
+        for payload in misses:
+            self.assertIsNone(preflight_parity.find_rate_limit(payload), payload)
+        hits = [
+            {"stderr_summary": "request failed: Error 429", "telemetry": {"reasoning_tokens": 5}},
+            {"stdout_summary": "RESOURCE_EXHAUSTED: quota exceeded", "telemetry": {"reasoning_tokens": 5}},
+        ]
+        for payload in hits:
+            self.assertIsNotNone(preflight_parity.find_rate_limit(payload), payload)
+
+    def test_quota_unknown_is_breach(self):
+        snap = dict(preflight_parity.parse_usage(_USAGE_SAMPLE))
+        snap["google_weekly"] = None  # partial parse: binding quota unverified
+        breach = preflight_parity.check_quota(snap)
+        self.assertIsNotNone(breach)
+        self.assertIn("unknown:google_weekly", breach)
+
+    def test_read_usage_failure_is_all_none(self):
+        import subprocess as subprocess_mod
+        with mock.patch.object(subprocess_mod, "run", side_effect=subprocess_mod.TimeoutExpired("omp", 120)):
+            snap = preflight_parity.read_usage()
+        self.assertTrue(all(v is None for v in snap.values()))
+        self.assertIn("unknown", preflight_parity.check_quota(snap))
 
     def _run_with(self, runner):
         with tempfile.TemporaryDirectory() as src:

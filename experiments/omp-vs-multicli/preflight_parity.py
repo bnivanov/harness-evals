@@ -66,7 +66,7 @@ from experiment_config import (  # noqa: E402
     TASK_TIMEOUT_SECONDS,
 )
 from preflight import source_hashes  # noqa: E402
-from runner_common import sandbox_command, scrub_workstation_paths, sha256_file  # noqa: E402
+from runner_common import find_throttle_signal, sandbox_command, scrub_workstation_paths, sha256_file  # noqa: E402
 from runners.arm_a_omp import run_arm_a  # noqa: E402
 from runners.arm_b_multicli import run_arm_b  # noqa: E402
 
@@ -102,33 +102,12 @@ WATCH_MIN_VALID_PAIRS = 5
 # telemetry blip eligible for infra retry. Any other code blocks retry (Q3).
 TELEMETRY_RETRY_CODES = frozenset({"REASONING_TELEMETRY_MISSING", "NO_REASONING_TOKENS"})
 STAGES = ("1_PLANNER", "2_WORKER_INITIAL", "3_REVIEWER", "4_WORKER_REFINE")
-# Fail-closed throttle guard (2026-09-08): ANY vendor rate-limit/quota signal
-# aborts the pilot with no retry. Retrying a 429 is how a brush with quota
-# becomes a lockout; the infra-retry path below MUST NOT touch throttled arms.
-RATE_LIMIT_PATTERNS = [
-    r"\b429\b",
-    r"\b529\b",
-    r"RESOURCE_EXHAUSTED",
-    r"rate.?limit",
-    r"too many requests",
-    r"quota.{0,30}(exceed|exhaust|deplet)",
-    r"(exceed|exhaust|deplet).{0,30}quota",
-    r"insufficient.?quota",
-    r"\boverloaded\b",
-]
-_RATE_LIMIT_RES = [re.compile(p, re.IGNORECASE) for p in RATE_LIMIT_PATTERNS]
 
 
 def find_rate_limit(payload: Any) -> str | None:
-    """First throttle pattern matching a JSON dump (else str()) of payload."""
-    try:
-        text = json.dumps(payload, default=str)
-    except Exception:  # noqa: BLE001 - non-serializable results still scan
-        text = str(payload)
-    for pattern, compiled in zip(RATE_LIMIT_PATTERNS, _RATE_LIMIT_RES):
-        if compiled.search(text):
-            return pattern
-    return None
+    """Throttle pattern over the payload's non-telemetry text (shared scanner
+    in runner_common: text-only, so reasoning_tokens=429 never false-fires)."""
+    return find_throttle_signal(payload)
 
 
 # Sequential-stepping quota guard (2026-09-08): the pilot runs ONE pair per
@@ -171,21 +150,30 @@ def parse_usage(text: str) -> dict[str, float | None]:
 
 
 def read_usage() -> dict[str, float | None]:
-    """Snapshot live quotas via `omp usage` (cached server-side; ~seconds)."""
-    proc = subprocess.run(["omp", "usage"], capture_output=True, text=True, timeout=120)
+    """Snapshot live quotas via `omp usage` (cached server-side; ~seconds).
+    ANY failure (non-zero exit, timeout, missing binary) returns an all-None
+    snapshot, which check_quota treats as a breach — a guarded run never
+    spends blind, and an uncaught TimeoutExpired can never skip the marker."""
+    try:
+        proc = subprocess.run(["omp", "usage"], capture_output=True, text=True, timeout=120)
+    except Exception:  # noqa: BLE001 - timeout/OSError: fail closed below
+        return {key: None for _, _, key in _USAGE_KEYS}
     if proc.returncode != 0:
         return {key: None for _, _, key in _USAGE_KEYS}
     return parse_usage(proc.stdout)
 
 
 def check_quota(snap: dict[str, float | None]) -> str | None:
-    """First breached `key:pct>=cap` string, or None when all clear/unknown."""
+    """First breached `key:pct>=cap`, else first unknown burn quota, else None.
+    Every capped quota is burned by the pilot (Google: reviewers both arms;
+    xAI: planners; Codex: workers), so an UNKNOWN reading is a breach: the
+    run stops rather than spending against an unverified window."""
     for key, cap in QUOTA_CAPS.items():
         pct = snap.get(key)
-        if pct is not None and pct >= cap:
+        if pct is None:
+            return f"unknown:{key}"
+        if pct >= cap:
             return f"{key}:{pct}>=cap{cap}"
-    if all(v is None for v in snap.values()):
-        return "usage-unavailable"
     return None
 
 T_TABLE_90 = {
