@@ -274,6 +274,13 @@ valid pairs never leaves the band, so first-drop remains the expected trigger.
 `--continue-diagnostics` resumes remaining pairs for diagnosis only: its output is marked
 `diagnostic_only` and `run_matrix.require_parity_preflight` rejects any report
 carrying `diagnostic_only` or `abort_reason`, independently of the verdict.
+Sequential operation (2026-09-08): the pilot runs `--max-new-pairs 1` with
+`--quota-guard`, one pair per invocation with health/usage review between
+invocations (resume: same `run_id`). Pre-pair `omp usage` snapshots gate on
+caps (Google weekly 97%, xAI weekly 90%, Codex 5h 90%/7d 50%); breach stops
+before spending (`QUOTA_CAP`, same stranding semantics as a throttle abort).
+Caps are account-protection, not science — they keep headroom for other work
+rather than riding a window to 100%. Post-pair snapshots record per-pair burn.
 
 ### A.6 Calibration v2 outcome (2026-09-08; the single permitted round)
 

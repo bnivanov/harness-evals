@@ -501,6 +501,66 @@ class ThrottleGuardTests(unittest.TestCase):
         self.assertEqual(len(calls), MAX_INFRA_RETRIES + 1)
 
 
+_USAGE_SAMPLE = """Usage · fetched 807ms ago
+Google Antigravity — 1 account
+  ● bobby.ivanov91@gmail.com
+      ● Usage (Google) (Weekly)     ██████████████████████████░░  92.8% used · resets in 2d23h
+      ● Usage (Google) (5 Hour)     ██░░░░░░░░░░░░░░░░░░░░░░░░░░  8.5% used · resets in 1h9m
+Xai Oauth — 1 account
+  ● bozhidar.n.ivanov@gmail.com · fetched 5m1s ago
+      ● Grok Build (Weekly)       ███████████░░░░░░░░░░░░░░░░░  40.0% used · resets in 1d11h
+Openai Codex — 1 account
+  ● bn.ivanov91@outlook.com · plan: plus
+      ● 5 hours  ██████████░░░░░░░░░░░░░░░░░░  34.0% used · resets in 4h22m
+      ● 7 days   █░░░░░░░░░░░░░░░░░░░░░░░░░░░  5.0% used · resets in 6d23h
+"""
+
+
+class StepperTests(unittest.TestCase):
+    # 2026-09-08: sequential pair-by-pair launch with quota gates.
+    def test_parse_usage_sample(self):
+        snap = preflight_parity.parse_usage(_USAGE_SAMPLE)
+        self.assertEqual(snap["google_weekly"], 92.8)
+        self.assertEqual(snap["google_5h"], 8.5)
+        self.assertEqual(snap["xai_weekly"], 40.0)
+        self.assertEqual(snap["codex_5h"], 34.0)
+        self.assertEqual(snap["codex_7d"], 5.0)
+        self.assertIsNone(preflight_parity.check_quota(snap))
+
+    def test_quota_breach_detected(self):
+        snap = dict(preflight_parity.parse_usage(_USAGE_SAMPLE))
+        snap["google_weekly"] = 97.1
+        breach = preflight_parity.check_quota(snap)
+        self.assertIsNotNone(breach)
+        self.assertIn("google_weekly", breach)
+
+    def test_max_new_pairs_steps_and_resumes(self):
+        harness = MatrixHarness(self, tasks=("grep",), repeats=3)
+        good = (True, _tokens(), [], None)
+        runners = {"arm_a": StubRunner([good] * 3), "arm_b": StubRunner([good] * 3)}
+        first = harness.run(runners, run_id="step", max_new_pairs=1)
+        self.assertEqual(first["new_pairs"], 1)
+        self.assertEqual(first["total_pairs_evaluated"], 1)
+        self.assertTrue(first["diagnostic_only"])  # incomplete, not a verdict
+        second = harness.run(runners, run_id="step", max_new_pairs=1)
+        self.assertEqual(second["new_pairs"], 1)
+        self.assertEqual(second["total_pairs_evaluated"], 2)
+
+    def test_quota_cap_stops_before_spending(self):
+        harness = MatrixHarness(self, tasks=("grep",), repeats=3)
+        good = (True, _tokens(), [], None)
+        runners = {"arm_a": StubRunner([good] * 3), "arm_b": StubRunner([good] * 3)}
+        hot = dict(preflight_parity.parse_usage(_USAGE_SAMPLE))
+        hot["google_weekly"] = 98.5
+        with mock.patch.object(preflight_parity, "read_usage", return_value=hot):
+            res = harness.run(runners, run_id="capped", quota_guard=True)
+        self.assertEqual(res["new_pairs"], 0)
+        self.assertTrue(res["abort_reason"].startswith("QUOTA_CAP:pre"))
+        self.assertEqual(len(runners["arm_a"].calls), 0)
+        marker = os.path.join(harness.run_dir("capped"), "pilot_aborted.json")
+        self.assertTrue(os.path.isfile(marker))
+
+
 if __name__ == "__main__":
     unittest.main()
 

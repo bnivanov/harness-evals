@@ -130,6 +130,64 @@ def find_rate_limit(payload: Any) -> str | None:
             return pattern
     return None
 
+
+# Sequential-stepping quota guard (2026-09-08): the pilot runs ONE pair per
+# invocation and checks `omp usage` before every new pair. Caps are
+# account-protection (leave headroom for other work; never ride a window to
+# 100%), NOT science: a QUOTA_CAP stop strands completed pairs exactly like a
+# throttle abort and needs a fresh run_id after recovery.
+QUOTA_CAPS = {
+    "google_weekly": 97.0,
+    "xai_weekly": 90.0,
+    "codex_5h": 90.0,
+    "codex_7d": 50.0,
+}
+_USAGE_KEYS = (
+    ("google antigravity", "usage (google) (weekly)", "google_weekly"),
+    ("google antigravity", "usage (google) (5 hour)", "google_5h"),
+    ("xai oauth", "grok build (weekly)", "xai_weekly"),
+    ("openai codex", "5 hours", "codex_5h"),
+    ("openai codex", "7 days", "codex_7d"),
+)
+
+
+def parse_usage(text: str) -> dict[str, float | None]:
+    """Parse `omp usage` human output into {quota_key: percent_used}."""
+    snap: dict[str, float | None] = {key: None for _, _, key in _USAGE_KEYS}
+    provider = ""
+    for line in text.splitlines():
+        header = re.match(r"^([A-Za-z][\w .]*?) — \d+ account", line.strip())
+        if header:
+            provider = header.group(1).strip().lower()
+            continue
+        bullet = re.match(r"●\s+(.*?)\s+([\d.]+)% used", line.strip())
+        if not bullet or not provider:
+            continue
+        label = bullet.group(1).lower()
+        for prov, fragment, key in _USAGE_KEYS:
+            if provider.startswith(prov) and fragment in label:
+                snap[key] = float(bullet.group(2))
+    return snap
+
+
+def read_usage() -> dict[str, float | None]:
+    """Snapshot live quotas via `omp usage` (cached server-side; ~seconds)."""
+    proc = subprocess.run(["omp", "usage"], capture_output=True, text=True, timeout=120)
+    if proc.returncode != 0:
+        return {key: None for _, _, key in _USAGE_KEYS}
+    return parse_usage(proc.stdout)
+
+
+def check_quota(snap: dict[str, float | None]) -> str | None:
+    """First breached `key:pct>=cap` string, or None when all clear/unknown."""
+    for key, cap in QUOTA_CAPS.items():
+        pct = snap.get(key)
+        if pct is not None and pct >= cap:
+            return f"{key}:{pct}>=cap{cap}"
+    if all(v is None for v in snap.values()):
+        return "usage-unavailable"
+    return None
+
 T_TABLE_90 = {
     1: 6.314, 2: 2.920, 3: 2.353, 4: 2.132, 5: 2.015,
     6: 1.943, 7: 1.895, 8: 1.860, 9: 1.833, 10: 1.812,
@@ -436,6 +494,8 @@ def run_pilot_parity_matrix(
     task_meta_map: dict[str, dict] | None = None,
     task_source: dict[str, str] | None = None,
     continue_diagnostics: bool = False,
+    max_new_pairs: int | None = None,
+    quota_guard: bool = False,
 ) -> dict[str, Any]:
     with open(os.path.join(BASE_DIR, "../../benchmarks/aider-python/manifest.json"), encoding="utf-8") as handle:
         manifest = json.load(handle)
@@ -484,6 +544,8 @@ def run_pilot_parity_matrix(
     dropped_pairs: list[dict[str, Any]] = []
     abort_reason: str | None = None
     stop = False
+    new_pairs = 0
+    quota_snapshots: list[dict[str, Any]] = []
 
     print(f"\nExecuting Pilot Parity Matrix: tasks={PILOT_TASKS}, k={PILOT_REPEATS} ({expected_pairs} pairs)...")
     for task_id in PILOT_TASKS:
@@ -497,6 +559,18 @@ def run_pilot_parity_matrix(
                 print(f"  Resuming existing pair {task_id} (rep {rep})...")
                 pair_record = completed_pairs[(task_id, rep)]
             else:
+                if quota_guard:
+                    snap = read_usage()
+                    quota_snapshots.append({"phase": "pre", "task_id": task_id, "repeat": rep, "quotas": snap})
+                    breach = check_quota(snap)
+                    if breach is not None:
+                        if abort_reason is None:
+                            abort_reason = f"QUOTA_CAP:pre:{task_id}:rep{rep}:{breach}"
+                            _write_abort_marker(abort_marker, run_id, abort_reason)
+                            print(f"  Quota-cap stop: {abort_reason} — pilot stops before spending; fresh run_id required after recovery.")
+                        stop = True
+                        break
+                    print(f"  Quotas pre-pair: {snap}")
                 pair_record = {
                     "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                     "task_id": task_id,
@@ -525,7 +599,20 @@ def run_pilot_parity_matrix(
                 with open(records_ndjson, "a", encoding="utf-8") as f:
                     f.write(json.dumps(pair_record) + "\n")
                 completed_pairs[(task_id, rep)] = pair_record
-
+                new_pairs += 1
+                if quota_guard:
+                    post = read_usage()
+                    quota_snapshots.append({"phase": "post", "task_id": task_id, "repeat": rep, "quotas": post})
+                    print(f"  Quotas post-pair: {post}")
+                    breach = check_quota(post)
+                    if breach is not None and abort_reason is None:
+                        abort_reason = f"QUOTA_CAP:post:{task_id}:rep{rep}:{breach}"
+                        _write_abort_marker(abort_marker, run_id, abort_reason)
+                        print(f"  Quota-cap stop: {abort_reason} — no further pairs; fresh run_id required after recovery.")
+                        stop = True
+                if max_new_pairs is not None and new_pairs >= max_new_pairs and not stop:
+                    print(f"  Step limit reached ({new_pairs} new pair(s) this invocation); stopping for health/usage review. Resume with the same run_id.")
+                    stop = True
             # Throttle guard (run level): a rate-limited arm aborts the WHOLE
             # pilot immediately — no second arm, no further pairs, not even in
             # --continue-diagnostics (diagnostic traffic hammers quota too).
@@ -693,10 +780,13 @@ def run_pilot_parity_matrix(
             "ok": retry_gate_ok,
         },
         "records_file": records_ndjson,
+        "new_pairs": new_pairs,
+        "quota_guard": quota_guard,
+        "quota_snapshots": quota_snapshots,
     }
 
 
-def run_preflight(run_id: str, dry_run: bool = False, continue_diagnostics: bool = False) -> dict[str, Any]:
+def run_preflight(run_id: str, dry_run: bool = False, continue_diagnostics: bool = False, max_new_pairs: int | None = None, quota_guard: bool = False) -> dict[str, Any]:
     print("=== WORKFLOW BENCH PRE-FLIGHT PARITY GATE ===")
     print(f"Target Run ID: {run_id}")
 
@@ -753,7 +843,7 @@ def run_preflight(run_id: str, dry_run: bool = False, continue_diagnostics: bool
         print("\nDry-run mode: skipping pilot model invocations.")
         report["verdict"] = "DRY_RUN_PASS"
     else:
-        pilot_results = run_pilot_parity_matrix(run_id, continue_diagnostics=continue_diagnostics)
+        pilot_results = run_pilot_parity_matrix(run_id, continue_diagnostics=continue_diagnostics, max_new_pairs=max_new_pairs, quota_guard=quota_guard)
         report.update(pilot_results)
 
     # Save artifact strictly inside run directory
@@ -771,16 +861,18 @@ def run_preflight(run_id: str, dry_run: bool = False, continue_diagnostics: bool
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--run-id", default="confirmatory-004", help="Run identifier")
+    parser.add_argument("--run-id", default="confirmatory-011", help="Run identifier")
     parser.add_argument("--dry-run", action="store_true", help="Skip live pilot model invocations")
     parser.add_argument(
         "--continue-diagnostics",
         action="store_true",
         help="After a fail-fast abort, run remaining pairs diagnostically. Output is marked diagnostic_only and can never gate a matrix launch.",
     )
+    parser.add_argument("--max-new-pairs", type=int, default=None, help="Sequential stepping: stop after this many NEW pairs; resume with the same run_id for pair-by-pair health/usage review.")
+    parser.add_argument("--quota-guard", action="store_true", help="Check `omp usage` before every new pair; stop on QUOTA_CAP breach (pre and post snapshots recorded).")
     args = parser.parse_args()
 
-    report = run_preflight(args.run_id, dry_run=args.dry_run, continue_diagnostics=args.continue_diagnostics)
+    report = run_preflight(args.run_id, dry_run=args.dry_run, continue_diagnostics=args.continue_diagnostics, max_new_pairs=args.max_new_pairs, quota_guard=args.quota_guard)
     if report["verdict"] not in {"PASS", "DRY_RUN_PASS"}:
         sys.exit(1)
 
