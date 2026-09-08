@@ -31,7 +31,7 @@ $$\mathbf{Planner} \;\longrightarrow\; \mathbf{Worker} \;\longrightarrow\; \math
    * All stages follow the pre-registered `EFFORT_MATRIX` calibrated to match token budgets:
      * Stage 1 (Planner): `medium` (OMP) / `medium` (Grok Build CLI)
      * Stage 2 & 4 (Worker): `max` (OMP) / `max` (Codex CLI)
-     * Stage 3 (Reviewer): `high` (OMP) / `medium` (AGY CLI)
+     * Stage 3 (Reviewer): `medium` (OMP) / `medium` (AGY CLI) — calibration-v2 winner per §A.6 (v1 mapping `high`/`medium` superseded).
 3. **Model & Stage Parity (Held Strictly Constant)**:
    * Model capability is NOT the independent variable. Both arms execute the identical frontier model for each lifecycle step.
 
@@ -51,8 +51,7 @@ Where:
 | Stage | Role | Function | Assigned Model | Arm A: Unified OMP | Arm B: Standalone Multi-CLI |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **1. Planner** | System Architecture | Inspects problem, designs data structures & algorithm | **xAI Grok 4.6** | `omp -p --model=xai-oauth/grok-4.6 --thinking=medium` | `grok -p --effort medium` $\to$ `01_PLAN.md` |
-| **2. Worker** | Implementation | Implements full code from plan & README | **OpenAI Codex GPT-5.6 Luna** | `omp -p --model=openai-codex/gpt-5.6-luna --thinking=max --continue` | `codex exec -c model_reasoning_effort="max"` |
-| **3. Reviewer**| Audit & Verification | Runs tests, hunts bugs & edge cases, audits code | **Google Gemini 3.8 Flash** | `omp -p --model=google-antigravity/gemini-3.8-flash --thinking=high --continue` | `agy -p --effort medium` $\to$ `02_REVIEW.md` |
+| **3. Reviewer**| Audit & Verification | Runs tests, hunts bugs & edge cases, audits code | **Google Gemini 3.8 Flash** | `omp -p --model=google-antigravity/gemini-3.8-flash --thinking=medium --continue` | `agy -p --effort medium` $\to$ `02_REVIEW.md` |
 | **4. Worker** | Refinement & Fixes | Addresses reviewer findings, fixes bugs & verifies | **OpenAI Codex GPT-5.6 Luna** | `omp -p --model=openai-codex/gpt-5.6-luna --thinking=max --continue` | `codex exec -c model_reasoning_effort="max"` |
 
 ### Pre-Registered Matched-Compute Design & Effort Calibration
@@ -164,7 +163,7 @@ Where $P_{\text{in}}, P_{\text{cache}}, P_{\text{out}}, P_{\text{reasoning}}$ ar
 | Variable | Control Mechanism | Parity Check |
 | :--- | :--- | :--- |
 | **Model Family & Generation** | Pinned frontier models per stage | Identical models used in Arm A and Arm B at each stage |
-| **Reasoning Depth** | Pre-registered matched-compute effort matrix | Planner: `medium`/`medium`<br>Worker: `max`/`max`<br>Reviewer: `high`/`medium` (calibrated to ~13k tokens) |
+| **Reasoning Depth** | Pre-registered matched-compute effort matrix | Planner: `medium`/`medium` (TOST-only per §A.6)<br>Worker: `max`/`max`<br>Reviewer: `medium`/`medium` (v2 winner per §A.6; v1 `high`/`medium` superseded) |
 | **Tool Surface** | Identical primitive capabilities | File read, file write, file edit, bash unit test runner |
 | **Network Isolation** | Strict offline execution | Web search disabled; external network calls blocked and audited |
 | **Stage Prompts** | Verbatim identical instructions | Identical role descriptions, constraints, and instructions |
@@ -216,8 +215,8 @@ under a frozen mapping, so the mapping itself is re-tested once, not gated blind
 
 | Stage | Gate for 011 PASS |
 | :--- | :--- |
-| Planner | Pooled ratio in [0.80, 1.25] AND TOST 90% CI inside [0.50, 2.00] |
-| Reviewer | Pooled ratio in [0.80, 1.25] AND TOST 90% CI inside [0.50, 2.00] under the calibration-v2 winner (AGY `high` stays forbidden). If v2 cannot place the reviewer pooled ratio in band, the reviewer is pre-registered TOST-only with the asymmetry as a limitation (per A.1 stop rule), never re-tuned at gate time; the TOST-only fallback requires setting `STAGE_POOLED_REQUIRED["3_REVIEWER"] = False` before the 011 freeze, since post-freeze flips are rejected with the hash. |
+| Planner | TOST 90% CI inside [0.50, 2.00] only — pooled band not applicable (TOST-only per §A.6; v2: OMP `medium` 0.47, OMP `high` 3.22) |
+| Reviewer | Pooled ratio in [0.80, 1.25] AND TOST 90% CI inside [0.50, 2.00] under the calibration-v2 winner OMP `medium` / AGY `medium` (pooled 1.15 — contingency not triggered; AGY `high` stays forbidden). |
 | Worker, Refine | Input-level parity by construction (same Codex binary, same `max` flag; effort flags frozen). Equivalence NOT gated; output-token divergence is a reported primary IV result. Integrity checks `zero_exclusions == 0` and `token_gaps == 0` still required. |
 
 PASS additionally requires 0 dropped pairs, 0 token gaps, n = 14, retry rate
@@ -270,3 +269,32 @@ valid pairs never leaves the band, so first-drop remains the expected trigger.
 `--continue-diagnostics` resumes remaining pairs for diagnosis only: its output is marked
 `diagnostic_only` and `run_matrix.require_parity_preflight` rejects any report
 carrying `diagnostic_only` or `abort_reason`, independently of the verdict.
+
+### A.6 Calibration v2 outcome (2026-09-08; the single permitted round)
+
+Run `run_calibration_v2.py` on grade-school, variable-length-quantity,
+pig-latin, transpose (all configs success, zero violations; grade-school's
+first OMP planner turn returned an empty zero-token response and was rerun
+clean — recorded in the JSON). Confound disclosed: grok read Arm A's
+`01_PLAN.md` on grade-school and variable-length-quantity before writing its
+own plan. Planner disposition is robust to it: doubling grok's tokens on those
+two tasks still pools 2.28 (out of band); only a 4x+ inflation — implausible
+from reading a plan — could enter the band, and 010's clean OMP-medium 0.47
+independently keeps planner TOST-only. No grok rerun: nothing depends on it.
+Method deviation (unavoidable, disclosed): A.1 asked for tasks disjoint from
+the 25-task matrix set, but the manifest holds exactly 25 tasks, so none
+exist; v2 used fresh tasks outside the v1 set and the pilot set, preserving
+gate-sample integrity.
+
+| Stage | v2 pooled ratio | Verdict |
+| Planner OMP `high` / grok `medium` | 3.22 (per-task 2.83–3.53) | MISS — with 010's OMP `medium` at 0.47, neither mapping enters the band |
+| Reviewer OMP `medium` / AGY `medium` | 1.15 (per-task 0.40–3.08) | IN BAND — FROZEN winner (clean: ran first, fresh files; v2.1 confirms) |
+| Reviewer OMP `high` / AGY `medium` | 3.96 clean (v2.1 isolated rerun; per-task 2.37–5.83, all out of band, consistent direction; the v2 1.71 was pure contamination artifact) | MISS — confounded v2 cell retained on disk as `reviewer_omp_high_confounded/` for audit, supports no claim |
+TOST-only (`STAGE_POOLED_REQUIRED["1_PLANNER"] = False`) with the adapter
+asymmetry recorded as a limitation — OMP thinking levels are too coarse to
+match grok `medium` at token level (medium undershoots, high overshoots).
+Reviewer gates pooled+TOST under OMP `medium` / AGY `medium`
+(`EFFORT_MATRIX` updated; AGY `high` stays forbidden). Winners frozen in
+`EFFORT_MATRIX` + `calibration/planner_effort_calibration.json` /
+`calibration/reviewer_effort_calibration.json` by the close-out commit
+carrying this section, before confirmatory-011.

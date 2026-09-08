@@ -17,6 +17,7 @@ import preflight_parity  # noqa: E402
 from experiment_config import PROMPTS, SCRATCH_POLICY_SENTENCE  # noqa: E402
 from preflight_parity import (  # noqa: E402
     STAGE_POOLED_REQUIRED,
+    STAGE_TOST_REQUIRED,
     _telemetry_only_retryable,
     calculate_stage_tost,
     compute_composite_source_sha256,
@@ -165,8 +166,19 @@ class RetryTaxonomyTests(unittest.TestCase):
 
 class SplitGateTests(unittest.TestCase):
     def test_worker_divergence_passes_without_pooled_requirement(self):
-        res = calculate_stage_tost([2000] * 5, [1000] * 5, pooled_required=False)
+        res = calculate_stage_tost([2000] * 5, [1000] * 5, pooled_required=False, tost_required=False)
         self.assertFalse(res["pooled_ok"])
+        self.assertTrue(res["passed"])
+
+    def test_tost_only_planner_fails_off_band(self):
+        # §A.6: pooled_required=False must NOT bypass TOST for the planner.
+        res = calculate_stage_tost([470] * 5, [1000] * 5, pooled_required=False, tost_required=True)
+        self.assertFalse(res["pooled_ok"])
+        self.assertFalse(res["tost_ok"])
+        self.assertFalse(res["passed"])
+
+    def test_tost_only_planner_passes_matched(self):
+        res = calculate_stage_tost([1000] * 5, [1000] * 5, pooled_required=False, tost_required=True)
         self.assertTrue(res["passed"])
 
     def test_same_divergence_fails_with_pooled_requirement(self):
@@ -258,15 +270,17 @@ class FailFastTests(unittest.TestCase):
         self.assertEqual(len(arm_b.calls), 2)
 
     def test_ratio_watch_aborts_at_five_valid_pairs(self):
+        # v2 outcome (§A.6): planner is TOST-only, so the pooled-ratio watch
+        # applies to the reviewer, the remaining pooled-gated stage.
         harness = MatrixHarness(self, tasks=("grep",), repeats=7)
-        tok_a = _tokens(**{"1_PLANNER": 470})
+        tok_a = _tokens(**{"3_REVIEWER": 470})
         tok_b = _tokens()
         arm_a = StubRunner([(True, tok_a, [], None)])
         arm_b = StubRunner([(True, tok_b, [], None)])
         res = harness.run({"arm_a": arm_a, "arm_b": arm_b})
         self.assertEqual(res["verdict"], "FAIL")
         self.assertEqual(res["total_pairs_evaluated"], 5)
-        self.assertTrue(res["abort_reason"].startswith("UNRECOVERABLE_POOLED_RATIO:1_PLANNER"))
+        self.assertTrue(res["abort_reason"].startswith("UNRECOVERABLE_POOLED_RATIO:3_REVIEWER"))
         self.assertEqual(len(arm_a.calls), 5)
 
     def test_full_pass_under_split_gate(self):
@@ -284,7 +298,7 @@ class FailFastTests(unittest.TestCase):
         self.assertTrue(worker["passed"])
         self.assertEqual(
             res["stage_gates"],
-            {s: {"pooled_required": STAGE_POOLED_REQUIRED[s]} for s in STAGES},
+            {s: {"pooled_required": STAGE_POOLED_REQUIRED[s], "tost_required": STAGE_TOST_REQUIRED[s]} for s in STAGES},
         )
         self.assertTrue(res["retry_gate"]["ok"])
 
@@ -313,7 +327,7 @@ class MatrixGateTests(unittest.TestCase):
             "composite_source_sha256": composite,
             "diagnostic_only": False,
             "abort_reason": None,
-            "stage_gates": {s: {"pooled_required": STAGE_POOLED_REQUIRED[s]} for s in STAGES},
+            "stage_gates": {s: {"pooled_required": STAGE_POOLED_REQUIRED[s], "tost_required": STAGE_TOST_REQUIRED[s]} for s in STAGES},
         }
         report.update(overrides)
         with open(os.path.join(run_dir, "preflight_parity.json"), "w", encoding="utf-8") as handle:

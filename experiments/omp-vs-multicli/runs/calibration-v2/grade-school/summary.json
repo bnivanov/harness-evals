@@ -1,0 +1,63 @@
+{
+  "configs": {
+    "planner_grok_medium": {
+      "duration": 64.79,
+      "effort": "medium",
+      "reasoning_tokens": 969,
+      "returncode": 0,
+      "success": true,
+      "violations": []
+    },
+    "planner_omp_high": {
+      "duration": 90.97,
+      "effort": "high",
+      "reasoning_tokens": 3309,
+      "returncode": 0,
+      "success": true,
+      "violations": []
+    },
+    "reviewer_agy_medium": {
+      "duration": 55.56,
+      "effort": "medium",
+      "reasoning_tokens": 3733,
+      "returncode": 0,
+      "success": true,
+      "violations": []
+    },
+    "reviewer_omp_high": {
+      "duration": 95.57,
+      "effort": "high",
+      "fresh_session": true,
+      "integrity_violations": [],
+      "reasoning_tokens": 14686,
+      "returncode": 0,
+      "success": true,
+      "violations": []
+    },
+    "reviewer_omp_high_confounded": {
+      "duration": 35.76,
+      "effort": "high",
+      "reasoning_tokens": 1752,
+      "returncode": 0,
+      "success": true,
+      "violations": []
+    },
+    "reviewer_omp_medium": {
+      "duration": 63.89,
+      "effort": "medium",
+      "reasoning_tokens": 2044,
+      "returncode": 0,
+      "success": true,
+      "violations": []
+    },
+    "worker_omp_max": {
+      "duration": 59.19,
+      "effort": "max",
+      "reasoning_tokens": 1181,
+      "returncode": 0,
+      "success": true,
+      "violations": []
+    }
+  },
+  "task_id": "grade-school"
+}

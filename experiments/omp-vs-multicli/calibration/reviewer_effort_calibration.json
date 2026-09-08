@@ -1,66 +1,189 @@
 {
-  "calibration_target": "Stage 3 (Reviewer) - Gemini 3.8 Flash reasoning token budget matching",
-  "calibrated_at": "2026-09-07T16:15:00Z",
-  "disjoint_tasks": ["affine-cipher", "book-store", "proverb"],
-  "note": "Calibration tasks are strictly disjoint from preflight PILOT_TASKS (grep, list-ops).",
   "binary_pins": {
-    "omp": {
-      "path": "~/AgentWork/bin/omp",
-      "version": "omp/18.1.13",
-      "flag": "--thinking=high"
-    },
     "agy": {
+      "flag": "--effort medium",
       "path": "~/.local/bin/agy",
-      "version": "1.1.27",
-      "flag": "--effort medium"
+      "version": "1.1.27"
+    },
+    "omp": {
+      "flag": "--thinking=high",
+      "path": "~/AgentWork/bin/omp",
+      "version": "omp/18.1.13"
     }
   },
-  "rationale": "In exploratory and confirmatory-003 runs, AGY CLI with --effort high executed an uncapped ~32k thinking budget (averaging 26,539 tokens in confirmatory-003), whereas OMP's --thinking=high averaged 13,684 tokens (ratio 0.515). Setting AGY CLI to --effort medium constrains thinking to the intended ~4k-12k range, aligning compute budgets across arms.",
+  "calibrated_at": "2026-09-07T16:15:00Z",
+  "calibration_target": "Stage 3 (Reviewer) - Gemini 3.8 Flash reasoning token budget matching",
+  "disjoint_tasks": [
+    "affine-cipher",
+    "book-store",
+    "proverb"
+  ],
   "empirical_measurements": [
     {
-      "task_id": "affine-cipher",
-      "role": "reviewer",
-      "omp_high_reasoning_tokens": 5844,
-      "omp_high_duration_seconds": 59.03,
-      "agy_medium_reasoning_tokens": 3831,
-      "agy_medium_duration_seconds": 49.02,
       "agy_high_baseline_tokens": 17518,
+      "agy_medium_duration_seconds": 49.02,
+      "agy_medium_reasoning_tokens": 3831,
+      "log_ratio": 0.4223,
+      "omp_high_duration_seconds": 59.03,
+      "omp_high_reasoning_tokens": 5844,
       "ratio_omp_to_agy_medium": 1.5255,
-      "log_ratio": 0.4223
+      "role": "reviewer",
+      "task_id": "affine-cipher"
     },
     {
-      "task_id": "book-store",
-      "role": "reviewer",
-      "omp_high_reasoning_tokens": 9713,
-      "omp_high_duration_seconds": 69.09,
-      "agy_medium_reasoning_tokens": 7016,
-      "agy_medium_duration_seconds": 60.14,
       "agy_high_baseline_tokens": 12728,
+      "agy_medium_duration_seconds": 60.14,
+      "agy_medium_reasoning_tokens": 7016,
+      "log_ratio": 0.3253,
+      "omp_high_duration_seconds": 69.09,
+      "omp_high_reasoning_tokens": 9713,
       "ratio_omp_to_agy_medium": 1.3844,
-      "log_ratio": 0.3253
+      "role": "reviewer",
+      "task_id": "book-store"
     },
     {
-      "task_id": "proverb",
-      "role": "reviewer",
-      "omp_high_reasoning_tokens": 1650,
-      "omp_high_duration_seconds": 28.84,
-      "agy_medium_reasoning_tokens": 5277,
-      "agy_medium_duration_seconds": 63.53,
       "agy_high_baseline_tokens": null,
+      "agy_medium_duration_seconds": 63.53,
+      "agy_medium_reasoning_tokens": 5277,
+      "log_ratio": -1.1626,
+      "omp_high_duration_seconds": 28.84,
+      "omp_high_reasoning_tokens": 1650,
       "ratio_omp_to_agy_medium": 0.3127,
-      "log_ratio": -1.1626
+      "role": "reviewer",
+      "task_id": "proverb"
     }
   ],
+  "note": "Calibration tasks are strictly disjoint from preflight PILOT_TASKS (grep, list-ops).",
+  "rationale": "In exploratory and confirmatory-003 runs, AGY CLI with --effort high executed an uncapped ~32k thinking budget (averaging 26,539 tokens in confirmatory-003), whereas OMP's --thinking=high averaged 13,684 tokens (ratio 0.515). Setting AGY CLI to --effort medium constrains thinking to the intended ~4k-12k range, aligning compute budgets across arms.",
+  "round_2_omp_high": {
+    "band": [
+      0.8,
+      1.25
+    ],
+    "calibrated_at": "2026-09-08",
+    "candidate": "OMP high vs AGY medium (AGY high forbidden)",
+    "disjoint_tasks": [
+      "grade-school",
+      "pig-latin",
+      "transpose",
+      "variable-length-quantity"
+    ],
+    "in_band": false,
+    "measurements": [
+      {
+        "counterpart_duration_seconds": 55.56,
+        "counterpart_reasoning_tokens": 3733,
+        "omp_duration_seconds": 35.76,
+        "omp_reasoning_tokens": 1752,
+        "ratio": 0.4693,
+        "task_id": "grade-school"
+      },
+      {
+        "counterpart_duration_seconds": 93.49,
+        "counterpart_reasoning_tokens": 4736,
+        "omp_duration_seconds": 51.64,
+        "omp_reasoning_tokens": 4566,
+        "ratio": 0.9641,
+        "task_id": "variable-length-quantity"
+      },
+      {
+        "counterpart_duration_seconds": 56.8,
+        "counterpart_reasoning_tokens": 4514,
+        "omp_duration_seconds": 75.65,
+        "omp_reasoning_tokens": 12639,
+        "ratio": 2.8,
+        "task_id": "pig-latin"
+      },
+      {
+        "counterpart_duration_seconds": 55.97,
+        "counterpart_reasoning_tokens": 2684,
+        "omp_duration_seconds": 91.09,
+        "omp_reasoning_tokens": 7907,
+        "ratio": 2.946,
+        "task_id": "transpose"
+      }
+    ],
+    "pooled_agy_medium_tokens": 15667,
+    "pooled_omp_tokens": 26864,
+    "pooled_ratio": 1.7147,
+    "run": "runs/calibration-v2"
+  },
+  "round_2_omp_medium": {
+    "band": [
+      0.8,
+      1.25
+    ],
+    "calibrated_at": "2026-09-08",
+    "candidate": "OMP medium vs AGY medium (AGY high forbidden)",
+    "disjoint_tasks": [
+      "grade-school",
+      "pig-latin",
+      "transpose",
+      "variable-length-quantity"
+    ],
+    "in_band": true,
+    "measurements": [
+      {
+        "counterpart_duration_seconds": 55.56,
+        "counterpart_reasoning_tokens": 3733,
+        "omp_duration_seconds": 63.89,
+        "omp_reasoning_tokens": 2044,
+        "ratio": 0.5475,
+        "task_id": "grade-school"
+      },
+      {
+        "counterpart_duration_seconds": 93.49,
+        "counterpart_reasoning_tokens": 4736,
+        "omp_duration_seconds": 37.05,
+        "omp_reasoning_tokens": 1905,
+        "ratio": 0.4022,
+        "task_id": "variable-length-quantity"
+      },
+      {
+        "counterpart_duration_seconds": 56.8,
+        "counterpart_reasoning_tokens": 4514,
+        "omp_duration_seconds": 58.84,
+        "omp_reasoning_tokens": 5828,
+        "ratio": 1.2911,
+        "task_id": "pig-latin"
+      },
+      {
+        "counterpart_duration_seconds": 55.97,
+        "counterpart_reasoning_tokens": 2684,
+        "omp_duration_seconds": 86.93,
+        "omp_reasoning_tokens": 8266,
+        "ratio": 3.0797,
+        "task_id": "transpose"
+      }
+    ],
+    "pooled_agy_medium_tokens": 15667,
+    "pooled_omp_tokens": 18043,
+    "pooled_ratio": 1.1517,
+    "run": "runs/calibration-v2"
+  },
   "summary_statistics": {
-    "n": 3,
-    "tasks": ["affine-cipher", "book-store", "proverb"],
-    "pooled_omp_tokens": 17207,
-    "pooled_agy_medium_tokens": 16124,
-    "pooled_ratio": 1.0672,
+    "ci_90_ratio": [
+      0.1953,
+      3.8824
+    ],
     "mean_log_ratio": -0.1383,
+    "n": 3,
+    "point_estimate_ratio": 0.8708,
+    "pooled_agy_medium_tokens": 16124,
+    "pooled_omp_tokens": 17207,
+    "pooled_ratio": 1.0672,
     "sd_log_ratio": 0.8883,
     "se_log_ratio": 0.5129,
-    "point_estimate_ratio": 0.8708,
-    "ci_90_ratio": [0.1953, 3.8824]
+    "tasks": [
+      "affine-cipher",
+      "book-store",
+      "proverb"
+    ]
+  },
+  "v2_winner": {
+    "agy": "medium",
+    "note": "OMP high re-measured 1.71 (miss); frozen in EFFORT_MATRIX before 011.",
+    "omp": "medium",
+    "pooled_ratio": 1.1517
   }
 }

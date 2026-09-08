@@ -1,74 +1,130 @@
 {
-  "calibration_target": "Stage 1 (Planner) - Grok 4.6 reasoning token budget matching",
+  "binary_pins": {
+    "grok": {
+      "flag": "--effort medium",
+      "path": "~/.grok/bin/grok",
+      "version": "grok 1.0.5 (5115b46bc909) [stable]"
+    },
+    "omp": {
+      "flag": "--thinking=medium",
+      "path": "~/AgentWork/bin/omp",
+      "version": "omp/18.1.13"
+    }
+  },
   "calibrated_at": "2026-09-07T18:00:00Z",
+  "calibration_target": "Stage 1 (Planner) - Grok 4.6 reasoning token budget matching",
   "disjoint_tasks": [
     "affine-cipher",
     "book-store",
     "proverb"
   ],
-  "note": "Calibration tasks are strictly disjoint from preflight PILOT_TASKS (grep, list-ops).",
-  "binary_pins": {
-    "omp": {
-      "path": "~/AgentWork/bin/omp",
-      "version": "omp/18.1.13",
-      "flag": "--thinking=medium"
-    },
-    "grok": {
-      "path": "~/.grok/bin/grok",
-      "version": "grok 1.0.5 (5115b46bc909) [stable]",
-      "flag": "--effort medium"
-    }
-  },
-  "rationale": "In exploratory pilot runs and variance-probe-001, Grok Build CLI with xhigh effort executed an uncapped ~11.7k reasoning budget that exceeded 300s in 3 of 6 runs (up to 364s). Setting both OMP and Grok Build CLI to medium matches the underlying model architecture, constrains thinking to the ~700-2400 token range, completes in 62s-107s (zero runs exceeding 300s), and brings Stage 1 inside the pre-registered equivalence margin.",
   "empirical_measurements": [
     {
-      "task_id": "affine-cipher",
-      "role": "planner",
-      "omp_medium_reasoning_tokens": 1402,
-      "omp_medium_duration_seconds": 81.41,
-      "grok_medium_reasoning_tokens": 2386,
       "grok_medium_duration_seconds": 106.81,
+      "grok_medium_reasoning_tokens": 2386,
+      "log_ratio": -0.5317,
+      "omp_medium_duration_seconds": 81.41,
+      "omp_medium_reasoning_tokens": 1402,
       "ratio_omp_to_grok_medium": 0.5876,
-      "log_ratio": -0.5317
+      "role": "planner",
+      "task_id": "affine-cipher"
     },
     {
-      "task_id": "book-store",
-      "role": "planner",
-      "omp_medium_reasoning_tokens": 1031,
-      "omp_medium_duration_seconds": 80.48,
-      "grok_medium_reasoning_tokens": 1593,
       "grok_medium_duration_seconds": 90.17,
+      "grok_medium_reasoning_tokens": 1593,
+      "log_ratio": -0.4351,
+      "omp_medium_duration_seconds": 80.48,
+      "omp_medium_reasoning_tokens": 1031,
       "ratio_omp_to_grok_medium": 0.6472,
-      "log_ratio": -0.4351
+      "role": "planner",
+      "task_id": "book-store"
     },
     {
-      "task_id": "proverb",
-      "role": "planner",
-      "omp_medium_reasoning_tokens": 717,
-      "omp_medium_duration_seconds": 62.86,
-      "grok_medium_reasoning_tokens": 917,
       "grok_medium_duration_seconds": 71.26,
+      "grok_medium_reasoning_tokens": 917,
+      "log_ratio": -0.246,
+      "omp_medium_duration_seconds": 62.86,
+      "omp_medium_reasoning_tokens": 717,
       "ratio_omp_to_grok_medium": 0.7819,
-      "log_ratio": -0.2460
+      "role": "planner",
+      "task_id": "proverb"
     }
   ],
+  "note": "Calibration tasks are strictly disjoint from preflight PILOT_TASKS (grep, list-ops).",
+  "rationale": "In exploratory pilot runs and variance-probe-001, Grok Build CLI with xhigh effort executed an uncapped ~11.7k reasoning budget that exceeded 300s in 3 of 6 runs (up to 364s). Setting both OMP and Grok Build CLI to medium matches the underlying model architecture, constrains thinking to the ~700-2400 token range, completes in 62s-107s (zero runs exceeding 300s), and brings Stage 1 inside the pre-registered equivalence margin.",
+  "round_2": {
+    "band": [
+      0.8,
+      1.25
+    ],
+    "calibrated_at": "2026-09-08",
+    "candidate": "Arm A planner medium->high, grok --effort medium fixed",
+    "deviation": "matrix-set disjointness unsatisfiable (25-task manifest); fresh non-v1 non-pilot tasks used",
+    "disjoint_tasks": [
+      "grade-school",
+      "pig-latin",
+      "transpose",
+      "variable-length-quantity"
+    ],
+    "grade_school_note": "first OMP planner turn returned an empty zero-token response (no plan file); task rerun clean",
+    "in_band": false,
+    "measurements": [
+      {
+        "counterpart_duration_seconds": 64.79,
+        "counterpart_reasoning_tokens": 969,
+        "omp_duration_seconds": 90.97,
+        "omp_reasoning_tokens": 3309,
+        "ratio": 3.4149,
+        "task_id": "grade-school"
+      },
+      {
+        "counterpart_duration_seconds": 82.84,
+        "counterpart_reasoning_tokens": 1181,
+        "omp_duration_seconds": 98.32,
+        "omp_reasoning_tokens": 3340,
+        "ratio": 2.8281,
+        "task_id": "variable-length-quantity"
+      },
+      {
+        "counterpart_duration_seconds": 64.3,
+        "counterpart_reasoning_tokens": 867,
+        "omp_duration_seconds": 108.63,
+        "omp_reasoning_tokens": 3063,
+        "ratio": 3.5329,
+        "task_id": "pig-latin"
+      },
+      {
+        "counterpart_duration_seconds": 183.95,
+        "counterpart_reasoning_tokens": 2163,
+        "omp_duration_seconds": 169.6,
+        "omp_reasoning_tokens": 6970,
+        "ratio": 3.2224,
+        "task_id": "transpose"
+      }
+    ],
+    "pooled_grok_medium_tokens": 5180,
+    "pooled_omp_high_tokens": 16682,
+    "pooled_ratio": 3.2205,
+    "run": "runs/calibration-v2"
+  },
   "summary_statistics": {
+    "ci_90_ratio": [
+      0.5224,
+      0.8527
+    ],
+    "mean_log_ratio": -0.4043,
     "n": 3,
+    "point_estimate_ratio": 0.6675,
+    "pooled_grok_medium_tokens": 4896,
+    "pooled_omp_tokens": 3150,
+    "pooled_ratio": 0.6434,
+    "sd_log_ratio": 0.1453,
+    "se_log_ratio": 0.0839,
     "tasks": [
       "affine-cipher",
       "book-store",
       "proverb"
-    ],
-    "pooled_omp_tokens": 3150,
-    "pooled_grok_medium_tokens": 4896,
-    "pooled_ratio": 0.6434,
-    "mean_log_ratio": -0.4043,
-    "sd_log_ratio": 0.1453,
-    "se_log_ratio": 0.0839,
-    "point_estimate_ratio": 0.6675,
-    "ci_90_ratio": [
-      0.5224,
-      0.8527
     ]
-  }
+  },
+  "v2_disposition": "TOST-only per A.1 stop rule: 010 OMP-medium pooled 0.47 (below band), v2 OMP-high pooled 3.22 (above band); OMP thinking levels too coarse to match grok medium. OMP medium retained as the lesser mismatch. No third round."
 }

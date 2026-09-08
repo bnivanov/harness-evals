@@ -107,8 +107,8 @@ def require_parity_preflight(manifest_path: str) -> dict:
         raise RuntimeError(
             f"Preflight parity manifest mismatch: report={report_manifest_hash} vs live={manifest_hash}"
         )
-    from preflight_parity import STAGE_POOLED_REQUIRED, compute_composite_source_sha256
-    live_gates = {s: {"pooled_required": req} for s, req in STAGE_POOLED_REQUIRED.items()}
+    from preflight_parity import STAGE_POOLED_REQUIRED, STAGE_TOST_REQUIRED, compute_composite_source_sha256
+    live_gates = {s: {"pooled_required": STAGE_POOLED_REQUIRED[s], "tost_required": STAGE_TOST_REQUIRED[s]} for s in STAGE_POOLED_REQUIRED}
     if report.get("stage_gates") != live_gates:
         raise RuntimeError("Preflight stage-gate spec mismatch: re-run preflight on current code.")
     live_hash, _ = compute_composite_source_sha256()

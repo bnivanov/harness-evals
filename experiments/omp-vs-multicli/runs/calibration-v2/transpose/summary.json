@@ -1,0 +1,63 @@
+{
+  "configs": {
+    "planner_grok_medium": {
+      "duration": 183.95,
+      "effort": "medium",
+      "reasoning_tokens": 2163,
+      "returncode": 0,
+      "success": true,
+      "violations": []
+    },
+    "planner_omp_high": {
+      "duration": 169.6,
+      "effort": "high",
+      "reasoning_tokens": 6970,
+      "returncode": 0,
+      "success": true,
+      "violations": []
+    },
+    "reviewer_agy_medium": {
+      "duration": 55.97,
+      "effort": "medium",
+      "reasoning_tokens": 2684,
+      "returncode": 0,
+      "success": true,
+      "violations": []
+    },
+    "reviewer_omp_high": {
+      "duration": 134.65,
+      "effort": "high",
+      "fresh_session": true,
+      "integrity_violations": [],
+      "reasoning_tokens": 15641,
+      "returncode": 0,
+      "success": true,
+      "violations": []
+    },
+    "reviewer_omp_high_confounded": {
+      "duration": 91.09,
+      "effort": "high",
+      "reasoning_tokens": 7907,
+      "returncode": 0,
+      "success": true,
+      "violations": []
+    },
+    "reviewer_omp_medium": {
+      "duration": 86.93,
+      "effort": "medium",
+      "reasoning_tokens": 8266,
+      "returncode": 0,
+      "success": true,
+      "violations": []
+    },
+    "worker_omp_max": {
+      "duration": 73.57,
+      "effort": "max",
+      "reasoning_tokens": 1523,
+      "returncode": 0,
+      "success": true,
+      "violations": []
+    }
+  },
+  "task_id": "transpose"
+}

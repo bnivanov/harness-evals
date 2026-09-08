@@ -9,10 +9,12 @@ Enforces:
 3. Positive control: oracle solution is verified readable unconfined.
 4. Negative filesystem containment: sandbox-exec denies read on oracle solution (EACCES).
 5. Negative network execution containment: sandbox-exec blocks execution of curl (EPERM).
-6. Statistical reasoning token parity on pilot tasks (Amendment A):
+6. Statistical reasoning token parity on pilot tasks (Amendment A + v2 outcome §A.6):
    - Evaluates pilot tasks (k=7 repeats on grep and list-ops, N=14 paired observations).
-   - Split equivalence gate: planner and reviewer require pooled ratio in
-     [0.80, 1.25] AND TOST 90% CI inside [0.50, 2.00]; worker/refine are
+   - Split equivalence gate: reviewer requires pooled ratio in
+     [0.80, 1.25] AND TOST 90% CI inside [0.50, 2.00] (mapping OMP `medium` /
+     AGY `medium` frozen by calibration v2, pooled 1.15); planner is TOST-only
+     (neither candidate mapping enters the pooled band); worker/refine are
      input-matched (same binary+flag) so only zero/gap integrity applies and
      their divergence is reported as IV, not gated.
    - Incrementally persists pair results to runs/<run_id>/pilot_records.ndjson with resume support.
@@ -69,12 +71,18 @@ TOST_BAND_LOW = 0.50
 TOST_BAND_HIGH = 2.00
 MAX_INFRA_RETRIES = 2
 
-# Amendment A (post-010, Opus C1-C8): per-stage equivalence requirements. Planner
-# and reviewer are adapter-matched (pooled ratio + TOST); worker/refine share one
-# Codex binary and flag (input-level parity, C5a), so only the integrity checks
-# apply and output-token divergence is reported as IV rather than gated.
-STAGE_POOLED_REQUIRED = {
+# Amendment A (post-010, Opus C1-C8; calibration-v2 outcome in PROTOCOL §A.6):
+# reviewer is adapter-matched (pooled ratio + TOST under OMP medium / AGY medium).
+# §A.6: planner is TOST-only (pooled bypassed, TOST enforced); worker/refine
+# bypass both (input-matched, integrity-only).
+STAGE_TOST_REQUIRED = {
     "1_PLANNER": True,
+    "2_WORKER_INITIAL": False,
+    "3_REVIEWER": True,
+    "4_WORKER_REFINE": False,
+}
+STAGE_POOLED_REQUIRED = {
+    "1_PLANNER": False,
     "2_WORKER_INITIAL": False,
     "3_REVIEWER": True,
     "4_WORKER_REFINE": False,
@@ -212,7 +220,7 @@ def _log_ratio_ci(valid_pairs: list[tuple[float, float]]) -> tuple[float, float,
     return mean_d, sd, math.exp(mean_d), math.exp(mean_d - t_crit * se), math.exp(mean_d + t_crit * se)
 
 
-def calculate_stage_tost(samples_a: list[int], samples_b: list[int], token_gaps: int = 0, pooled_required: bool = True) -> dict[str, Any]:
+def calculate_stage_tost(samples_a: list[int], samples_b: list[int], token_gaps: int = 0, pooled_required: bool = True, tost_required: bool = True) -> dict[str, Any]:
     assert len(samples_a) == len(samples_b), (
         f"Paired length mismatch: {len(samples_a)} != {len(samples_b)}"
     )
@@ -239,13 +247,14 @@ def calculate_stage_tost(samples_a: list[int], samples_b: list[int], token_gaps:
     pooled_ratio = round(mean_a / mean_b, 4) if mean_b > 0 else 0.0
 
     # Equivalence evaluation: pooled ratio in [0.80, 1.25] and TOST 90% CI in [0.50, 2.00].
-    # C5a: worker/refine are input-matched (same binary+flag), so equivalence is
-    # reported but not gated; only the integrity checks (gaps/zeros) apply.
+    # Three gate modes: pooled+TOST (reviewer), TOST-only (planner, §A.6 —
+    # pooled_required=False must NOT bypass TOST), and integrity-only
+    # (worker/refine: input-matched, C5a — tost_required=False).
     pooled_ok = (POOLED_BAND_LOW <= pooled_ratio <= POOLED_BAND_HIGH)
     tost_ok = (TOST_BAND_LOW <= ratio_ci_low and ratio_ci_high <= TOST_BAND_HIGH)
     no_gaps = (token_gaps == 0)
     no_zeros = (zero_exclusions == 0)
-    equivalence_ok = (pooled_ok and tost_ok) if pooled_required else True
+    equivalence_ok = (pooled_ok if pooled_required else True) and (tost_ok if tost_required else True)
     passed = equivalence_ok and no_gaps and no_zeros
 
     return {
@@ -265,6 +274,7 @@ def calculate_stage_tost(samples_a: list[int], samples_b: list[int], token_gaps:
         "tost_band": [TOST_BAND_LOW, TOST_BAND_HIGH],
         "tost_ok": tost_ok,
         "pooled_required": pooled_required,
+        "tost_required": tost_required,
         "passed": passed,
     }
 
@@ -543,7 +553,8 @@ def run_pilot_parity_matrix(
         samples_b = stage_samples[stage]["arm_b"]
         gaps = stage_token_gaps[stage]
         tost_res = calculate_stage_tost(
-            samples_a, samples_b, token_gaps=gaps, pooled_required=STAGE_POOLED_REQUIRED[stage]
+            samples_a, samples_b, token_gaps=gaps, pooled_required=STAGE_POOLED_REQUIRED[stage],
+            tost_required=STAGE_TOST_REQUIRED[stage],
         )
         stage_metrics[stage] = tost_res
         if not tost_res.get("passed"):
@@ -588,7 +599,7 @@ def run_pilot_parity_matrix(
         "total_token_gaps": total_token_gaps,
         "stage_token_gaps": stage_token_gaps,
         "stage_metrics": stage_metrics,
-        "stage_gates": {s: {"pooled_required": STAGE_POOLED_REQUIRED[s]} for s in STAGES},
+        "stage_gates": {s: {"pooled_required": STAGE_POOLED_REQUIRED[s], "tost_required": STAGE_TOST_REQUIRED[s]} for s in STAGES},
         "abort_reason": abort_reason,
         "diagnostic_only": diagnostic_only,
         "continue_diagnostics": continue_diagnostics,
@@ -646,7 +657,7 @@ def run_preflight(run_id: str, dry_run: bool = False, continue_diagnostics: bool
             "tost_band": [TOST_BAND_LOW, TOST_BAND_HIGH],
             "max_infra_retries": MAX_INFRA_RETRIES,
             "protocol_amendment": "A",
-            "stage_gates": {s: {"pooled_required": STAGE_POOLED_REQUIRED[s]} for s in STAGES},
+            "stage_gates": {s: {"pooled_required": STAGE_POOLED_REQUIRED[s], "tost_required": STAGE_TOST_REQUIRED[s]} for s in STAGES},
             "retry_rate_gate": RETRY_RATE_GATE,
             "ratio_watch": {"min_valid_pairs": WATCH_MIN_VALID_PAIRS, "tost_band": [TOST_BAND_LOW, TOST_BAND_HIGH]},
         },

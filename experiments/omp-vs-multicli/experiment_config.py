@@ -32,14 +32,16 @@ MODEL_PINS = {
 }
 
 # Empirically calibrated effort matrix achieving matched-compute token parity across provider adapters
-# (recorded in experiments/omp-vs-multicli/calibration/reviewer_effort_calibration.json):
-# - Planner: both grok arms at medium (producing matched ~1.0k - 3.0k reasoning tokens and eliminating >300s timeouts)
+# (v1 in calibration/*_effort_calibration.json; v2 outcome in PROTOCOL Amendment A §A.6):
+# - Planner: OMP medium retained (010 pooled 0.47) with OMP high rejected (v2 pooled 3.22);
+#   planner is TOST-only — OMP thinking levels are too coarse to match grok medium at token level.
+# - Reviewer: OMP at medium aligns with AGY at medium (v2 4-task pooled ratio 1.15, in band;
+#   OMP high re-measured 1.71, out of band; AGY high stays forbidden as uncapped)
 # - Worker: both codex arms at max (producing ~2.9k reasoning tokens, 0.4% diff)
-# - Reviewer: OMP at high (~13.7k baseline) aligns with AGY at medium (3-task disjoint pooled ratio 1.067 vs AGY uncapped high ratio 0.51)
 EFFORT_MATRIX = {
     "planner": {"arm_a": "medium", "arm_b": "medium"},
     "worker": {"arm_a": "max", "arm_b": "max"},
-    "reviewer": {"arm_a": "high", "arm_b": "medium"},
+    "reviewer": {"arm_a": "medium", "arm_b": "medium"},
 }
 
 RATE_CARD = {
