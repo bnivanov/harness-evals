@@ -137,6 +137,9 @@ def run_evaluation(
         }
         atomic_json_write(attempt_path, attempt)
         try:
+            # C3/§5.2: pilot_early_stop stays False on the matrix path. An arm
+            # that misses a handoff can still score from the README here; the
+            # pilot-only stop in run_arm_* must never change this outcome.
             execution = (
                 run_arm_a(task_meta, workspace, artifact_dir, scratch_dir=scratch_dir)
                 if arm == "arm_a"

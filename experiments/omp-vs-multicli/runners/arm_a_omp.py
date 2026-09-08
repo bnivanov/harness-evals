@@ -251,7 +251,7 @@ def run_omp_stage(
     }
 
 
-def run_arm_a(task_meta: dict, workspace_dir: str, artifact_dir: str, scratch_dir: str | None = None) -> dict:
+def run_arm_a(task_meta: dict, workspace_dir: str, artifact_dir: str, scratch_dir: str | None = None, pilot_early_stop: bool = False) -> dict:
     runtime_dir = tempfile.mkdtemp(prefix=f"harness_runtime_{task_meta['task_id']}_arm_a_")
     try:
         omp_agent_dir = prepare_isolated_omp_agent_dir(runtime_dir)
@@ -283,12 +283,18 @@ def run_arm_a(task_meta: dict, workspace_dir: str, artifact_dir: str, scratch_di
             violations.extend({"stage": stage_name, **item} for item in stage["protocol_violations"])
             if not stage["success"]:
                 violations.append({"stage": stage_name, "code": "STAGE_FAILED"})
-            if required_artifact and not os.path.isfile(os.path.join(workspace_dir, required_artifact)):
+            handoff_missing = required_artifact and not os.path.isfile(os.path.join(workspace_dir, required_artifact))
+            if handoff_missing:
                 violations.append({
                     "stage": stage_name,
                     "code": "MISSING_HANDOFF",
                     "path": required_artifact,
                 })
+                # C3: pilot-only within-pair stop. Guard TPs are visible only
+                # via the post-loop guard-log read, so they still run out the
+                # pair and drop post-hoc. Never enabled on the matrix path.
+                if pilot_early_stop:
+                    break
 
         guard_events = read_guard_events(guard_log)
         violations.extend({"stage": "guard", **event} for event in guard_events)

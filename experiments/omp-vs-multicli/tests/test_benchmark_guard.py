@@ -117,6 +117,9 @@ console.log(JSON.stringify(decision || {{ ok: true }}));
                 "cat /tmp/probe_leak_dir/session.jsonl",
                 "cat //tmp/leak.txt",
                 "ls /tmp",
+                # D1 (confirmatory-010): exact Arm A grep scratch-to-/tmp command.
+                "echo \"hello\" > /tmp/test_grep.txt",
+                "echo \"hello\" > /tmp/test_grep.txt; grep -l \"hello\" /tmp/test_grep.txt; rm /tmp/test_grep.txt",
             ]
             for cmd in blocked_paths:
                 dec = self.run_guard_probe("bash", {"command": cmd}, env)

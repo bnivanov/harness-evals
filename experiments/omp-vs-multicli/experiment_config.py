@@ -121,29 +121,41 @@ def normalize_usage(
     }
 
 
+# Shared scratch-file policy (Amendment A, post-010): identical sentence in every
+# stage prompt for both arms (PROTOCOL §6.3). Deliberately names no literal
+# temp-root path so prompt text cannot self-trigger temp-root trace detection.
+SCRATCH_POLICY_SENTENCE = (
+    "Write scratch, temp, and test-helper files only inside the current working "
+    "directory (or `$TMPDIR` when set); never write outside it."
+)
+
 PROMPTS = {
     "1_PLANNER": (
         "You are the Planner agent. Inspect README.md, public_test.py, and the implementation stub. "
         "Design the complete architecture, data structures, algorithms, and edge-case handling for {impl_file}. "
         "Write the implementation guide to 01_PLAN.md. Do not edit {impl_file} or any test file. "
-        "Do not access files outside the current workspace, external networks, package registries, canonical solutions, or held-out tests."
+        "Do not access files outside the current workspace, external networks, package registries, canonical solutions, or held-out tests. "
+        + SCRATCH_POLICY_SENTENCE
     ),
     "2_WORKER_INITIAL": (
         "You are the Worker agent. Read 01_PLAN.md and README.md. Implement the complete solution in {impl_file}. "
         "Run python3 -m unittest public_test.py for basic verification. Do not modify any test file. "
-        "Do not access files outside the current workspace, external networks, package registries, canonical solutions, or held-out tests."
+        "Do not access files outside the current workspace, external networks, package registries, canonical solutions, or held-out tests. "
+        + SCRATCH_POLICY_SENTENCE
     ),
     "3_REVIEWER": (
         "You are the Reviewer agent. Inspect {impl_file} against README.md and public_test.py. "
         "Run python3 -m unittest public_test.py. Audit edge cases, algorithmic flaws, off-by-one errors, and performance traps. "
         "Write findings and required fixes to 02_REVIEW.md. Do not edit {impl_file} or any test file. "
-        "Do not access files outside the current workspace, external networks, package registries, canonical solutions, or held-out tests."
+        "Do not access files outside the current workspace, external networks, package registries, canonical solutions, or held-out tests. "
+        + SCRATCH_POLICY_SENTENCE
     ),
     "4_WORKER_REFINE": (
         "You are the Worker agent in refinement. Read 02_REVIEW.md, 01_PLAN.md, and README.md. "
         "Address every review finding in {impl_file}, then run python3 -m unittest public_test.py. "
         "Do not modify any test file. Do not access files outside the current workspace, external networks, "
-        "package registries, canonical solutions, or held-out tests."
+        + "package registries, canonical solutions, or held-out tests. "
+        + SCRATCH_POLICY_SENTENCE
     ),
 }
 

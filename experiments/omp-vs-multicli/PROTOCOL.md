@@ -58,9 +58,9 @@ Where:
 ### Pre-Registered Matched-Compute Design & Effort Calibration
 
 To ensure that differences in pass rate, latency, and cost reflect harness coordination rather than divergent vendor reasoning budgets, model configurations follow a strictly pre-registered **matched-compute** design:
-1. **Planner (Grok 4.6)**: Both arms use `medium` effort, matching model architecture and reasoning depth (~700–2,400 tokens; pooled ratio 0.643, 90% CI [0.522, 0.853] recorded in `calibration/planner_effort_calibration.json`) and completing in 62s–107s, eliminating the >300s runs observed under `xhigh` in `runs/variance-probe-001/summary.json`.
+1. **Planner (Grok 4.6)**: Both arms use `medium` effort, matching model architecture and reasoning depth (~700–2,400 tokens; pooled ratio 0.643, 90% CI [0.522, 0.853] recorded in `calibration/planner_effort_calibration.json`) and completing in 62s–107s, eliminating the >300s runs observed under `xhigh` in `runs/variance-probe-001/summary.json`. — SUPERSEDED for 011 by Amendment A.1/A.2: this mapping pooled 0.47 in 010; the planner mapping is re-tested once in calibration v2 and the winner governs 011. Retained as the pre-010 record.
 2. **Worker (Codex GPT-5.6 Luna)**: Both arms use `max` effort, producing matched ~2.9k reasoning tokens (<0.5% disparity).
-3. **Reviewer (Gemini 3.8 Flash)**: OMP at `high` matches AGY CLI at `medium`. In vendor adapters, AGY's `--effort high` defaults to an uncapped ~32k budget (averaging 26,539 tokens in confirmatory-003), whereas OMP's `high` budgets ~13k tokens. Empirical measurements across 3 strictly disjoint calibration tasks (`affine-cipher`, `book-store`, `proverb` recorded in `calibration/reviewer_effort_calibration.json`) demonstrate a 3-task pooled ratio of 1.067 (17,207 OMP tokens vs. 16,124 AGY medium tokens; mean log-ratio -0.1383, $s=0.8883$, point ratio 0.871, 90% CI [0.195, 3.882]), avoiding the massive 26.5k token compute blowup of AGY `high` (ratio 0.51).
+3. **Reviewer (Gemini 3.8 Flash)**: OMP at `high` matches AGY CLI at `medium`. In vendor adapters, AGY's `--effort high` defaults to an uncapped ~32k budget (averaging 26,539 tokens in confirmatory-003), whereas OMP's `high` budgets ~13k tokens. Empirical measurements across 3 strictly disjoint calibration tasks (`affine-cipher`, `book-store`, `proverb` recorded in `calibration/reviewer_effort_calibration.json`) demonstrate a 3-task pooled ratio of 1.067 (17,207 OMP tokens vs. 16,124 AGY medium tokens; mean log-ratio -0.1383, $s=0.8883$, point ratio 0.871, 90% CI [0.195, 3.882]), avoiding the massive 26.5k token compute blowup of AGY `high` (ratio 0.51). — SUPERSEDED for 011 by Amendment A.1/A.2: this mapping pooled 0.6932 in 010; re-tested once in calibration v2 with AGY `high` still forbidden. Retained as the pre-010 record.
 4. **Pilot Parity Power Basis (Option A)**: For the preflight pilot calibration on tasks disjoint from the calibration set (`grep` and `list-ops` with $k=7$ repeats, $N=14$ paired observations, $df=13, t_{0.90}=1.771$):
    * **Pooled Token Ratio Margin**: Across all pilot pairs, $\frac{\sum \text{Tokens}_A}{\sum \text{Tokens}_B} \in [0.80, 1.25]$.
    * **TOST 90% CI Equivalence Margin**: The paired log-ratio 90% CI must be entirely contained within $[0.50, 2.00]$ (corresponding to $[-0.693, +0.693]$ on log scale, $2.0\times$ compute parity).
@@ -176,3 +176,95 @@ Where $P_{\text{in}}, P_{\text{cache}}, P_{\text{out}}, P_{\text{reasoning}}$ ar
 The **only variable permitted to differ** between Arm A and Arm B is the **orchestration and handoff substrate**:
 * **Arm A**: An integrated harness (`omp`) maintaining continuous session memory (`--continue`), unified tool coordination, and hash-anchored edits.
 * **Arm B**: Disaggregated standalone vendor CLIs (`grok`, `codex`, `agy`) communicating strictly across process boundaries through serialized markdown files on disk (`01_PLAN.md`, `02_REVIEW.md`).
+
+---
+
+## Amendment A (post-confirmatory-010, pre-011): parity-gate repair
+
+Status: PROPOSED — takes effect only after Opus 5 High sign-off and hashing
+before confirmatory-011. It supersedes §2.5 items 1–4 as noted below; §2.5 items
+1 and 3 stand only as the superseded pre-010 record (marked inline) — A.1/A.2
+govern 011; all other sections stand. Rationale: confirmatory-010 FAILed with 3 dropped pairs (a
+`/tmp` guard TP, a zero-reasoning reviewer turn, a missing plan handoff) and
+4/4 pooled-ratio misses, two of them also TOST misses (planner 0.47, refine
+0.50). The gate below keeps every containment rule fail-closed while making
+effort comparison symmetric and the pilot spend-bounded.
+
+### A.1 Matched compute redefined at token level (§2.5 table stands, §2.5 item 1 amended)
+
+Effort labels are vendor-adapter settings, not comparable quantities (precedent:
+reviewer OMP `high` ≈ AGY `medium` at ~13k tokens). Matched compute henceforth
+means agreement of accounted reasoning-token budgets at the token level, judged
+by the split gate in A.2. Exactly ONE additional calibration round is permitted,
+covering the planner AND reviewer mappings, on tasks disjoint from
+{affine-cipher, book-store, proverb}, PILOT_TASKS {grep, list-ops}, and the
+frozen 25-task matrix set (≥4 tasks, per-task ratios reported). Candidates:
+Arm A planner `medium` → `high` with grok `--effort medium` fixed; reviewer
+re-map within OMP {`medium`, `high`} × AGY {`medium`} (AGY `high` stays
+forbidden as the uncapped ~32k path). Success per stage: calibration pooled
+ratio in [0.80, 1.25]. Winners freeze in `EFFORT_MATRIX` +
+`calibration/planner_effort_calibration.json` /
+`calibration/reviewer_effort_calibration.json` before 011. If either stage
+cannot enter the band, stop: no third round; pre-register that stage as
+TOST-only with the adapter asymmetry recorded as a limitation (sign-off change
+1 — 010 reviewer pooled 0.6932 / CI [0.577, 0.871] leaves no permitted remedy
+under a frozen mapping, so the mapping itself is re-tested once, not gated blind).
+
+### A.2 Split equivalence gate (§2.5 item 4 amended)
+
+| Stage | Gate for 011 PASS |
+| :--- | :--- |
+| Planner | Pooled ratio in [0.80, 1.25] AND TOST 90% CI inside [0.50, 2.00] |
+| Reviewer | Pooled ratio in [0.80, 1.25] AND TOST 90% CI inside [0.50, 2.00] under the calibration-v2 winner (AGY `high` stays forbidden). If v2 cannot place the reviewer pooled ratio in band, the reviewer is pre-registered TOST-only with the asymmetry as a limitation (per A.1 stop rule), never re-tuned at gate time; the TOST-only fallback requires setting `STAGE_POOLED_REQUIRED["3_REVIEWER"] = False` before the 011 freeze, since post-freeze flips are rejected with the hash. |
+| Worker, Refine | Input-level parity by construction (same Codex binary, same `max` flag; effort flags frozen). Equivalence NOT gated; output-token divergence is a reported primary IV result. Integrity checks `zero_exclusions == 0` and `token_gaps == 0` still required. |
+
+PASS additionally requires 0 dropped pairs, 0 token gaps, n = 14, retry rate
+within A.4, and no fail-fast abort (§A.5).
+
+### A.3 Symmetric temp containment (§4, §6.3)
+
+The fail-closed location rule is unchanged. Containment is symmetric: the shared
+seatbelt profile denies file read/write on `/tmp` and `/private/tmp` for BOTH
+arms (pilot scratch remains allowed via `$TMPDIR`/workspace). The shared stage
+prompts gain one identical sentence (§6.3-compliant): “Write scratch, temp, and
+test-helper files only inside the current working directory (or `$TMPDIR` when
+set); never write outside it.” Arm B traces are scanned post-hoc for temp-root
+write attempts with the same disposition as an Arm A guard true positive
+(violation → pair dropped). Residual asymmetry (disclosed): `/var/folders`
+writes are not OS-denied because both arms legitimately allocate runtime state
+there; only literal shared temp roots are policed.
+
+### A.4 Retry taxonomy (§3 Zero-Drop applies to the matrix, not the pilot sample)
+
+| Code | Class | Retry? | Pilot effect |
+| :--- | :--- | :--- | :--- |
+| Guard path/network/oracle | containment TP | No | drop → abort |
+| `MISSING_HANDOFF` | arm failure | No | drop → abort |
+| `NO_REASONING_TOKENS` without thinking text (Arm B: always — no vendor CLI exposes a reasoning-text stream) | arm failure | No | drop → abort |
+| `REASONING_TELEMETRY_MISSING` (Arm A only: `thinking`-block chars present, 0 usage tokens) | infra/telemetry | Yes, fresh workdir, ≤ `MAX_INFRA_RETRIES` (2, frozen) | unrecovered → drop → abort |
+| Subprocess `Exception` | infra | Yes (as before) | unrecovered → drop → abort |
+
+Heuristic token synthesis from thinking chars stays removed. Per-arm/per-stage
+retry counts persist in `pilot_records.ndjson` (Arm B structurally retries
+nothing, so its rate is 0 by construction); retry re-attempts above 10% of
+arm executions in either arm FAILs the gate (instrumentation-unfit). Expected
+abort mode (pre-registered): an Arm B turn with no accounted reasoning tokens
+(e.g. a missing `turn.completed` event — 4/50 codex refine stages in 003,
+alongside upstream cascade failures) is an arm failure with no retry path and
+aborts 011 via first-drop; such an abort is an instrumentation event, not an
+Arm B capability result.
+
+### A.5 Fail-fast pilot mechanics (pilot only; §3 matrix Zero-Drop unchanged)
+
+First dropped pair aborts the pilot (FAIL, `abort_reason`, marker
+`pilot_aborted.json`; a fresh `run_id` is required — same-id resume is
+refused). The second arm of a dead pair is not launched. A missing plan handoff
+stops later stages within that pair (pilot-only flag; the matrix path still runs
+every stage so a README-only implementation can score). After each valid pair,
+running pooled ratios print; at n ≥ 5 a pooled-gated stage whose running 90% CI
+lies entirely outside [0.50, 2.00] aborts unrecoverably. The watch is a
+rare-catastrophe backstop validated on synthetic pairs only: replaying 010's 11
+valid pairs never leaves the band, so first-drop remains the expected trigger.
+`--continue-diagnostics` resumes remaining pairs for diagnosis only: its output is marked
+`diagnostic_only` and `run_matrix.require_parity_preflight` rejects any report
+carrying `diagnostic_only` or `abort_reason`, independently of the verdict.

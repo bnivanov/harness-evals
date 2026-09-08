@@ -90,6 +90,12 @@ def require_parity_preflight(manifest_path: str) -> dict:
         report = json.load(handle)
     if report.get("verdict") != "PASS":
         raise RuntimeError(f"Preflight parity gate did not pass: verdict={report.get('verdict')}")
+    # C7: a diagnostics-only report (fail-fast abort or --continue-diagnostics)
+    # can never gate a matrix launch, independently of the verdict field.
+    if report.get("diagnostic_only"):
+        raise RuntimeError("Preflight parity report is diagnostics-only; it cannot gate a matrix launch.")
+    if report.get("abort_reason"):
+        raise RuntimeError(f"Preflight parity run aborted: {report.get('abort_reason')}")
     expected_run_id = os.path.basename(run_dir)
     if report.get("run_id") != expected_run_id:
         raise RuntimeError(f"Preflight parity report run_id mismatch: expected {expected_run_id}, got {report.get('run_id')}")
@@ -101,7 +107,10 @@ def require_parity_preflight(manifest_path: str) -> dict:
         raise RuntimeError(
             f"Preflight parity manifest mismatch: report={report_manifest_hash} vs live={manifest_hash}"
         )
-    from preflight_parity import compute_composite_source_sha256
+    from preflight_parity import STAGE_POOLED_REQUIRED, compute_composite_source_sha256
+    live_gates = {s: {"pooled_required": req} for s, req in STAGE_POOLED_REQUIRED.items()}
+    if report.get("stage_gates") != live_gates:
+        raise RuntimeError("Preflight stage-gate spec mismatch: re-run preflight on current code.")
     live_hash, _ = compute_composite_source_sha256()
     if report.get("composite_source_sha256") != live_hash:
         raise RuntimeError(

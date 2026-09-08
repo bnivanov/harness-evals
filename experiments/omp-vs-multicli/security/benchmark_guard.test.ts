@@ -186,6 +186,7 @@ test("allows python integer division and comments while blocking genuine escapes
     { command: "cat //tmp/leak", reason: "path outside benchmark workspace" },
     { command: "ls /tmp", reason: "path outside benchmark workspace" },
     { command: "head /var/folders/other/foo", reason: "path outside benchmark workspace" },
+    { command: 'echo "hello" > /tmp/test_grep.txt', reason: "path outside benchmark workspace" },
   ];
   for (const c of blockedCommands) {
     const res = await handler({ toolName: "bash", input: { command: c.command } });

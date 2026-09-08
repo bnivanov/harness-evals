@@ -3,20 +3,30 @@
 
 Enforces:
 1. Binary pins match installed versions (exit code 0 + exact string matching).
-2. Empirically calibrated symmetric effort matrix assertion across all stages.
+2. Pre-registered effort matrix holds across all stages (Amendment A: planner
+   and reviewer adapter-matched at token level; worker/refine input-matched by
+   shared binary+flag).
 3. Positive control: oracle solution is verified readable unconfined.
 4. Negative filesystem containment: sandbox-exec denies read on oracle solution (EACCES).
 5. Negative network execution containment: sandbox-exec blocks execution of curl (EPERM).
-6. Statistical reasoning token parity on pilot tasks:
+6. Statistical reasoning token parity on pilot tasks (Amendment A):
    - Evaluates pilot tasks (k=7 repeats on grep and list-ops, N=14 paired observations).
-   - Pilot power basis (Option A): Under empirical dispersion sigma = 0.8883, N=14 (df=13, t=1.771) achieves
-     P(half-width <= ln(2.0)) = 99.9% narrowness and 73.7% interval containment power at mu=0 for band [0.50, 2.00].
-   - Pre-registered equivalence margins:
-     * Pooled token ratio: in [0.80, 1.25]
-     * TOST 90% CI: entirely contained within [0.50, 2.00]
+   - Split equivalence gate: planner and reviewer require pooled ratio in
+     [0.80, 1.25] AND TOST 90% CI inside [0.50, 2.00]; worker/refine are
+     input-matched (same binary+flag) so only zero/gap integrity applies and
+     their divergence is reported as IV, not gated.
    - Incrementally persists pair results to runs/<run_id>/pilot_records.ndjson with resume support.
    - Infra-error handling with bounded retries (MAX_INFRA_RETRIES = 2); pairs with unrecovered
      infrastructure errors are excluded from the cached completed set so they can be re-attempted.
+   - Telemetry-only blips (Arm A REASONING_TELEMETRY_MISSING) retry as infra;
+     any other violation code blocks retry; Arm B never retries (no vendor
+     reasoning-text stream exists). Retry rate > 10% of arm executions fails the gate.
+   - Fail-fast: first dropped pair aborts (marker pilot_aborted.json; fresh run_id
+     required); second arm of a dead pair is not launched; running 90% CI fully
+     outside [0.50, 2.00] at n>=5 aborts unrecoverably (catastrophe backstop;
+     validated on synthetic pairs, not on 010 — see Amendment A §A.5).
+     --continue-diagnostics resumes diagnostically; such output is marked
+     diagnostic_only and can never gate a matrix launch.
    - Both-arms-valid pairing with explicit dropped-pair, zero-token exclusion, and stage token-gap accounting.
 7. Emits preflight_parity.json bound to run_id, mandatory non-null run_manifest_sha256, and composite source_hashes().
 """
@@ -58,6 +68,24 @@ POOLED_BAND_HIGH = 1.25
 TOST_BAND_LOW = 0.50
 TOST_BAND_HIGH = 2.00
 MAX_INFRA_RETRIES = 2
+
+# Amendment A (post-010, Opus C1-C8): per-stage equivalence requirements. Planner
+# and reviewer are adapter-matched (pooled ratio + TOST); worker/refine share one
+# Codex binary and flag (input-level parity, C5a), so only the integrity checks
+# apply and output-token divergence is reported as IV rather than gated.
+STAGE_POOLED_REQUIRED = {
+    "1_PLANNER": True,
+    "2_WORKER_INITIAL": False,
+    "3_REVIEWER": True,
+    "4_WORKER_REFINE": False,
+}
+# C4: hard FAIL when re-attempts exceed 10% of arm executions in either arm.
+RETRY_RATE_GATE = 0.10
+# C6: unrecoverable ratio-watch trigger (running 90% CI fully outside TOST).
+WATCH_MIN_VALID_PAIRS = 5
+# Codes whose SOLE presence (plus companion NO_REASONING_TOKENS) marks a vendor
+# telemetry blip eligible for infra retry. Any other code blocks retry (Q3).
+TELEMETRY_RETRY_CODES = frozenset({"REASONING_TELEMETRY_MISSING", "NO_REASONING_TOKENS"})
 STAGES = ("1_PLANNER", "2_WORKER_INITIAL", "3_REVIEWER", "4_WORKER_REFINE")
 
 T_TABLE_90 = {
@@ -172,7 +200,19 @@ sys.exit(0)
     }
 
 
-def calculate_stage_tost(samples_a: list[int], samples_b: list[int], token_gaps: int = 0) -> dict[str, Any]:
+def _log_ratio_ci(valid_pairs: list[tuple[float, float]]) -> tuple[float, float, float, float, float]:
+    """Mean log-diff, sd, point ratio, and 90% CI bounds for paired samples."""
+    n = len(valid_pairs)
+    log_diffs = [math.log(a) - math.log(b) for a, b in valid_pairs]
+    mean_d = sum(log_diffs) / n
+    variance = sum((x - mean_d) ** 2 for x in log_diffs) / (n - 1) if n > 1 else 0.0
+    sd = math.sqrt(variance)
+    se = sd / math.sqrt(n)
+    t_crit = T_TABLE_90.get(n - 1, 1.895)
+    return mean_d, sd, math.exp(mean_d), math.exp(mean_d - t_crit * se), math.exp(mean_d + t_crit * se)
+
+
+def calculate_stage_tost(samples_a: list[int], samples_b: list[int], token_gaps: int = 0, pooled_required: bool = True) -> dict[str, Any]:
     assert len(samples_a) == len(samples_b), (
         f"Paired length mismatch: {len(samples_a)} != {len(samples_b)}"
     )
@@ -192,29 +232,21 @@ def calculate_stage_tost(samples_a: list[int], samples_b: list[int], token_gaps:
         }
 
     log_diffs = [math.log(a) - math.log(b) for a, b in valid_pairs]
-    mean_d = sum(log_diffs) / n
-    variance = sum((x - mean_d) ** 2 for x in log_diffs) / (n - 1)
-    sd = math.sqrt(variance)
-    se = sd / math.sqrt(n)
-
-    t_crit = T_TABLE_90.get(n - 1, 1.895)
-    ci_low_log = mean_d - t_crit * se
-    ci_high_log = mean_d + t_crit * se
-
-    ratio_point = math.exp(mean_d)
-    ratio_ci_low = math.exp(ci_low_log)
-    ratio_ci_high = math.exp(ci_high_log)
+    mean_log_diff, sd, ratio_point, ratio_ci_low, ratio_ci_high = _log_ratio_ci(valid_pairs)
 
     mean_a = sum(a for a, _ in valid_pairs) / n
     mean_b = sum(b for _, b in valid_pairs) / n
     pooled_ratio = round(mean_a / mean_b, 4) if mean_b > 0 else 0.0
 
-    # Equivalence evaluation: pooled ratio in [0.80, 1.25] and TOST 90% CI in [0.50, 2.00]
+    # Equivalence evaluation: pooled ratio in [0.80, 1.25] and TOST 90% CI in [0.50, 2.00].
+    # C5a: worker/refine are input-matched (same binary+flag), so equivalence is
+    # reported but not gated; only the integrity checks (gaps/zeros) apply.
     pooled_ok = (POOLED_BAND_LOW <= pooled_ratio <= POOLED_BAND_HIGH)
     tost_ok = (TOST_BAND_LOW <= ratio_ci_low and ratio_ci_high <= TOST_BAND_HIGH)
     no_gaps = (token_gaps == 0)
     no_zeros = (zero_exclusions == 0)
-    passed = pooled_ok and tost_ok and no_gaps and no_zeros
+    equivalence_ok = (pooled_ok and tost_ok) if pooled_required else True
+    passed = equivalence_ok and no_gaps and no_zeros
 
     return {
         "total_pairs": total_pairs,
@@ -226,19 +258,34 @@ def calculate_stage_tost(samples_a: list[int], samples_b: list[int], token_gaps:
         "pooled_ratio": pooled_ratio,
         "pooled_band": [POOLED_BAND_LOW, POOLED_BAND_HIGH],
         "pooled_ok": pooled_ok,
-        "mean_log_diff": round(mean_d, 4),
+        "mean_log_diff": round(mean_log_diff, 4),
         "sd_log_diff": round(sd, 4),
         "ratio_point": round(ratio_point, 4),
         "ratio_90_ci": [round(ratio_ci_low, 4), round(ratio_ci_high, 4)],
         "tost_band": [TOST_BAND_LOW, TOST_BAND_HIGH],
         "tost_ok": tost_ok,
+        "pooled_required": pooled_required,
         "passed": passed,
     }
 
 
-def execute_arm_with_retries(runner: Any, meta: dict, src_task: str, arm_name: str, task_id: str, rep: int) -> dict[str, Any]:
+def _telemetry_only_retryable(violations: list[dict]) -> bool:
+    """True iff every violation is the vendor telemetry-blip pair (C4/Q3 taxonomy).
+
+    Arm stages always emit NO_REASONING_TOKENS alongside
+    REASONING_TELEMETRY_MISSING when usage accounting is absent, so both codes
+    together still mark a pure blip. Any third code (handoff, guard, timeout,
+    model, parse, task) blocks retry: those are arm failures, not infra.
+    """
+    codes = {item.get("code") for item in violations}
+    return bool(codes) and "REASONING_TELEMETRY_MISSING" in codes and codes <= TELEMETRY_RETRY_CODES
+
+
+def execute_arm_with_retries(runner: Any, meta: dict, src_task: str, arm_name: str, task_id: str, rep: int, pilot_early_stop: bool = False) -> dict[str, Any]:
     last_exc = None
     dur = 0.0
+    retries = 0
+    retry_log: list[dict] = []
     for attempt in range(1, MAX_INFRA_RETRIES + 2):
         with tempfile.TemporaryDirectory(prefix=f"pilot_{task_id}_{arm_name}_{rep}_att{attempt}_") as workdir:
             scratch_dir = tempfile.mkdtemp(prefix=f"pilot_scratch_{task_id}_{arm_name}_{rep}_att{attempt}_")
@@ -246,18 +293,41 @@ def execute_arm_with_retries(runner: Any, meta: dict, src_task: str, arm_name: s
             t0 = time.monotonic()
             try:
                 subprocess.run(["cp", "-R", f"{src_task}/.", workdir], check=True)
-                result = runner(meta, workdir, art_dir, scratch_dir=scratch_dir)
+                result = runner(meta, workdir, art_dir, scratch_dir=scratch_dir, pilot_early_stop=pilot_early_stop)
                 dur = round(time.monotonic() - t0, 2)
                 stage_tokens = {}
                 for s in result.get("stages", []):
                     s_name = s["stage"]
                     r_tokens = s.get("telemetry", {}).get("reasoning_tokens", 0)
                     stage_tokens[s_name] = r_tokens
+                violations = result.get("protocol_violations", [])
+                if _telemetry_only_retryable(violations):
+                    blip_stages = [
+                        s["stage"] for s in result.get("stages", [])
+                        if any(v.get("code") == "REASONING_TELEMETRY_MISSING" for v in s.get("protocol_violations", []))
+                    ]
+                    if retries < MAX_INFRA_RETRIES:
+                        retries += 1
+                        retry_log.append({"attempt": attempt, "stages": blip_stages})
+                        print(f"    [Attempt {attempt}/{MAX_INFRA_RETRIES+1}] Telemetry-only blip on {arm_name} for {task_id} ({blip_stages}); retrying with fresh workdir.")
+                        time.sleep(1.0)
+                        continue
+                    return {
+                        "duration": dur,
+                        "protocol_valid": False,
+                        "infra_error": f"unrecovered REASONING_TELEMETRY_MISSING after {retries} retries",
+                        "violations": violations,
+                        "stages": stage_tokens,
+                        "retries": retries,
+                        "retry_log": retry_log,
+                    }
                 return {
                     "duration": dur,
                     "protocol_valid": result.get("protocol_valid", False),
-                    "violations": result.get("protocol_violations", []),
+                    "violations": violations,
                     "stages": stage_tokens,
+                    "retries": retries,
+                    "retry_log": retry_log,
                 }
             except Exception as exc:
                 last_exc = exc
@@ -271,17 +341,43 @@ def execute_arm_with_retries(runner: Any, meta: dict, src_task: str, arm_name: s
         "duration": dur,
         "protocol_valid": False,
         "infra_error": str(last_exc),
+        "retries": retries,
+        "retry_log": retry_log,
     }
 
 
-def run_pilot_parity_matrix(run_id: str) -> dict[str, Any]:
+def _write_abort_marker(abort_marker: str, run_id: str, abort_reason: str) -> None:
+    with open(abort_marker, "w", encoding="utf-8") as handle:
+        json.dump({
+            "run_id": run_id,
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "abort_reason": abort_reason,
+        }, handle, indent=2)
+
+
+def run_pilot_parity_matrix(
+    run_id: str,
+    runners: dict[str, Any] | None = None,
+    task_meta_map: dict[str, dict] | None = None,
+    task_source: dict[str, str] | None = None,
+    continue_diagnostics: bool = False,
+) -> dict[str, Any]:
     with open(os.path.join(BASE_DIR, "../../benchmarks/aider-python/manifest.json"), encoding="utf-8") as handle:
         manifest = json.load(handle)
-    task_map = {item["task_id"]: item for item in manifest}
+    task_map = task_meta_map or {item["task_id"]: item for item in manifest}
+    arm_runners = runners or {"arm_a": run_arm_a, "arm_b": run_arm_b}
 
     run_dir = os.path.join(RUNS_DIR, run_id)
     os.makedirs(run_dir, exist_ok=True)
     records_ndjson = os.path.join(run_dir, "pilot_records.ndjson")
+    abort_marker = os.path.join(run_dir, "pilot_aborted.json")
+    if os.path.isfile(abort_marker) and not continue_diagnostics:
+        with open(abort_marker, encoding="utf-8") as handle:
+            prior = json.load(handle)
+        raise RuntimeError(
+            f"Pilot {run_id} previously aborted ({prior.get('abort_reason')}). "
+            f"A fresh run_id is required; --continue-diagnostics only resumes diagnostically."
+        )
 
     completed_pairs: dict[tuple[str, int], dict[str, Any]] = {}
     if os.path.isfile(records_ndjson):
@@ -311,11 +407,16 @@ def run_pilot_parity_matrix(run_id: str) -> dict[str, Any]:
     }
     stage_token_gaps: dict[str, int] = {s: 0 for s in STAGES}
     dropped_pairs: list[dict[str, Any]] = []
+    abort_reason: str | None = None
+    stop = False
 
     print(f"\nExecuting Pilot Parity Matrix: tasks={PILOT_TASKS}, k={PILOT_REPEATS} ({expected_pairs} pairs)...")
     for task_id in PILOT_TASKS:
         meta = task_map[task_id]
-        src_task = os.path.join(BASE_DIR, "../../benchmarks/aider-python/tasks", task_id)
+        if task_source and task_id in task_source:
+            src_task = task_source[task_id]
+        else:
+            src_task = os.path.join(BASE_DIR, "../../benchmarks/aider-python/tasks", task_id)
         for rep in range(1, PILOT_REPEATS + 1):
             if (task_id, rep) in completed_pairs:
                 print(f"  Resuming existing pair {task_id} (rep {rep})...")
@@ -327,10 +428,23 @@ def run_pilot_parity_matrix(run_id: str) -> dict[str, Any]:
                     "repeat": rep,
                     "arms": {},
                 }
-                for arm_name, runner in [("arm_a", run_arm_a), ("arm_b", run_arm_b)]:
-                    print(f"  Running {task_id} (rep {rep}) on {arm_name}...")
-                    arm_result = execute_arm_with_retries(runner, meta, src_task, arm_name, task_id, rep)
-                    pair_record["arms"][arm_name] = arm_result
+                print(f"  Running {task_id} (rep {rep}) on arm_a...")
+                arm_a_res = execute_arm_with_retries(
+                    arm_runners["arm_a"], meta, src_task, "arm_a", task_id, rep, pilot_early_stop=True
+                )
+                pair_record["arms"]["arm_a"] = arm_a_res
+                if arm_a_res.get("protocol_valid", False) and not arm_a_res.get("infra_error"):
+                    print(f"  Running {task_id} (rep {rep}) on arm_b...")
+                    pair_record["arms"]["arm_b"] = execute_arm_with_retries(
+                        arm_runners["arm_b"], meta, src_task, "arm_b", task_id, rep, pilot_early_stop=True
+                    )
+                else:
+                    # Fail-fast: a dead pair cannot become valid; spare arm_b.
+                    pair_record["arms"]["arm_b"] = {
+                        "skipped": True,
+                        "reason": "arm_a protocol-failed or infra-unrecovered; second arm not launched (fail-fast)",
+                    }
+                    print(f"  Skipping {task_id} (rep {rep}) on arm_b (arm_a dead)...")
 
                 # Incremental persistence: append completed pair record immediately
                 with open(records_ndjson, "a", encoding="utf-8") as f:
@@ -344,16 +458,27 @@ def run_pilot_parity_matrix(run_id: str) -> dict[str, Any]:
             b_valid = arm_b_info.get("protocol_valid", False)
             a_infra = arm_a_info.get("infra_error")
             b_infra = arm_b_info.get("infra_error")
+            b_skipped = arm_b_info.get("skipped", False)
 
-            if a_infra or b_infra:
+            drop_kind: str | None = None
+            if b_skipped:
+                drop_kind = "infra" if a_infra else "protocol"
+                dropped_pairs.append({
+                    "task_id": task_id,
+                    "repeat": rep,
+                    "reason": f"second arm skipped: arm_a valid={a_valid}, infra={a_infra}",
+                    "arm_a_violations": arm_a_info.get("violations", []),
+                    "arm_b_violations": [],
+                })
+            elif a_infra or b_infra:
+                drop_kind = "infra"
                 dropped_pairs.append({
                     "task_id": task_id,
                     "repeat": rep,
                     "reason": f"unrecovered infra_error: arm_a={a_infra}, arm_b={b_infra}",
                 })
-                continue
-
-            if not (a_valid and b_valid):
+            elif not (a_valid and b_valid):
+                drop_kind = "protocol"
                 dropped_pairs.append({
                     "task_id": task_id,
                     "repeat": rep,
@@ -361,17 +486,53 @@ def run_pilot_parity_matrix(run_id: str) -> dict[str, Any]:
                     "arm_a_violations": arm_a_info.get("violations", []),
                     "arm_b_violations": arm_b_info.get("violations", []),
                 })
-                continue
+            else:
+                # Both arms valid: append strictly paired stage tokens and record any gap
+                for s_name in STAGES:
+                    tok_a = arm_a_info.get("stages", {}).get(s_name)
+                    tok_b = arm_b_info.get("stages", {}).get(s_name)
+                    if tok_a is not None and tok_b is not None:
+                        stage_samples[s_name]["arm_a"].append(tok_a)
+                        stage_samples[s_name]["arm_b"].append(tok_b)
+                    else:
+                        stage_token_gaps[s_name] += 1
+                # Running pooled prints + C6 ratio watch on pooled-gated stages.
+                # Backstop only: synthetic off-band pairs trip it at n=5
+                # (test_ratio_watch_aborts_at_five_valid_pairs); 010 replay never
+                # leaves the band, so first-drop remains the expected trigger.
+                for s_name in STAGES:
+                    xs_a = stage_samples[s_name]["arm_a"]
+                    xs_b = stage_samples[s_name]["arm_b"]
+                    n_valid = len(xs_a)
+                    if n_valid == 0:
+                        continue
+                    sum_a = sum(xs_a)
+                    sum_b = sum(xs_b)
+                    running_pooled = sum_a / sum_b if sum_b else 0.0
+                    print(f"    [running {s_name}] n={n_valid} sumA={sum_a} sumB={sum_b} pooled={running_pooled:.4f} bands pooled[0.80,1.25] tost[0.50,2.00]")
+                    if STAGE_POOLED_REQUIRED[s_name] and n_valid >= WATCH_MIN_VALID_PAIRS:
+                        _, _, _, ci_lo, ci_hi = _log_ratio_ci(list(zip(xs_a, xs_b)))
+                        if ci_hi < TOST_BAND_LOW or ci_lo > TOST_BAND_HIGH:
+                            abort_reason = (
+                                f"UNRECOVERABLE_POOLED_RATIO:{s_name}:"
+                                f"90CI[{ci_lo:.4f},{ci_hi:.4f}]@n={n_valid}"
+                            )
+                            _write_abort_marker(abort_marker, run_id, abort_reason)
+                            print(f"  UNRECOVERABLE ratio watch triggered: {abort_reason}")
+                            stop = True
+                            break
 
-            # Both arms valid: append strictly paired stage tokens and record any gap
-            for s_name in STAGES:
-                tok_a = arm_a_info.get("stages", {}).get(s_name)
-                tok_b = arm_b_info.get("stages", {}).get(s_name)
-                if tok_a is not None and tok_b is not None:
-                    stage_samples[s_name]["arm_a"].append(tok_a)
-                    stage_samples[s_name]["arm_b"].append(tok_b)
-                else:
-                    stage_token_gaps[s_name] += 1
+            if drop_kind is not None:
+                if abort_reason is None:
+                    abort_reason = f"FIRST_DROP:{task_id}:rep{rep}:{drop_kind}"
+                    _write_abort_marker(abort_marker, run_id, abort_reason)
+                    print(f"  Fail-fast abort: {abort_reason}")
+                if not continue_diagnostics:
+                    stop = True
+            if stop:
+                break
+        if stop:
+            break
 
     # Evaluate TOST metrics across collected valid pairs
     stage_metrics = {}
@@ -381,26 +542,68 @@ def run_pilot_parity_matrix(run_id: str) -> dict[str, Any]:
         samples_a = stage_samples[stage]["arm_a"]
         samples_b = stage_samples[stage]["arm_b"]
         gaps = stage_token_gaps[stage]
-        tost_res = calculate_stage_tost(samples_a, samples_b, token_gaps=gaps)
+        tost_res = calculate_stage_tost(
+            samples_a, samples_b, token_gaps=gaps, pooled_required=STAGE_POOLED_REQUIRED[stage]
+        )
         stage_metrics[stage] = tost_res
         if not tost_res.get("passed"):
             all_stages_passed = False
 
-    passed_overall = (all_stages_passed and len(dropped_pairs) == 0 and total_token_gaps == 0)
+    # C4 retry hard gate over executed (non-skipped) arm runs.
+    arm_runs = {"arm_a": 0, "arm_b": 0}
+    arm_retries = {"arm_a": 0, "arm_b": 0}
+    for rec in completed_pairs.values():
+        arms = rec.get("arms", {})
+        for arm in ("arm_a", "arm_b"):
+            info = arms.get(arm, {})
+            if not isinstance(info, dict) or info.get("skipped"):
+                continue
+            arm_runs[arm] += 1
+            arm_retries[arm] += int(info.get("retries", 0))
+    retry_rates = {
+        arm: (arm_retries[arm] / arm_runs[arm] if arm_runs[arm] else 0.0)
+        for arm in ("arm_a", "arm_b")
+    }
+    retry_gate_ok = all(rate <= RETRY_RATE_GATE for rate in retry_rates.values())
+
+    complete = (len(completed_pairs) == expected_pairs)
+    # Sign-off change 5: any shortfall is diagnostic by construction (a drop or
+    # abort sets the flag above), and PASS additionally requires `complete`.
+    # The matrix side independently rejects diagnostic_only reports (C7).
+    diagnostic_only = bool(dropped_pairs) or abort_reason is not None or continue_diagnostics or not complete
+    passed_overall = (
+        all_stages_passed
+        and len(dropped_pairs) == 0
+        and total_token_gaps == 0
+        and retry_gate_ok
+        and complete
+    )
 
     return {
         "verdict": "PASS" if passed_overall else "FAIL",
         "total_pairs_evaluated": len(completed_pairs),
+        "expected_pairs": expected_pairs,
         "dropped_pairs_count": len(dropped_pairs),
         "dropped_pairs": dropped_pairs,
         "total_token_gaps": total_token_gaps,
         "stage_token_gaps": stage_token_gaps,
         "stage_metrics": stage_metrics,
+        "stage_gates": {s: {"pooled_required": STAGE_POOLED_REQUIRED[s]} for s in STAGES},
+        "abort_reason": abort_reason,
+        "diagnostic_only": diagnostic_only,
+        "continue_diagnostics": continue_diagnostics,
+        "retry_gate": {
+            "threshold": RETRY_RATE_GATE,
+            "arm_runs": arm_runs,
+            "arm_retries": arm_retries,
+            "rates": retry_rates,
+            "ok": retry_gate_ok,
+        },
         "records_file": records_ndjson,
     }
 
 
-def run_preflight(run_id: str, dry_run: bool = False) -> dict[str, Any]:
+def run_preflight(run_id: str, dry_run: bool = False, continue_diagnostics: bool = False) -> dict[str, Any]:
     print("=== WORKFLOW BENCH PRE-FLIGHT PARITY GATE ===")
     print(f"Target Run ID: {run_id}")
 
@@ -442,6 +645,10 @@ def run_preflight(run_id: str, dry_run: bool = False) -> dict[str, Any]:
             "pooled_band": [POOLED_BAND_LOW, POOLED_BAND_HIGH],
             "tost_band": [TOST_BAND_LOW, TOST_BAND_HIGH],
             "max_infra_retries": MAX_INFRA_RETRIES,
+            "protocol_amendment": "A",
+            "stage_gates": {s: {"pooled_required": STAGE_POOLED_REQUIRED[s]} for s in STAGES},
+            "retry_rate_gate": RETRY_RATE_GATE,
+            "ratio_watch": {"min_valid_pairs": WATCH_MIN_VALID_PAIRS, "tost_band": [TOST_BAND_LOW, TOST_BAND_HIGH]},
         },
         "ceilings": {
             "stage_seconds": STAGE_TIMEOUT_SECONDS,
@@ -453,7 +660,7 @@ def run_preflight(run_id: str, dry_run: bool = False) -> dict[str, Any]:
         print("\nDry-run mode: skipping pilot model invocations.")
         report["verdict"] = "DRY_RUN_PASS"
     else:
-        pilot_results = run_pilot_parity_matrix(run_id)
+        pilot_results = run_pilot_parity_matrix(run_id, continue_diagnostics=continue_diagnostics)
         report.update(pilot_results)
 
     # Save artifact strictly inside run directory
@@ -473,9 +680,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-id", default="confirmatory-004", help="Run identifier")
     parser.add_argument("--dry-run", action="store_true", help="Skip live pilot model invocations")
+    parser.add_argument(
+        "--continue-diagnostics",
+        action="store_true",
+        help="After a fail-fast abort, run remaining pairs diagnostically. Output is marked diagnostic_only and can never gate a matrix launch.",
+    )
     args = parser.parse_args()
 
-    report = run_preflight(args.run_id, dry_run=args.dry_run)
+    report = run_preflight(args.run_id, dry_run=args.dry_run, continue_diagnostics=args.continue_diagnostics)
     if report["verdict"] not in {"PASS", "DRY_RUN_PASS"}:
         sys.exit(1)
 

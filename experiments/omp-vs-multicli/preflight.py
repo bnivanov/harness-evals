@@ -55,6 +55,9 @@ FROZEN_SOURCE_FILES = (
     "security/benchmark_guard.ts",
     "security/benchmark_guard.test.ts",
     "preflight_parity.py",
+    "tests/test_amendment_a.py",
+    "calibration/planner_effort_calibration.json",
+    "calibration/reviewer_effort_calibration.json",
 )
 
 

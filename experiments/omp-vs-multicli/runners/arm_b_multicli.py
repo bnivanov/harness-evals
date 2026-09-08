@@ -32,6 +32,7 @@ from runner_common import (  # noqa: E402
     prepare_isolated_grok_home,
     run_captured_process,
     sandbox_command,
+    temp_root_write_violations,
     trace_violations,
 )
 
@@ -46,6 +47,11 @@ def parse_grok_telemetry(stdout: str, role: str) -> dict:
     cache_read_tokens = usage.get("cache_read_input_tokens", 0)
     output_tokens = usage.get("output_tokens", 0)
     reasoning_tokens = usage.get("reasoning_tokens", 0)
+    # Sign-off change 2: grok CLI output carries response text only — no
+    # reasoning-text stream exists — so zero accounted reasoning tokens with
+    # text present is vendor accounting (arm failure), never a telemetry blip.
+    # Length is kept as output_text_chars for reporting only.
+    output_text_chars = len(data.get("text", "") or "")
     normalized = normalize_usage(
         role, "grok", input_tokens, cache_read_tokens, output_tokens, reasoning_tokens
     )
@@ -56,6 +62,8 @@ def parse_grok_telemetry(stdout: str, role: str) -> dict:
         "cache_write_tokens": usage.get("cache_creation_input_tokens", 0),
         "output_tokens": output_tokens,
         "reasoning_tokens": reasoning_tokens,
+        "output_text_chars": output_text_chars,
+        "telemetry_missing": False,
         **normalized,
         "resolved_models": sorted(data.get("modelUsage", {}).keys()),
         "session_id": data.get("sessionId"),
@@ -100,6 +108,10 @@ def parse_codex_telemetry(stdout: str, role: str) -> dict:
     normalized = normalize_usage(
         role, "codex", input_tokens, cache_read_tokens, output_tokens, reasoning_tokens
     )
+    # Sign-off change 2: 50/50 sampled codex traces carry only
+    # agent_message/command_execution/file_change items — no reasoning stream —
+    # so the response-text length is reporting-only, never retryable.
+    output_text_chars = sum(len(message) for message in messages)
     return {
         "num_turns": num_turns,
         "input_tokens": input_tokens,
@@ -107,6 +119,8 @@ def parse_codex_telemetry(stdout: str, role: str) -> dict:
         "cache_write_tokens": cache_write_tokens,
         "output_tokens": output_tokens,
         "reasoning_tokens": reasoning_tokens,
+        "output_text_chars": output_text_chars,
+        "telemetry_missing": False,
         **normalized,
         "resolved_models": sorted(resolved_models),
         "tool_calls_count": len(tool_calls),
@@ -130,6 +144,10 @@ def parse_agy_telemetry(stdout: str, role: str) -> dict:
         role, "agy", input_tokens, cache_read_tokens, output_tokens, reasoning_tokens
     )
     resolved = data.get("model") or data.get("model_id")
+    response_text = data.get("response", data.get("text", "")) or ""
+    # Sign-off change 2: agy exposes thinking *tokens* in usage but no reasoning
+    # text stream; response length is reporting-only, never retryable.
+    output_text_chars = len(response_text)
     return {
         "num_turns": data.get("num_turns", 0),
         "input_tokens": input_tokens,
@@ -137,6 +155,8 @@ def parse_agy_telemetry(stdout: str, role: str) -> dict:
         "cache_write_tokens": usage.get("cache_write_tokens", 0),
         "output_tokens": output_tokens,
         "reasoning_tokens": reasoning_tokens,
+        "output_text_chars": output_text_chars,
+        "telemetry_missing": False,
         **normalized,
         "resolved_models": [resolved] if resolved else [],
         "parse_error": data.get("parse_error"),
@@ -152,6 +172,8 @@ def empty_telemetry(role: str, provider: str) -> dict:
         "cache_write_tokens": 0,
         "output_tokens": 0,
         "reasoning_tokens": 0,
+        "output_text_chars": 0,
+        "telemetry_missing": False,
         **normalize_usage(role, provider, 0, 0, 0, 0),
         "resolved_models": [],
         "final_text": "",
@@ -210,10 +232,15 @@ def run_cli_stage(
         telemetry = parse_agy_telemetry(process["stdout"], role)
 
     violations = trace_violations(process["stdout"], process["stderr"])
+    # C2: temp-root write attempts carry the Arm A guard-TP disposition.
+    violations.extend(temp_root_write_violations(process["stdout"], process["stderr"]))
     if telemetry.get("parse_error"):
         violations.append({"code": "TELEMETRY_PARSE_ERROR", "detail": telemetry["parse_error"]})
     if telemetry["reasoning_tokens"] <= 0:
         violations.append({"code": "NO_REASONING_TOKENS"})
+    # Sign-off change 2: Arm B never emits REASONING_TELEMETRY_MISSING (no
+    # reasoning-text stream in any vendor CLI). Zero reasoning tokens with text
+    # stays an arm failure via NO_REASONING_TOKENS above; retry is Arm-A-only.
     if process["timed_out"]:
         violations.append({"code": "STAGE_TIMEOUT"})
     if provider == "grok":
@@ -242,7 +269,7 @@ def run_cli_stage(
     }
 
 
-def run_arm_b(task_meta: dict, workspace_dir: str, artifact_dir: str, scratch_dir: str | None = None) -> dict:
+def run_arm_b(task_meta: dict, workspace_dir: str, artifact_dir: str, scratch_dir: str | None = None, pilot_early_stop: bool = False) -> dict:
     runtime_dir = tempfile.mkdtemp(prefix=f"harness_runtime_{task_meta['task_id']}_arm_b_")
     try:
         grok_home = prepare_isolated_grok_home(runtime_dir)
@@ -314,12 +341,17 @@ def run_arm_b(task_meta: dict, workspace_dir: str, artifact_dir: str, scratch_di
             violations.extend({"stage": stage_name, **item} for item in stage["protocol_violations"])
             if not stage["success"]:
                 violations.append({"stage": stage_name, "code": "STAGE_FAILED"})
-            if required_artifact and not os.path.isfile(os.path.join(workspace_dir, required_artifact)):
+            handoff_missing = required_artifact and not os.path.isfile(os.path.join(workspace_dir, required_artifact))
+            if handoff_missing:
                 violations.append({
                     "stage": stage_name,
                     "code": "MISSING_HANDOFF",
                     "path": required_artifact,
                 })
+                # C3: pilot-only within-pair stop. Never enabled on the matrix
+                # path (run_task.py uses the default False).
+                if pilot_early_stop:
+                    break
 
         duration = round(time.monotonic() - started, 2)
         if duration > TASK_TIMEOUT_SECONDS + 2:

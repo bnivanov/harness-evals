@@ -53,6 +53,30 @@ TRACE_VIOLATION_PATTERNS = (
     ("RAW_NETWORK_CODE", re.compile(r"(?:import\s+(?:urllib(?:\.\w+)*|requests|httpx|socket)|from\s+(?:urllib(?:\.\w+)*|requests|httpx|socket)\s+import|(?:requests|httpx)\.(?:get|post|put|delete|patch|request)|socket\.(?:socket|create_connection)|require\s*\(\s*['\"](?:node:)?(?:https?|net)['\"]\)|fetch\s*\(\s*['\"]https?:)", re.I)),
 )
 
+# Amendment A (post-010, Opus C2): post-hoc temp-root write detection for Arm B.
+# The in-process benchmark guard fail-closes Arm A; vendor CLIs in Arm B run at
+# OS level, so an identical write attempt must carry the same disposition
+# (violation -> pair dropped). Matches shell redirections, write-verb commands
+# with a temp-root operand, and quoted temp-root paths after write verbs or a
+# JSON "path" key. Deliberately NOT anchored on /var/folders: pilot workspaces
+# and scratch dirs legitimately live there. MUST run on raw traces BEFORE
+# scrub_workstation_paths (which rewrites /private/var/folders -> $TMPDIR).
+TEMP_ROOT_WRITE_PATTERN = re.compile(
+    r"(?:^|[;&|`$(){}\s])(?:echo|printf|cat|tee|touch|mkdir|rmdir|cp|mv|ln|rm|cd|python3?|perl|ruby|node)\b[^;&|`$\n]*?/(?:private/)?tmp(?:/|$)"
+    r"|>{1,2}\s*/(?:private/)?tmp/"
+    r"|(?:\bopen|\bwrite|\bsave|\bcreate|\"path\"\s*:)\s*\(?\s*['\"]/(?:private/)?tmp/",
+    re.I,
+)
+
+
+def temp_root_write_violations(stdout: str, stderr: str) -> list[dict]:
+    """Return one TEMP_ROOT_WRITE violation per temp-root write attempt."""
+    hits: list[dict] = []
+    for text in (stdout or "", stderr or ""):
+        for match in TEMP_ROOT_WRITE_PATTERN.finditer(text):
+            hits.append({"code": "TEMP_ROOT_WRITE", "match": match.group(0)[:120]})
+    return hits
+
 
 def sha256_file(path: str) -> str:
     digest = hashlib.sha256()
@@ -60,6 +84,10 @@ def sha256_file(path: str) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+# C8 ordering rule: temp-root detection (above) consumes raw traces at stage
+# time. This scrub runs only at report time and would mask that evidence.
 def scrub_workstation_paths(obj: Any) -> Any:
     home = os.path.expanduser("~")
     tmp = tempfile.gettempdir()
@@ -86,6 +114,19 @@ def seatbelt_profile(workspace: str, scratch_dir: str | None = None) -> str:
     if scratch_dir:
         scratch_real = os.path.realpath(scratch_dir).replace('"', '\\"')
         scratch_allow = f'(allow file-read* file-write* (subpath "{scratch_real}"))\n'
+    # Sign-off change 4: fail closed if the allowed roots sit under a denied
+    # temp root. With TMPDIR unset, tempfile resolves under /tmp and the C1
+    # denies below would revoke these allows (SBPL last-match-wins), failing
+    # every stage in both arms while reading as instrumentation trouble.
+    for label, raw_path in (("workspace", workspace), ("scratch_dir", scratch_dir)):
+        if not raw_path:
+            continue
+        resolved = os.path.realpath(raw_path)
+        if resolved in ("/tmp", "/private/tmp") or resolved.startswith(("/tmp/", "/private/tmp/")):
+            raise RuntimeError(
+                f"Amendment A C1: {label} resolves under a denied temp root ({resolved}); "
+                "set TMPDIR/scratch outside /tmp before building the profile."
+            )
     deny_exec = "\n".join(
         f'  (deny process-exec (literal "{path}"))'
         for path in NETWORK_EXECUTABLES
@@ -98,6 +139,15 @@ def seatbelt_profile(workspace: str, scratch_dir: str | None = None) -> str:
         f'(deny file-write* (subpath "{root}"))\n'
         f'(allow file-read* file-write* (subpath "{workspace_real}"))\n'
         f"{scratch_allow}"
+        # Amendment A C1: deny shared temp roots for BOTH arms (SBPL
+        # last-match-wins keeps these effective after the allows above).
+        # /var/folders is deliberately NOT denied: both arms allocate
+        # runtime_dir, agent HOME, and (in pilot path) guard logs under the
+        # host TMPDIR, so denying it would fail every stage in both arms.
+        '(deny file-read* (subpath "/tmp"))\n'
+        '(deny file-write* (subpath "/tmp"))\n'
+        '(deny file-read* (subpath "/private/tmp"))\n'
+        '(deny file-write* (subpath "/private/tmp"))\n'
         f"{deny_exec}\n"
     )
 
