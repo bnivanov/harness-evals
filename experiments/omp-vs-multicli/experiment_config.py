@@ -19,7 +19,7 @@ AGY_BIN = os.path.join(HOME, ".local/bin/agy")
 SANDBOX_EXEC = "/usr/bin/sandbox-exec"
 
 BINARY_PINS = {
-    "omp": {"path": OMP_BIN, "version": "omp/18.1.13", "version_args": ["--version"]},
+    "omp": {"path": OMP_BIN, "version": "omp/18.1.14", "version_args": ["--version"]},
     "grok": {"path": GROK_BIN, "version": "grok 1.0.5 (5115b46bc909) [stable]", "version_args": ["--version"]},
     "codex": {"path": CODEX_BIN, "version": "codex-cli 0.153.4", "version_args": ["--version"]},
     "agy": {"path": AGY_BIN, "version": "1.1.27", "version_args": ["--version"]},

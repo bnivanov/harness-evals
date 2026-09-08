@@ -22,7 +22,7 @@ $$\mathbf{Planner} \;\longrightarrow\; \mathbf{Worker} \;\longrightarrow\; \math
    * Both arms execute the official, latest pinned first-party binaries out-of-the-box.
    * Zero community overlays, zero third-party plugins, zero custom prompt injections or wrappers.
    * Pinned executables:
-     * `omp` (v18.1.13)
+     * `omp` (v18.1.14; bumped 2026-09-08 for the confirmatory-014 wave after 18.1.13 auto-updated away — prior-wave runs remain pinned to their recorded versions in their manifests)
      * `grok` (xAI Grok Build CLI 1.0.5)
      * `codex` (OpenAI Codex CLI 0.153.4)
      * `agy` (Google Antigravity CLI 1.1.27)
