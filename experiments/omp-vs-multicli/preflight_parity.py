@@ -131,7 +131,9 @@ QUOTA_CAPS = {
     "google_weekly": 97.0,
     "xai_weekly": 90.0,
     "codex_5h": 90.0,
-    "codex_7d": 50.0,
+    # Owner decision 2026-09-09: 20% headroom acceptable for the weekly window
+    # (was 50.0) — pair 2's post-pair reading hit 61% on external usage alone.
+    "codex_7d": 80.0,
 }
 _USAGE_KEYS = (
     ("google antigravity", "usage (google) (weekly)", "google_weekly"),
