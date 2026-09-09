@@ -25,7 +25,7 @@ $$\mathbf{Planner} \;\longrightarrow\; \mathbf{Worker} \;\longrightarrow\; \math
      * `omp` (v18.1.14; bumped 2026-09-08 for the confirmatory-014 wave after 18.1.13 auto-updated away — prior-wave runs remain pinned to their recorded versions in their manifests)
      * `grok` (xAI Grok Build CLI 1.0.5)
      * `codex` (OpenAI Codex CLI 0.153.4)
-     * `agy` (Google Antigravity CLI 1.1.27)
+     * `agy` (Google Antigravity CLI 1.1.28; bumped 2026-09-09 after auto-update from 1.1.27 — prior-wave runs remain pinned to their recorded versions in their manifests)
 
 2. **Pre-Registered Matched-Compute Effort**:
    * All stages follow the pre-registered `EFFORT_MATRIX` calibrated to match token budgets:
