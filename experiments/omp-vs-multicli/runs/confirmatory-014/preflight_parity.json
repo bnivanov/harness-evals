@@ -1,0 +1,283 @@
+{
+  "run_id": "confirmatory-014",
+  "timestamp": "2026-09-08T22:45:43Z",
+  "composite_source_sha256": "7325f3f2c8773cbbf9d499b6062ce92e9fd96e98d6a0451b4250918f997d1c1f",
+  "run_manifest_sha256": "10dd7b6af6d8214c6aa167a1a3fb312b4fa88ed8a6a9f1267da982f236efb748",
+  "source_hashes": {
+    "PROTOCOL.md": "34a93e3726a327390f1c88abe3bd0957f7e1673f64ffbd13accefb876058bf29",
+    "ANTI_CHEATING.md": "a5ad9de45f1e1bf5fdec695e516182d7994eae5036146606f558a3b984a9d3f8",
+    "config_overlay.yml": "0da00e8cfe5b40cf0079bbaaa43c8d62efe54cacfeeedf2691d418703d0a64a4",
+    "experiment_config.py": "d99ec9710e7a13597ed16a6ad4dca41c8127b5bb79a4bafd9262823c90e7b3a6",
+    "runner_common.py": "b74fb4c0eb969c7bf9cc2b7e8e8463fb72974167de39c4c4173fbefe2331476b",
+    "run_task.py": "c32dcfa9748095c70819a835dede9ea93671457f6a67ad9b5677dc357c21c196",
+    "run_matrix.py": "87ba5fa2f774e5cde347833374bdd0f554f57106ece9a8b4e7b667769d18815a",
+    "preflight.py": "ec7ccaaad2aa8199c856dfe75d3360d347e9009e29dd56bfd06e9a7d5c4c2f0c",
+    "smoke_test_parity.py": "70a451d0eb2f4725732c97cbebca1b706a5b3320de8a9d37d9adf7ff5d2e9add",
+    "runners/arm_a_omp.py": "e9f22a51dfb075caefcbba7758fd9859d99badc6a4808abf022e43a0b6d13d53",
+    "runners/arm_b_multicli.py": "f0329a4ff918fccabaa6607c2346af9ebad91e420ce562412f0de51278fbeedd",
+    "verifier/oracle_verifier.py": "a9d334f5ddc4da29561f08500d2c506fae63d3cf22e47f54552f92169d847315",
+    "analysis/calculate_stats.py": "58c27082287c3e1c01e23c09053415084b796d6495a579f3f57473ebdeabad9c",
+    "security/benchmark_guard.ts": "4e568b172fe517aa8836f11cd56e4d036f3a519f408883ba741bc97418deb583",
+    "security/benchmark_guard.test.ts": "f81cecb2b731724ddbf81753953964f01a5ac8f385b2bb6b762abec5a6a3a1ae",
+    "preflight_parity.py": "b8449243f2b47b5bce6b0405d7de67e6d08be025e151df853c45e81b525735c7",
+    "tests/test_amendment_a.py": "5c2eb1e3467f1673cad8cbc3819ad94026723fda9814905a76d0d762e7c2f91d",
+    "calibration/planner_effort_calibration.json": "db69df74f5a3b835498253bfaa142dadfdba2fe5afcff3aebe17e743e0ae4f55",
+    "calibration/reviewer_effort_calibration.json": "6d7d6adf8a103f3a51ab977a850fad8b55590535d4ad1f13448a01a3480b7bef"
+  },
+  "binary_pins": {
+    "omp": {
+      "expected": "omp/18.1.14",
+      "actual": "omp/18.1.14",
+      "returncode": 0,
+      "matched": true
+    },
+    "grok": {
+      "expected": "grok 1.0.5 (5115b46bc909) [stable]",
+      "actual": "grok 1.0.5 (5115b46bc909) [stable]",
+      "returncode": 0,
+      "matched": true
+    },
+    "codex": {
+      "expected": "codex-cli 0.153.4",
+      "actual": "codex-cli 0.153.4",
+      "returncode": 0,
+      "matched": true
+    },
+    "agy": {
+      "expected": "1.1.27",
+      "actual": "1.1.27",
+      "returncode": 0,
+      "matched": true
+    }
+  },
+  "containment": {
+    "positive_control": {
+      "oracle_file": "$HOME/AgentWork/projects/harness-evals/benchmarks/aider-python/oracle/solutions/wordy.py",
+      "verified_readable": true
+    },
+    "negative_oracle_probe": {
+      "status": "quarantined",
+      "evidence": "ORACLE_QUARANTINED_EACCES"
+    },
+    "negative_network_probe": {
+      "status": "blocked",
+      "evidence": "CURL_EXEC_BLOCKED_EPERM"
+    }
+  },
+  "effort_matrix": {
+    "planner": {
+      "arm_a": "medium",
+      "arm_b": "medium"
+    },
+    "worker": {
+      "arm_a": "max",
+      "arm_b": "max"
+    },
+    "reviewer": {
+      "arm_a": "medium",
+      "arm_b": "medium"
+    }
+  },
+  "model_pins": {
+    "planner": {
+      "arm_a": "xai-oauth/grok-4.6",
+      "arm_b": "grok-4.6"
+    },
+    "worker": {
+      "arm_a": "openai-codex/gpt-5.6-luna",
+      "arm_b": "gpt-5.6-luna"
+    },
+    "reviewer": {
+      "arm_a": "google-antigravity/gemini-3.8-flash",
+      "arm_b": "gemini-3.8-flash"
+    }
+  },
+  "pilot_power_basis": {
+    "pilot_tasks": [
+      "grep",
+      "list-ops"
+    ],
+    "pilot_repeats": 7,
+    "total_pairs": 14,
+    "pooled_band": [
+      0.8,
+      1.25
+    ],
+    "tost_band": [
+      0.5,
+      2.0
+    ],
+    "max_infra_retries": 2,
+    "protocol_amendment": "A",
+    "stage_gates": {
+      "1_PLANNER": {
+        "pooled_required": false,
+        "tost_required": true
+      },
+      "2_WORKER_INITIAL": {
+        "pooled_required": false,
+        "tost_required": false
+      },
+      "3_REVIEWER": {
+        "pooled_required": true,
+        "tost_required": true
+      },
+      "4_WORKER_REFINE": {
+        "pooled_required": false,
+        "tost_required": false
+      }
+    },
+    "retry_rate_gate": 0.1,
+    "ratio_watch": {
+      "min_valid_pairs": 5,
+      "tost_band": [
+        0.5,
+        2.0
+      ]
+    }
+  },
+  "ceilings": {
+    "stage_seconds": 600,
+    "task_seconds": 1800
+  },
+  "verdict": "FAIL",
+  "total_pairs_evaluated": 1,
+  "expected_pairs": 14,
+  "dropped_pairs_count": 1,
+  "dropped_pairs": [
+    {
+      "task_id": "grep",
+      "repeat": 1,
+      "reason": "protocol_valid failure: arm_a=True, arm_b=False",
+      "arm_a_violations": [],
+      "arm_b_violations": [
+        {
+          "stage": "1_PLANNER",
+          "code": "NO_REASONING_TOKENS"
+        },
+        {
+          "stage": "1_PLANNER",
+          "code": "MODEL_MISMATCH",
+          "expected": "grok-4.6",
+          "actual": []
+        },
+        {
+          "stage": "1_PLANNER",
+          "code": "STAGE_FAILED"
+        },
+        {
+          "stage": "1_PLANNER",
+          "code": "MISSING_HANDOFF",
+          "path": "01_PLAN.md"
+        }
+      ]
+    }
+  ],
+  "total_token_gaps": 0,
+  "stage_token_gaps": {
+    "1_PLANNER": 0,
+    "2_WORKER_INITIAL": 0,
+    "3_REVIEWER": 0,
+    "4_WORKER_REFINE": 0
+  },
+  "stage_metrics": {
+    "1_PLANNER": {
+      "total_pairs": 0,
+      "zero_exclusions": 0,
+      "token_gaps": 0,
+      "n": 0,
+      "tost_passed": false,
+      "error": "Insufficient valid non-zero pairs (n < 2)"
+    },
+    "2_WORKER_INITIAL": {
+      "total_pairs": 0,
+      "zero_exclusions": 0,
+      "token_gaps": 0,
+      "n": 0,
+      "tost_passed": false,
+      "error": "Insufficient valid non-zero pairs (n < 2)"
+    },
+    "3_REVIEWER": {
+      "total_pairs": 0,
+      "zero_exclusions": 0,
+      "token_gaps": 0,
+      "n": 0,
+      "tost_passed": false,
+      "error": "Insufficient valid non-zero pairs (n < 2)"
+    },
+    "4_WORKER_REFINE": {
+      "total_pairs": 0,
+      "zero_exclusions": 0,
+      "token_gaps": 0,
+      "n": 0,
+      "tost_passed": false,
+      "error": "Insufficient valid non-zero pairs (n < 2)"
+    }
+  },
+  "stage_gates": {
+    "1_PLANNER": {
+      "pooled_required": false,
+      "tost_required": true
+    },
+    "2_WORKER_INITIAL": {
+      "pooled_required": false,
+      "tost_required": false
+    },
+    "3_REVIEWER": {
+      "pooled_required": true,
+      "tost_required": true
+    },
+    "4_WORKER_REFINE": {
+      "pooled_required": false,
+      "tost_required": false
+    }
+  },
+  "abort_reason": "FIRST_DROP:grep:rep1:protocol",
+  "diagnostic_only": true,
+  "continue_diagnostics": false,
+  "retry_gate": {
+    "threshold": 0.1,
+    "arm_runs": {
+      "arm_a": 1,
+      "arm_b": 1
+    },
+    "arm_retries": {
+      "arm_a": 0,
+      "arm_b": 0
+    },
+    "rates": {
+      "arm_a": 0.0,
+      "arm_b": 0.0
+    },
+    "ok": true
+  },
+  "records_file": "$HOME/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-014/pilot_records.ndjson",
+  "new_pairs": 1,
+  "quota_guard": true,
+  "quota_snapshots": [
+    {
+      "phase": "pre",
+      "task_id": "grep",
+      "repeat": 1,
+      "quotas": {
+        "google_weekly": 95.2,
+        "google_5h": 6.3,
+        "xai_weekly": 45.0,
+        "codex_5h": 51.0,
+        "codex_7d": 39.0
+      }
+    },
+    {
+      "phase": "post",
+      "task_id": "grep",
+      "repeat": 1,
+      "quotas": {
+        "google_weekly": 95.2,
+        "google_5h": 6.3,
+        "xai_weekly": 45.0,
+        "codex_5h": 51.0,
+        "codex_7d": 39.0
+      }
+    }
+  ]
+}

@@ -1,0 +1,104 @@
+{
+  "arm": "arm_b_multicli",
+  "task_id": "grep",
+  "duration": 0.73,
+  "normalized_total_tokens": 0,
+  "total_cost_usd": 0.0,
+  "total_turns": 0,
+  "total_tool_calls": 0,
+  "protocol_valid": false,
+  "protocol_violations": [
+    {
+      "stage": "1_PLANNER",
+      "code": "NO_REASONING_TOKENS"
+    },
+    {
+      "stage": "1_PLANNER",
+      "code": "MODEL_MISMATCH",
+      "expected": "grok-4.6",
+      "actual": []
+    },
+    {
+      "stage": "1_PLANNER",
+      "code": "STAGE_FAILED"
+    },
+    {
+      "stage": "1_PLANNER",
+      "code": "MISSING_HANDOFF",
+      "path": "01_PLAN.md"
+    }
+  ],
+  "stages": [
+    {
+      "stage": "1_PLANNER",
+      "role": "planner",
+      "provider": "grok",
+      "configured_model": "grok-4.6",
+      "configured_effort": "medium",
+      "success": false,
+      "returncode": 1,
+      "duration": 0.73,
+      "error": null,
+      "command": [
+        "/Users/agentlab/.grok/bin/grok",
+        "-p",
+        "You are the Planner agent. Inspect README.md, public_test.py, and the implementation stub. Design the complete architecture, data structures, algorithms, and edge-case handling for grep.py. Write the implementation guide to 01_PLAN.md. Do not edit grep.py or any test file. Do not access files outside the current workspace, external networks, package registries, canonical solutions, or held-out tests. Write scratch, temp, and test-helper files only inside the current working directory (or `$TMPDIR` when set); never write outside it.",
+        "--model",
+        "grok-4.6",
+        "--effort",
+        "medium",
+        "--always-approve",
+        "--disable-web-search",
+        "--session-id",
+        "b4f5e1ce-0ad6-4ed7-b595-e5dad6a94ab5",
+        "--output-format",
+        "json"
+      ],
+      "telemetry": {
+        "num_turns": 0,
+        "input_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "output_tokens": 0,
+        "reasoning_tokens": 0,
+        "output_text_chars": 0,
+        "telemetry_missing": false,
+        "terminal_error": null,
+        "uncached_input_tokens": 0,
+        "normalized_input_tokens": 0,
+        "normalized_output_tokens": 0,
+        "normalized_total_tokens": 0,
+        "cost_usd": 0.0,
+        "input_includes_cache": false,
+        "output_includes_reasoning": true,
+        "resolved_models": [],
+        "session_id": null,
+        "request_id": null,
+        "parse_error": null,
+        "final_text": ""
+      },
+      "stdout_trace": {
+        "path": "/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/pilot_art_y_uv00qd/artifacts/1_PLANNER.stdout.jsonl",
+        "sha256": "70e7bcf2f16b2e8cf01b58b8f46ebc65de3c578c5844da5ac19a3719a4af8945",
+        "bytes": 220
+      },
+      "stderr_trace": {
+        "path": "/var/folders/z3/tpy284jj297ck601rpn41r1m0000gp/T/pilot_art_y_uv00qd/artifacts/1_PLANNER.stderr.log",
+        "sha256": "ed2e0acba42dba1ccb342f5d9e88f67ea45ef9b5f327308c627553f13f71f650",
+        "bytes": 195
+      },
+      "stdout_summary": "",
+      "stderr_summary": "Error: Not signed in. To authenticate without a browser, run:\n  grok login --device-code\n\nAlternatively, set the XAI_API_KEY environment variable or run `grok login` on a machine with a browser.\n",
+      "protocol_violations": [
+        {
+          "code": "NO_REASONING_TOKENS"
+        },
+        {
+          "code": "MODEL_MISMATCH",
+          "expected": "grok-4.6",
+          "actual": []
+        }
+      ]
+    }
+  ]
+}

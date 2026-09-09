@@ -1,0 +1,5 @@
+{
+  "run_id": "confirmatory-016",
+  "timestamp": "2026-09-09T08:39:53Z",
+  "abort_reason": "QUOTA_CAP:post:grep:rep2:codex_5h:100.0>=cap90.0"
+}

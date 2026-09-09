@@ -1,0 +1,59 @@
+=== WORKFLOW BENCH PRE-FLIGHT PARITY GATE ===
+Target Run ID: confirmatory-013
+Composite Source SHA-256: 9c5e64da9ca8a29308912f4c63c618da245641667007ef841577def8ed44f6a2 (19 frozen files)
+
+1. Verifying installed binary pins...
+   All binaries match frozen version pins.
+
+2. Verifying containment seatbelts...
+   Positive control & negative containment probes PASSED.
+
+3. Bound to run manifest SHA-256: 78650999d9f22ad6d484d329d6eb576f8ed9386006d2df2238e0b27042f04b78
+Loaded 7 previously persisted pilot pairs from /Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-013/pilot_records.ndjson.
+
+Executing Pilot Parity Matrix: tasks=['grep', 'list-ops'], k=7 (14 pairs)...
+  Resuming existing pair grep (rep 1)...
+    [running 1_PLANNER] n=1 sumA=4677 sumB=3503 pooled=1.3351 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 2_WORKER_INITIAL] n=1 sumA=722 sumB=1942 pooled=0.3718 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 3_REVIEWER] n=1 sumA=9153 sumB=16398 pooled=0.5582 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 4_WORKER_REFINE] n=1 sumA=206 sumB=4037 pooled=0.0510 bands pooled[0.80,1.25] tost[0.50,2.00]
+  Resuming existing pair grep (rep 2)...
+    [running 1_PLANNER] n=2 sumA=7498 sumB=9933 pooled=0.7549 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 2_WORKER_INITIAL] n=2 sumA=4151 sumB=4366 pooled=0.9508 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 3_REVIEWER] n=2 sumA=20998 sumB=36950 pooled=0.5683 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 4_WORKER_REFINE] n=2 sumA=2529 sumB=9212 pooled=0.2745 bands pooled[0.80,1.25] tost[0.50,2.00]
+  Resuming existing pair grep (rep 3)...
+    [running 1_PLANNER] n=3 sumA=9717 sumB=14920 pooled=0.6513 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 2_WORKER_INITIAL] n=3 sumA=5741 sumB=5560 pooled=1.0326 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 3_REVIEWER] n=3 sumA=27786 sumB=56599 pooled=0.4909 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 4_WORKER_REFINE] n=3 sumA=6505 sumB=11870 pooled=0.5480 bands pooled[0.80,1.25] tost[0.50,2.00]
+  Resuming existing pair grep (rep 4)...
+    [running 1_PLANNER] n=4 sumA=11000 sumB=19848 pooled=0.5542 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 2_WORKER_INITIAL] n=4 sumA=8073 sumB=7203 pooled=1.1208 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 3_REVIEWER] n=4 sumA=38941 sumB=70707 pooled=0.5507 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 4_WORKER_REFINE] n=4 sumA=7061 sumB=16025 pooled=0.4406 bands pooled[0.80,1.25] tost[0.50,2.00]
+  Resuming existing pair grep (rep 5)...
+    [running 1_PLANNER] n=5 sumA=13456 sumB=26338 pooled=0.5109 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 2_WORKER_INITIAL] n=5 sumA=8502 sumB=7744 pooled=1.0979 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 3_REVIEWER] n=5 sumA=42869 sumB=89479 pooled=0.4791 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 4_WORKER_REFINE] n=5 sumA=7270 sumB=18317 pooled=0.3969 bands pooled[0.80,1.25] tost[0.50,2.00]
+  Resuming existing pair grep (rep 6)...
+    [running 1_PLANNER] n=6 sumA=15672 sumB=29993 pooled=0.5225 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 2_WORKER_INITIAL] n=6 sumA=9196 sumB=9607 pooled=0.9572 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 3_REVIEWER] n=6 sumA=51490 sumB=112600 pooled=0.4573 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 4_WORKER_REFINE] n=6 sumA=7652 sumB=18963 pooled=0.4035 bands pooled[0.80,1.25] tost[0.50,2.00]
+  Resuming existing pair grep (rep 7)...
+    [running 1_PLANNER] n=7 sumA=18488 sumB=35106 pooled=0.5266 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 2_WORKER_INITIAL] n=7 sumA=10906 sumB=10929 pooled=0.9979 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 3_REVIEWER] n=7 sumA=67267 sumB=128989 pooled=0.5215 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 4_WORKER_REFINE] n=7 sumA=9187 sumB=20880 pooled=0.4400 bands pooled[0.80,1.25] tost[0.50,2.00]
+  Quotas pre-pair: {'google_weekly': 94.2, 'google_5h': 3.4, 'xai_weekly': 44.0, 'codex_5h': 57.0, 'codex_7d': 24.0}
+  Running list-ops (rep 1) on arm_a...
+[Arm A - OMP] Starting 1_PLANNER with xai-oauth/grok-4.6...
+  Skipping list-ops (rep 1) on arm_b (arm_a dead)...
+  Quotas post-pair: {'google_weekly': 94.2, 'google_5h': 3.4, 'xai_weekly': 44.0, 'codex_5h': 57.0, 'codex_7d': 24.0}
+  Step limit reached (1 new pair(s) this invocation); stopping for health/usage review. Resume with the same run_id.
+  Fail-fast abort: FIRST_DROP:list-ops:rep1:protocol
+
+Wrote /Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-013/preflight_parity.json
+Final Preflight Verdict: FAIL

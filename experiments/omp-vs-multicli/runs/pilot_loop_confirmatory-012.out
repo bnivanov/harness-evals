@@ -1,0 +1,42 @@
+=== WORKFLOW BENCH PRE-FLIGHT PARITY GATE ===
+Target Run ID: confirmatory-012
+Composite Source SHA-256: 0bab44c3e9af0ccd5aad71ae60daaa74cf473876dbefe7d58d78a3c341ed0865 (19 frozen files)
+
+1. Verifying installed binary pins...
+   All binaries match frozen version pins.
+
+2. Verifying containment seatbelts...
+   Positive control & negative containment probes PASSED.
+
+3. Bound to run manifest SHA-256: a74d7034869eed467ab82228f331380e77fa3fc51731f49e9b23eee3f6dc6a19
+Loaded 3 previously persisted pilot pairs from /Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-012/pilot_records.ndjson.
+
+Executing Pilot Parity Matrix: tasks=['grep', 'list-ops'], k=7 (14 pairs)...
+  Resuming existing pair grep (rep 1)...
+    [running 1_PLANNER] n=1 sumA=4123 sumB=6119 pooled=0.6738 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 2_WORKER_INITIAL] n=1 sumA=1156 sumB=1233 pooled=0.9376 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 3_REVIEWER] n=1 sumA=12149 sumB=14318 pooled=0.8485 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 4_WORKER_REFINE] n=1 sumA=599 sumB=2430 pooled=0.2465 bands pooled[0.80,1.25] tost[0.50,2.00]
+  Resuming existing pair grep (rep 2)...
+    [running 1_PLANNER] n=2 sumA=7434 sumB=10051 pooled=0.7396 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 2_WORKER_INITIAL] n=2 sumA=2227 sumB=4129 pooled=0.5394 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 3_REVIEWER] n=2 sumA=28037 sumB=33174 pooled=0.8451 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 4_WORKER_REFINE] n=2 sumA=2137 sumB=3611 pooled=0.5918 bands pooled[0.80,1.25] tost[0.50,2.00]
+  Resuming existing pair grep (rep 3)...
+    [running 1_PLANNER] n=3 sumA=9930 sumB=16839 pooled=0.5897 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 2_WORKER_INITIAL] n=3 sumA=2578 sumB=6690 pooled=0.3854 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 3_REVIEWER] n=3 sumA=38763 sumB=57203 pooled=0.6776 bands pooled[0.80,1.25] tost[0.50,2.00]
+    [running 4_WORKER_REFINE] n=3 sumA=5780 sumB=5457 pooled=1.0592 bands pooled[0.80,1.25] tost[0.50,2.00]
+  Quotas pre-pair: {'google_weekly': 93.3, 'google_5h': None, 'xai_weekly': 43.0, 'codex_5h': 15.0, 'codex_7d': 18.0}
+  Running grep (rep 4) on arm_a...
+[Arm A - OMP] Starting 1_PLANNER with xai-oauth/grok-4.6...
+[Arm A - OMP] Starting 2_WORKER_INITIAL with openai-codex/gpt-5.6-luna...
+[Arm A - OMP] Starting 3_REVIEWER with google-antigravity/gemini-3.8-flash...
+[Arm A - OMP] Starting 4_WORKER_REFINE with openai-codex/gpt-5.6-luna...
+  Skipping grep (rep 4) on arm_b (arm_a dead)...
+  Quotas post-pair: {'google_weekly': 93.3, 'google_5h': None, 'xai_weekly': 43.0, 'codex_5h': 15.0, 'codex_7d': 18.0}
+  Step limit reached (1 new pair(s) this invocation); stopping for health/usage review. Resume with the same run_id.
+  Fail-fast abort: FIRST_DROP:grep:rep4:protocol
+
+Wrote /Users/agentlab/AgentWork/projects/harness-evals/experiments/omp-vs-multicli/runs/confirmatory-012/preflight_parity.json
+Final Preflight Verdict: FAIL

@@ -1,0 +1,40 @@
+2026-09-08T11:31:32Z quota blocked (codex_5h:100.0>=cap90.0); sleeping 3600s (1/12)
+2026-09-08T11:34:02Z quota blocked (codex_5h:100.0>=cap90.0); sleeping 3600s (1/12)
+2026-09-08T12:34:08Z quota blocked (codex_5h:100.0>=cap90.0); sleeping 3600s (2/12)
+2026-09-08T13:34:08Z quota blocked (codex_5h:100.0>=cap90.0); sleeping 3600s (3/12)
+2026-09-08T14:34:13Z quota clear; preparing confirmatory-012
+2026-09-08T14:34:28Z launching one pair on confirmatory-012 (evaluated 0/14)
+2026-09-08T14:48:38Z confirmatory-012: pair healthy, continuing to next pair.
+2026-09-08T14:48:38Z quota clear; resuming healthy confirmatory-012
+2026-09-08T14:48:38Z launching one pair on confirmatory-012 (evaluated 1/14)
+2026-09-08T15:04:17Z confirmatory-012: pair healthy, continuing to next pair.
+2026-09-08T15:04:17Z quota clear; resuming healthy confirmatory-012
+2026-09-08T15:04:17Z launching one pair on confirmatory-012 (evaluated 2/14)
+2026-09-08T15:20:04Z confirmatory-012: pair healthy, continuing to next pair.
+2026-09-08T15:20:04Z quota clear; resuming healthy confirmatory-012
+2026-09-08T15:20:04Z launching one pair on confirmatory-012 (evaluated 3/14)
+2026-09-08T15:23:50Z confirmatory-012: DOUBT (dropped_pairs grew (0 -> 1)). Stopping for reviewer agent + human. rc=1
+2026-09-08T15:45:32Z quota clear; preparing confirmatory-013
+2026-09-08T15:45:49Z launching one pair on confirmatory-013 (evaluated 0/14)
+2026-09-08T15:59:06Z confirmatory-013: pair healthy, continuing to next pair.
+2026-09-08T15:59:07Z quota clear; resuming healthy confirmatory-013
+2026-09-08T15:59:07Z launching one pair on confirmatory-013 (evaluated 1/14)
+2026-09-08T16:14:52Z confirmatory-013: pair healthy, continuing to next pair.
+2026-09-08T16:14:52Z quota clear; resuming healthy confirmatory-013
+2026-09-08T16:14:52Z launching one pair on confirmatory-013 (evaluated 2/14)
+2026-09-08T16:27:34Z confirmatory-013: pair healthy, continuing to next pair.
+2026-09-08T16:27:34Z quota clear; resuming healthy confirmatory-013
+2026-09-08T16:27:34Z launching one pair on confirmatory-013 (evaluated 3/14)
+2026-09-08T16:40:09Z confirmatory-013: pair healthy, continuing to next pair.
+2026-09-08T16:40:09Z quota clear; resuming healthy confirmatory-013
+2026-09-08T16:40:09Z launching one pair on confirmatory-013 (evaluated 4/14)
+2026-09-08T16:51:20Z confirmatory-013: pair healthy, continuing to next pair.
+2026-09-08T16:51:20Z quota clear; resuming healthy confirmatory-013
+2026-09-08T16:51:20Z launching one pair on confirmatory-013 (evaluated 5/14)
+2026-09-08T17:03:11Z confirmatory-013: pair healthy, continuing to next pair.
+2026-09-08T17:03:12Z quota clear; resuming healthy confirmatory-013
+2026-09-08T17:03:12Z launching one pair on confirmatory-013 (evaluated 6/14)
+2026-09-08T17:16:25Z confirmatory-013: pair healthy, continuing to next pair.
+2026-09-08T17:16:26Z quota clear; resuming healthy confirmatory-013
+2026-09-08T17:16:26Z launching one pair on confirmatory-013 (evaluated 7/14)
+2026-09-08T17:17:37Z confirmatory-013: DOUBT (dropped_pairs grew (0 -> 1)). Stopping for reviewer agent + human. rc=1
