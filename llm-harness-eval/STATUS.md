@@ -1,6 +1,6 @@
 # Status
 
-**Updated:** 2026-09-06
+**Updated:** 2026-09-11
 
 ## Phase
 
@@ -20,6 +20,8 @@
 - [x] Full N=25 Confirmatory Run completed and verified (50 runs recorded under `confirmatory-003`)
 - [x] Stage-level fairness and isolation analysis (Tier 2) completed (confirmed 100% downstream parity when plan delivered)
 - [x] Extended-horizon Grok ablation (Tier 3, 8 tasks, 600s ceiling) completed (proved 99.3% pass ratio recovery and quantified 20-25% Multi-CLI tax)
+- [x] Install + verify Meta Muse Code (`muse`) on the evaluator box (audited installer, no rc changes); pairwise note [research/omp-comparisons/omp-vs-muse-code.md](research/omp-comparisons/omp-vs-muse-code.md) (no scores; no Track membership change)
+
 ## Blockers
 
 - Several image logos still unresolved (hexagon cluster, white K, etc.)

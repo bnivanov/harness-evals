@@ -3,7 +3,7 @@
 Master candidate list for **native LLM coding harness** evaluation.  
 Tier placement from the community image is **ignored** (discovery only).  
 Billing / surface map: [`landscape/agentic-tools-subscription-vs-byok.md`](landscape/agentic-tools-subscription-vs-byok.md).  
-**Updated:** 2026-08-24
+**Updated:** 2026-09-11
 
 Legend: `confidence` high = readable name or confidently mapped logo · med = plausible logo map · low = logo-only / ambiguous  
 `kind`: harness · runtime/gateway · model-brand-on-chart · research-bench · uncertain
@@ -144,6 +144,7 @@ Prioritize for native harness evals (sources: zero8.dev State of Agentic Harness
 | Aider | harness | Already on chart; keep as git-native baseline |
 | OpenCode | harness | Already on chart; major OSS star count |
 | Amp, Hermes, Pi | harness | Already on / mapped from chart |
+| Muse Code | harness | Meta terminal coding agent (Muse Spark 1.2), proprietary; beta 2026-08-05, GA-path 2026-09; pairwise: [research/omp-comparisons/omp-vs-muse-code.md](research/omp-comparisons/omp-vs-muse-code.md) |
 
 ## D. Taxonomy tags (for filtering)
 
