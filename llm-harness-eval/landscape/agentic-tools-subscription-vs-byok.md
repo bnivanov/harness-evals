@@ -62,6 +62,7 @@ Legend — **Grok-capable?**
 | **Claude Cowork** | Desktop · web/mobile (beta) | Subscription-bundled | Paid Claude plan | No | Knowledge-work agent, **not** a coding harness. Same engine family, different substrate. [anthropic.com/product/claude-cowork](https://www.anthropic.com/product/claude-cowork) |
 | **Codex** (CLI / IDE / app / cloud) | CLI · IDE · desktop · cloud | Hybrid (cloud = sub only) | ChatGPT sign-in **or** API key (local surfaces) | No | Cloud requires ChatGPT login. CLI/IDE/app: both paths. [ChatGPT pricing / Codex](https://learn.chatgpt.com/docs/pricing) |
 | **GitHub Copilot** | IDE · CLI · cloud | Hybrid | GitHub Copilot plan (AI Credits) **or** CLI BYOK / local | **Via BYOK** (CLI) | Plan path is subscription. CLI BYOK announced 2026-04. [changelog](https://github.blog/changelog/2026-04-07-copilot-cli-now-supports-byok-and-local-models/) |
+| **Muse Code** | CLI | Hybrid (usage-based API key **or** subscription) | Meta account browser sign-in **or** `META_API_KEY` | No | Meta's terminal coding agent on Muse Spark 1.2; proprietary; model-locked; sandbox+approvals default; OpenAI-compatible Model API. [dev.meta.ai/docs/muse-code](https://dev.meta.ai/docs/muse-code) |
 | **Devin** (+ Desktop) | Cloud · IDE · CLI | Subscription-bundled (quota / ACU) | Cognition / Devin account | **?** / not BYOK | **Not classic BYOK.** Self-serve quota + on-demand; enterprise **ACUs**. Windsurf → Devin Desktop. |
 | **Amp** | CLI · cloud (orbs) · web | Hybrid | Amp account; optional linked ChatGPT / SuperGrok; credits; BYOK on some models | **Yes** (linked SuperGrok) | Capability **dial**, not a model pin. [ampcode.com/pricing](https://ampcode.com/pricing) |
 | **Antigravity** (`agy`) | CLI · IDE · cloud API | Hybrid | Google account OAuth **or** `GEMINI_API_KEY` (CLI docs) | No | Gemini CLI successor for personal users (~Jun 2026). [Antigravity CLI install](https://www.antigravity.google/docs/cli/install) |
@@ -117,6 +118,19 @@ One product family, **two ledgers**:
 Treat cloud Codex as subscription-bundled. Treat CLI as hybrid. Do not mix auth classes inside one eval cell.
 
 Official: [ChatGPT / Codex pricing](https://learn.chatgpt.com/docs/pricing).
+
+### Muse Code (Meta)
+
+One harness, **model-locked** to `muse-spark-1.2` (default; `muse-spark-1.3` exists on the Model API but is not the CLI default). Auth: Meta account browser sign-in **or** `META_API_KEY` (Meta Model API accounts are key-only).
+
+| Ledger | Path |
+|--------|------|
+| **Subscription** | Flat monthly Muse Code subscription (tiers: Everyday / High / Power Usage); applies only to the CLI's auto-connected key |
+| **API / key ledger** | `META_API_KEY`, pay-as-you-go per token (extra Model API keys bill this way) |
+
+`muse exec` headless with `META_API_KEY` for CI (exit `0` = turn completed, not work correct — gate on your own tests). Sandbox + approvals **on by default** (Seatbelt / bubblewrap; staged shell review). Skills import from Claude/Codex (`muse skills import --from claude|codex`). Proprietary, closed binary; no first-party source repo found as of 2026-09-11. **Not in Wave 1 — Track B candidate only.** A community OpenRouter bridge exists but is not the product. Pairwise note: [`research/omp-comparisons/omp-vs-muse-code.md`](../research/omp-comparisons/omp-vs-muse-code.md).
+
+Official: [Muse Code overview](https://dev.meta.ai/docs/muse-code), [auth](https://dev.meta.ai/docs/muse-code/auth), [subscriptions](https://dev.meta.ai/docs/muse-code/subscriptions).
 
 ### Cursor — IDE + CLI (`agent`) + cloud agents
 
@@ -247,6 +261,7 @@ Research / autonomous SWE environments. **BYOK.** Useful as eval baselines, not 
 | Codex CLI/IDE/app | ChatGPT plan credits | `codex login --with-api-key` |
 | Grok Build / Hermes / Pi / OMP | SuperGrok / X Premium+ OAuth | `XAI_API_KEY` |
 | Copilot CLI | GitHub AI Credits | `COPILOT_PROVIDER_*` / local |
+| Muse Code | Muse subscription (flat monthly) | `META_API_KEY` (usage-based) |
 | Amp | Amp plan + linked ChatGPT/SuperGrok | Amp credits / BYOK |
 | OpenCode | (optional Zen balance) | Direct provider keys |
 | Cursor IDE | Cursor plan | Narrow provider keys (not Agent/cloud/CLI) |
@@ -292,6 +307,7 @@ Adversarial split (Track A / B / C): [`waves/wave-1-adversarial-review.md`](../w
 | **Cursor CLI `agent`** | Missing (IDE was chosen) | Better-controlled Cursor surface if Cursor must appear | Same Cursor plan as IDE/cloud |
 | **OpenClaw** | Out of scope | Stay out | Gateway, not harness |
 | **Devin** | Not in Wave 1 | Autonomy track later | Subscription/ACU, not BYOK |
+| **Muse Code** | Not in Wave 1 | Track B candidate if a Meta-native cell is funded | Model-locked; same-model pair with OMP only via Model API BYOK on OMP's side |
 
 **Publishable Track A (review):** Grok Build × Pi × OMP — pinned slug, pinned `auth_class`, three tasks, headless. Everything else is a different paper.
 
@@ -313,9 +329,9 @@ Adversarial split (Track A / B / C): [`waves/wave-1-adversarial-review.md`](../w
 
 | Field | Value |
 |-------|--------|
-| **Date stamp** | 2026-08-24 |
-| **Last verified** | 2026-08-24 (web + official docs listed in §§3–5) |
-| **Not verified** | Live binary versions on any personal machine; Roo/Continue current GitHub state beyond secondary reports; Prime Agent SuperGrok OAuth completeness; Copilot IDE BYOK vs CLI-only BYOK |
+| **Date stamp** | 2026-09-11 |
+| **Last verified** | 2026-09-11 (Muse Code row; prior rows 2026-08-24) |
+| **Not verified** | Live binary versions on any personal machine; Roo/Continue current GitHub state beyond secondary reports; Prime Agent SuperGrok OAuth completeness; Copilot IDE BYOK vs CLI-only BYOK; Muse Code closed-binary internals (edit format, compaction, observer prompts) |
 
 ### Related files
 
